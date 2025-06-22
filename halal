@@ -685,6 +685,7 @@ end
 local defaultWinPos = UDim2.fromScale(0.6, 0.6)
 
 local ui = {}
+ui._pendingToggleKey = nil
 
 -- classes
 local elemClasses = {} 
@@ -6697,7 +6698,7 @@ do
                         if (self.inputCon) then 
                             tween(self.instances.hotkey, {TextColor3 = theme.Primary}, 0.2, 1)
                         else
-                            tween(self.instances.hotkey, {TextColor3 = theme.TextDim}, 0.2, 1)
+                            tween(self.instances.hotkey, {TextColor3 = theme.TextPrimary}, 0.2, 1)
                         end
                     end,
                     MouseButton1Click = function(inst, self) 
@@ -7047,14 +7048,17 @@ do
 
     ui._toggleHotkeyCon = nil
     ui.setToggleHotkey = function(keyCode)
-        if ui._toggleHotkeyCon then
-            ui._toggleHotkeyCon:Disconnect()
-        end
-        ui._toggleHotkeyCon = inputService.InputBegan:Connect(function(io, gpe)
-            if not gpe and io.UserInputType.Name == 'Keyboard' and io.KeyCode == keyCode then
-                ui.toggle()
+        ui._pendingToggleKey = keyCode
+        if ui.windows and ui.windows[1] and ui.windows[1].instances and ui.windows[1].instances.mainFrame then
+            if ui._toggleHotkeyCon then
+                ui._toggleHotkeyCon:Disconnect()
             end
-        end)
+            ui._toggleHotkeyCon = inputService.InputBegan:Connect(function(io, gpe)
+                if not gpe and io.UserInputType.Name == 'Keyboard' and io.KeyCode == keyCode then
+                    ui.toggle()
+                end
+            end)
+        end
     end
 end
 
