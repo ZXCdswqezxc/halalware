@@ -7831,9 +7831,9 @@ do
         local menuHotkey = Enum.KeyCode.Insert
 
         function ui.toggleMenu()
-            local mainFrame = ui.instances and ui.instances.mainFrame
-            if mainFrame then
-                mainFrame.Visible = not mainFrame.Visible
+            local win = ui.windows and ui.windows[1]
+            if win and win.instances and win.instances.mainFrame then
+                win.instances.mainFrame.Visible = not win.instances.mainFrame.Visible
             end
         end
 
