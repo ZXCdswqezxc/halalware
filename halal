@@ -5883,7 +5883,7 @@ do
                         local bMin = titleBar['#button-min']
                         local title = titleBar['#title']
                         
-                        local offset = UDim.fromOffset(50, 0) 
+                        local offset = UDim2.fromOffset(50, 0) 
                         
                         bClose.Position += offset
                         bMin.Position += offset
@@ -6872,7 +6872,7 @@ do
                 local bMin = titleBar['#button-min']
                 local title = titleBar['#title']
                 
-                local offset = UDim.fromOffset(50, 0) 
+                local offset = UDim2.fromOffset(50, 0) 
                 
                 bClose.Position += offset
                 bMin.Position += offset
