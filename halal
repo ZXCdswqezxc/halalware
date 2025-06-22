@@ -5855,7 +5855,7 @@ do
                     local sliderContainer = Instance.new('Frame') do 
                         sliderContainer.BackgroundColor3 = theme.Button1
                         sliderContainer.Position = UDim2.fromOffset(3, 2)
-                        sliderContainer.Size = UDim2.new(1, -6, 0, 16)
+                        sliderContainer.Size = UDim2.fromScale(1, -6, 0, 16)
                         sliderContainer.Visible = true
                         sliderContainer.ZIndex = 35
                         sliderContainer.Name = '#slider-container'
@@ -7828,31 +7828,16 @@ do
     -- hotkey handler
     do 
         local hotkeys = ui.hotkeys
-        local menuHotkey = Enum.KeyCode.Insert
-
-        function ui.toggleMenu()
-            local win = ui.windows and ui.windows[1]
-            if win and win.instances and win.instances.mainFrame then
-                win.instances.mainFrame.Visible = not win.instances.mainFrame.Visible
-            end
-        end
-
-        function ui.setMenuHotkey(keyCode)
-            menuHotkey = keyCode
-        end
-
-        function ui.getMenuHotkey()
-            return menuHotkey
-        end
-
         ui.hkCon = inputService.InputBegan:Connect(function(io, gpe) 
             if ((not gpe) and (io.UserInputType.Name == 'Keyboard')) then
                 local kc = io.KeyCode
-                -- Глобальный хоткей меню
-                if kc == menuHotkey then
-                    ui.toggleMenu()
+                
+                -- Глобальный toggle UI
+                if kc == ui.toggleKey then
+                    ui:toggleVisible()
                     return
                 end
+                
                 for i = 1, #hotkeys do 
                     local hotkey = hotkeys[i]
                     if (hotkey.hotkey == kc and hotkey.set ~= time()) then
