@@ -75,7 +75,7 @@ local MenuGroup = Tabs.Config:AddLeftGroupbox('Menu')
 MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', {
     Default = 'None',
     NoUI = true,
-    Text = 'Menu keybind'
+    Text = 'Menu',
 })
 Library.ToggleKeybind = Options.MenuKeybind
 ThemeManager:ApplyToTab(Tabs.Config)
@@ -1252,7 +1252,7 @@ SpeedhackGroup:AddToggle('SpeedhackEnabled', {
 })
 :AddKeyPicker('SpeedhackKey', {
     Default = 'None',
-    Text = 'Key',
+    Text = 'Speedhack',
     NoUI = false,
     Callback = function()
         if not SpeedhackConfig.Enabled then return end
@@ -1384,8 +1384,8 @@ FlyGroup:AddToggle('FlyEnabled', {
     end
 })
 :AddKeyPicker('FlyKey', {
-    Default = 'F',
-    Text = 'Key',
+    Default = 'None',
+    Text = 'Fly',
     NoUI = false,
     Callback = function()
         if not FlyConfig.Enabled then return end
