@@ -50,7 +50,7 @@ local Body = {
 local Cam, Mse, Bp, Tm, UID, PGui = S.WS.CurrentCamera, LP:GetMouse(), LP:FindFirstChildOfClass('Backpack'), LP.Team, LP.UserId, LP:FindFirstChildOfClass('PlayerGui')
 
 local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
-local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/library'))()
 local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
 local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 
@@ -1979,7 +1979,7 @@ DestroyCheatersGroup:AddToggle('DestroyCheaters', {
     Tooltip = 'Enable keybind to toggle anti-exploit position breaker.'
 }):AddKeyPicker('DestroyCheatersKey', {
     Default = 'X',
-    Text = 'Keybind',
+    Text = 'Destroy Cheaters Key',
     NoUI = false,
     Callback = function(key)
         destroyCheatersKey = Enum.KeyCode[key] or Enum.KeyCode.X
@@ -1994,3 +1994,255 @@ DestroyCheatersGroup:AddButton({
     end,
     Tooltip = 'Set FallenPartsDestroyHeight to NaN'
 })
+
+-- === Silent Aim (Combat tab, новая секция) ===
+local SilentAimGroup = Tabs.Combat:AddLeftGroupbox('>_<')
+
+getgenv().SilentAim = {
+    Options = {
+        Enabled = false,
+        Mode = "Nuker",
+        StickyKey = Enum.KeyCode.Q,
+    },
+    Silent = {
+        PredictionXZ = 0.12362,
+        PredictionY = 0.12362,
+        Part = "HumanoidRootPart",
+        Offsets = {
+            Jump = { Amount = 0 },
+            Fall = { Amount = 0 },
+        },
+    },
+    Misc = {
+        Checks = {
+            WallCheck = true,
+            TargetDeathCheck = false,
+            KOCheck = true,
+            GrabbedCheck = true,
+            Resolver = {
+                Enabled = true,
+                Type = "Calculate CFrame",
+            },
+        },
+    },
+}
+
+-- UI для Silent Aim
+SilentAimGroup:AddToggle('SilentAimEnabled', {
+    Text = 'Silent Aim',
+    Default = false,
+    Callback = function(v) getgenv().SilentAim.Options.Enabled = v end
+})
+SilentAimGroup:AddDropdown('SilentAimMode', {
+    Text = 'Mode',
+    Values = {'Sticky', 'Nuker'},
+    Default = 'Nuker',
+    Callback = function(v) getgenv().SilentAim.Options.Mode = v end
+})
+SilentAimGroup:AddInput('SilentAimPredictionXZ', {
+    Text = 'Prediction XZ',
+    Default = tostring(getgenv().SilentAim.Silent.PredictionXZ),
+    Numeric = true,
+    Finished = true,
+    Callback = function(val) local n = tonumber(val); if n then getgenv().SilentAim.Silent.PredictionXZ = n end end
+})
+SilentAimGroup:AddInput('SilentAimPredictionY', {
+    Text = 'Prediction Y',
+    Default = tostring(getgenv().SilentAim.Silent.PredictionY),
+    Numeric = true,
+    Finished = true,
+    Callback = function(val) local n = tonumber(val); if n then getgenv().SilentAim.Silent.PredictionY = n end end
+})
+SilentAimGroup:AddInput('SilentAimJumpOffset', {
+    Text = 'Jump Offset',
+    Default = tostring(getgenv().SilentAim.Silent.Offsets.Jump.Amount),
+    Numeric = true,
+    Finished = true,
+    Callback = function(val) local n = tonumber(val); if n then getgenv().SilentAim.Silent.Offsets.Jump.Amount = n end end
+})
+SilentAimGroup:AddInput('SilentAimFallOffset', {
+    Text = 'Fall Offset',
+    Default = tostring(getgenv().SilentAim.Silent.Offsets.Fall.Amount),
+    Numeric = true,
+    Finished = true,
+    Callback = function(val) local n = tonumber(val); if n then getgenv().SilentAim.Silent.Offsets.Fall.Amount = n end end
+})
+SilentAimGroup:AddLabel('Sticky Key'):AddKeyPicker('SilentAimStickyKey', {
+    Default = 'Q',
+    Text = 'Sticky Key',
+    NoUI = false,
+    Callback = function(key)
+        if typeof(key) == "EnumItem" then
+            getgenv().SilentAim.Options.StickyKey = key
+        elseif type(key) == "string" then
+            getgenv().SilentAim.Options.StickyKey = Enum.KeyCode[key] or Enum.KeyCode.Q
+        else
+            -- Игнорируем boolean и прочее
+        end
+    end
+})
+
+-- === Silent Aim Logic ===
+if not getgenv().Loaded_SilentAim then
+    getgenv().Loaded_SilentAim = true
+    local SilentAim = getgenv().SilentAim
+    local Players = game:GetService("Players")
+    local Workspace = game:GetService("Workspace")
+    local UserInputService = game:GetService("UserInputService")
+    local LocalPlayer = Players.LocalPlayer
+    local Camera = Workspace.CurrentCamera
+    local Inf = math.huge
+    local NewVector2 = Vector2.new
+    local NewCFrame = CFrame.new
+    local stickyTarget = nil
+    local lastPositions, lastUpdateTimes = {}, {}
+
+    local function isPlayerAlive(player)
+        return player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
+    end
+    local function isPlayerGrabbed(player)
+        if not player or not player.Character then return false end
+        return player.Character:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
+    end
+    local function isPlayerKO(player)
+        if not player or not player.Character then return false end
+        local bodyEffects = player.Character:FindFirstChild("BodyEffects")
+        if bodyEffects then
+            local KO = bodyEffects:FindFirstChild("K.O")
+            if KO and KO:IsA("BoolValue") and KO.Value then
+                return true
+            end
+        end
+        local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
+        if humanoidRootPart and humanoidRootPart.Anchored then
+            return true
+        end
+        return false
+    end
+    local function wallCheck(character)
+        if not SilentAim.Misc.Checks.WallCheck then return true end
+        local targetPos = character.HumanoidRootPart.Position
+        local cameraPos = Camera.CFrame.Position
+        local distance = (targetPos - cameraPos).Magnitude
+        local hitPart = Workspace:FindPartOnRayWithIgnoreList(
+            Ray.new(cameraPos, (targetPos - cameraPos).Unit * distance),
+            { LocalPlayer.Character, character }
+        )
+        return hitPart == nil
+    end
+    local function getClosestPlayer()
+        local mousePos = UserInputService:GetMouseLocation()
+        local shortestDistance = Inf
+        local closestPlayer = nil
+        local partName = SilentAim.Silent.Part
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and isPlayerAlive(player) and
+               (not SilentAim.Misc.Checks.KOCheck or not isPlayerKO(player)) and
+               (not SilentAim.Misc.Checks.GrabbedCheck or not isPlayerGrabbed(player)) and
+               wallCheck(player.Character) then
+                local character = player.Character
+                local part = character:FindFirstChild(partName)
+                if part then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    local distance = (NewVector2(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                    if distance < shortestDistance and onScreen then
+                        closestPlayer = player
+                        shortestDistance = distance
+                    end
+                end
+            end
+        end
+        return closestPlayer
+    end
+    local function predictPosition(player)
+        if not player.Character or not player.Character:FindFirstChild(SilentAim.Silent.Part) then return nil end
+        local aimPart = player.Character[SilentAim.Silent.Part]
+        local aimPartPos = aimPart.Position
+        local playerId = player.UserId
+        if not lastPositions[playerId] or not lastUpdateTimes[playerId] then
+            lastPositions[playerId] = aimPartPos
+            lastUpdateTimes[playerId] = tick()
+            return aimPartPos
+        end
+        local currentTime = tick()
+        local deltaTime = currentTime - lastUpdateTimes[playerId]
+        local predictedPos
+        local resolverType = SilentAim.Misc.Checks.Resolver.Type
+        if resolverType == "Velocity" then
+            local velocity = aimPart.Velocity
+            predictedPos = aimPartPos + Vector3.new(
+                velocity.X * SilentAim.Silent.PredictionXZ,
+                velocity.Y * SilentAim.Silent.PredictionY,
+                velocity.Z * SilentAim.Silent.PredictionXZ
+            )
+        elseif resolverType == "Move direction" then
+            predictedPos = aimPartPos + (player.Character.Humanoid.MoveDirection * (SilentAim.Silent.PredictionXZ * 10))
+        elseif resolverType == "Calculate CFrame" then
+            local distance = (aimPartPos - lastPositions[playerId]).Magnitude
+            if distance < 0.001 then
+                predictedPos = aimPartPos
+            else
+                local predictedDistance = (distance / deltaTime) * (0.1 * (SilentAim.Silent.PredictionXZ * 10))
+                predictedPos = aimPartPos + (aimPartPos - lastPositions[playerId]).Unit * predictedDistance
+                local yChange = (aimPartPos.Y - lastPositions[playerId].Y) / deltaTime * (0.1 * SilentAim.Silent.PredictionY)
+                predictedPos = predictedPos + Vector3.new(0, yChange, 0)
+            end
+        end
+        lastPositions[playerId] = aimPartPos
+        lastUpdateTimes[playerId] = currentTime
+        return predictedPos
+    end
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if not gameProcessed and input.KeyCode == SilentAim.Options.StickyKey and SilentAim.Options.Mode == "Sticky" then
+            stickyTarget = getClosestPlayer()
+        end
+    end)
+    local mt = getrawmetatable(game)
+    local oldIndex = mt.__index
+    setreadonly(mt, false)
+    mt.__index = function(self, key)
+        if not checkcaller() and self == LocalPlayer:GetMouse() and SilentAim.Options.Enabled then
+            if key == "Hit" or key == "Target" then
+                local targetPlayer = stickyTarget and isPlayerAlive(stickyTarget) and
+                    (not SilentAim.Misc.Checks.KOCheck or not isPlayerKO(stickyTarget)) and
+                    (not SilentAim.Misc.Checks.GrabbedCheck or not isPlayerGrabbed(stickyTarget)) and
+                    stickyTarget or
+                    (SilentAim.Options.Mode == "Nuker" and getClosestPlayer() or nil)
+                if targetPlayer and targetPlayer.Character then
+                    local targetPart = targetPlayer.Character:FindFirstChild(SilentAim.Silent.Part)
+                    if targetPart then
+                        local finalPos = SilentAim.Misc.Checks.Resolver.Enabled and predictPosition(targetPlayer) or
+                            (targetPart.Position + (targetPart.Velocity * SilentAim.Silent.PredictionXZ))
+                        if finalPos then
+                            local humanoid = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+                            if humanoid then
+                                if humanoid:GetState() == Enum.HumanoidStateType.Jumping then
+                                    finalPos = finalPos + Vector3.new(0, SilentAim.Silent.Offsets.Jump.Amount, 0)
+                                elseif humanoid:GetState() == Enum.HumanoidStateType.Freefall then
+                                    finalPos = finalPos + Vector3.new(0, SilentAim.Silent.Offsets.Fall.Amount, 0)
+                                end
+                            end
+                            return key == "Hit" and NewCFrame(finalPos) or targetPart
+                        end
+                    end
+                end
+            end
+        end
+        return oldIndex(self, key)
+    end
+    setreadonly(mt, true)
+    local function fixTool(character)
+        if character then
+            for _, item in ipairs(character:GetChildren()) do
+                if item:IsA("Tool") then
+                    item.Parent = LocalPlayer:FindFirstChildOfClass("Backpack")
+                    break
+                end
+            end
+        end
+    end
+    fixTool(LocalPlayer.Character)
+    LocalPlayer.CharacterAdded:Connect(fixTool)
+end
+
+-- ... остальной код ...
