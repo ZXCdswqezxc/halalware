@@ -1807,3 +1807,135 @@ AnimBreakerGroup:AddToggle('AnimBreaker', {
     end,
     Tooltip = 'Breaks your animations (freezes and jitters)'
 })
+
+-- === RapidFireGunScript (Player tab, новая секция) ===
+local RapidFireGunScriptGroup = Tabs.Player:AddRightGroupbox('>_<')
+
+local Traced = { RapidFire = false }
+local Orginal = {}
+local rapidFireGunScriptConn = nil
+
+local function enableRapidFireGunScript()
+    if rapidFireGunScriptConn then rapidFireGunScriptConn:Disconnect() end
+    rapidFireGunScriptConn = RND:Connect(function()
+        local tool = LP.Character and LP.Character:FindFirstChildOfClass('Tool')
+        if tool and tool:FindFirstChild('GunScript') then
+            for _, connection in ipairs(getconnections(tool.Activated)) do
+                local func = connection.Function
+                if func then
+                    local funcInfo = debug.getinfo(func)
+                    for i = 1, funcInfo.nups do
+                        local c, n = debug.getupvalue(func, i)
+                        if type(c) == 'number' then
+                            if not Orginal[i] then
+                                Orginal[i] = c
+                            end
+                            debug.setupvalue(func, i, Traced.RapidFire and 0.00000000000000000001 or Orginal[i])
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    Traced.RapidFire = true
+end
+
+local function disableRapidFireGunScript()
+    if rapidFireGunScriptConn then rapidFireGunScriptConn:Disconnect() rapidFireGunScriptConn = nil end
+    Traced.RapidFire = false
+end
+
+RapidFireGunScriptGroup:AddToggle('RapidFireGunScript', {
+    Text = 'Rapid Fire GunScript Method',
+    Default = false,
+    Callback = function(v)
+        if v then
+            enableRapidFireGunScript()
+        else
+            disableRapidFireGunScript()
+        end
+    end,
+    Tooltip = 'Patch GunScript for instant fire.'
+})
+
+-- === RapidFireM1Spam (Player tab, новая секция) ===
+local RapidFireM1Group = Tabs.Player:AddRightGroupbox('>_<')
+
+local rapidFireM1Firing = false
+local rapidFireM1Debounce = false
+local rapidFireM1MinDelay = 0 -- Можно сделать настройку через UI
+local rapidFireM1ConnBegan, rapidFireM1ConnEnded, rapidFireM1CharConn
+
+local function rapidFireM1SafeActivate(tool)
+    if not rapidFireM1Debounce and tool and tool:IsA('Tool') then
+        rapidFireM1Debounce = true
+        pcall(function() tool:Activate() end)
+        task.wait(rapidFireM1MinDelay)
+        rapidFireM1Debounce = false
+    end
+end
+
+local function rapidFireM1FireLoop()
+    while rapidFireM1Firing do
+        local character = LP.Character
+        if character then
+            local tool = character:FindFirstChildOfClass('Tool')
+            rapidFireM1SafeActivate(tool)
+        end
+        HRT:Wait()
+    end
+end
+
+local function rapidFireM1SetupCharacter(character)
+    if rapidFireM1CharConn then rapidFireM1CharConn:Disconnect() end
+    rapidFireM1CharConn = character.ChildAdded:Connect(function(child)
+        if child:IsA('Tool') then
+            child.Activated:Connect(function()
+                if rapidFireM1Firing then
+                    rapidFireM1SafeActivate(child)
+                end
+            end)
+        end
+    end)
+end
+
+local function enableRapidFireM1()
+    if rapidFireM1ConnBegan then rapidFireM1ConnBegan:Disconnect() end
+    if rapidFireM1ConnEnded then rapidFireM1ConnEnded:Disconnect() end
+    rapidFireM1ConnBegan = S.UIS.InputBegan:Connect(function(input, gp)
+        if not gp and input.UserInputType == Enum.UserInputType.MouseButton1 then
+            rapidFireM1Firing = true
+            rapidFireM1FireLoop()
+        end
+    end)
+    rapidFireM1ConnEnded = S.UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            rapidFireM1Firing = false
+        end
+    end)
+    if LP.Character then rapidFireM1SetupCharacter(LP.Character) end
+    LP.CharacterAdded:Connect(function(character)
+        character:WaitForChild('Humanoid')
+        rapidFireM1SetupCharacter(character)
+    end)
+end
+
+local function disableRapidFireM1()
+    if rapidFireM1ConnBegan then rapidFireM1ConnBegan:Disconnect() rapidFireM1ConnBegan = nil end
+    if rapidFireM1ConnEnded then rapidFireM1ConnEnded:Disconnect() rapidFireM1ConnEnded = nil end
+    if rapidFireM1CharConn then rapidFireM1CharConn:Disconnect() rapidFireM1CharConn = nil end
+    rapidFireM1Firing = false
+end
+
+RapidFireM1Group:AddToggle('RapidFireM1Spam', {
+    Text = 'Rapid Fire M1 Spam',
+    Default = false,
+    Callback = function(v)
+        if v then
+            enableRapidFireM1()
+        else
+            disableRapidFireM1()
+        end
+    end,
+    Tooltip = 'Auto spam Mouse1 (tool activation)'
+})
