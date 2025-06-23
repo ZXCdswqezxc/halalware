@@ -1,74 +1,37 @@
--- Все сервисы Roblox в одной таблице S
 local S = {
-    PS = game:GetService('Players'),
-    RS = game:GetService('RunService'),
-    WS = game:GetService('Workspace'),
-    UIS = game:GetService('UserInputService'),
-    TS = game:GetService('TweenService'),
-    LS = game:GetService('Lighting'),
-    CG = game:GetService('CoreGui'),
-    SG = game:GetService('StarterGui'),
-    SP = game:GetService('StarterPack'),
-    SR = game:GetService('StarterPlayer'),
-    RP = game:GetService('ReplicatedStorage'),
-    RF = game:GetService('ReplicatedFirst'),
-    SS = game:GetService('SoundService'),
-    TV = game:GetService('TeleportService'),
-    BS = game:GetService('BadgeService'),
-    PL = game:GetService('PolicyService'),
-    PF = game:GetService('PathfindingService'),
-    DS = game:GetService('DataStoreService'),
-    CH = game:GetService('Chat'),
-    MSG = game:GetService('MessagingService'),
-    FS = game:GetService('FriendService'),
-    INS = game:GetService('InsertService'),
-    TM = game:GetService('Teams'),
-    SGv = game:GetService('StarterGear'),
-    VR = game:GetService('VRService'),
-    GU = game:GetService('GuiService'),
-    TScr = game:GetService('TextService'),
-    DB = game:GetService('Debris'),
-    PH = game:GetService('PhysicsService'),
-    LOC = game:GetService('LocalizationService'),
-    TST = game:GetService('TestService'),
-    VS = game:GetService('VoiceChatService'),
-    NS = game:GetService('NotificationService'),
-    HS = game:GetService('HttpService'),
-    CS = game:GetService('CollectionService'),
-    CP = game:GetService('ContentProvider'),
-    PPS = game:GetService('ProximityPromptService'),
-    TCS = game:GetService('TextChatService'),
-    ES = game:GetService('ExperienceService'),
-    PSS = game:GetService('PointsService'),
-    GS = game:GetService('GroupService'),
-    MS = game:GetService('MarketplaceService'),
+    PS = game:GetService('Players'), RS = game:GetService('RunService'), WS = game:GetService('Workspace'),
+    UIS = game:GetService('UserInputService'), TS = game:GetService('TweenService'), LS = game:GetService('Lighting'),
+    CG = game:GetService('CoreGui'), SG = game:GetService('StarterGui'), SP = game:GetService('StarterPack'),
+    SR = game:GetService('StarterPlayer'), RP = game:GetService('ReplicatedStorage'), RF = game:GetService('ReplicatedFirst'),
+    SS = game:GetService('SoundService'), TV = game:GetService('TeleportService'), BS = game:GetService('BadgeService'),
+    PL = game:GetService('PolicyService'), PF = game:GetService('PathfindingService'), DS = game:GetService('DataStoreService'),
+    CH = game:GetService('Chat'), MSG = game:GetService('MessagingService'), FS = game:GetService('FriendService'),
+    INS = game:GetService('InsertService'), TM = game:GetService('Teams'), SGv = game:GetService('StarterGear'),
+    VR = game:GetService('VRService'), GU = game:GetService('GuiService'), TScr = game:GetService('TextService'),
+    DB = game:GetService('Debris'), PH = game:GetService('PhysicsService'), LOC = game:GetService('LocalizationService'),
+    TST = game:GetService('TestService'), VS = game:GetService('VoiceChatService'), NS = game:GetService('NotificationService'),
+    HS = game:GetService('HttpService'), CS = game:GetService('CollectionService'), CP = game:GetService('ContentProvider'),
+    PPS = game:GetService('ProximityPromptService'), TCS = game:GetService('TextChatService'), ES = game:GetService('ExperienceService'),
+    PSS = game:GetService('PointsService'), GS = game:GetService('GroupService'), MS = game:GetService('MarketplaceService'),
 }
 
--- Math-функции в таблице M
 local M = {
     abs = math.abs, floor = math.floor, ceil = math.ceil, sqrt = math.sqrt, clamp = math.clamp,
     min = math.min, max = math.max, atan2 = math.atan2, acos = math.acos, asin = math.asin,
     cos = math.cos, sin = math.sin, tan = math.tan, rad = math.rad, deg = math.deg, random = math.random
 }
 
--- Table-функции в таблице T
 local T = {
     insert = table.insert, remove = table.remove, sort = table.sort, find = table.find, concat = table.concat
 }
 
--- String-функции в таблице STR
 local STR = {
     sub = string.sub, gsub = string.gsub, lower = string.lower, upper = string.upper,
     rep = string.rep, split = string.split, fmt = string.format
 }
 
--- Короткие алиасы для объектов
 local V3, V2, CF, C3, U2, RP = Vector3, Vector2, CFrame, Color3, UDim2, RaycastParams
-
--- Быстрые алиасы для RenderStepped и других событий
 local RND, SND, HRT = S.RS.RenderStepped, S.RS.Stepped, S.RS.Heartbeat
-
--- Локальный игрок и его части в одной таблице
 local LP = S.PS.LocalPlayer
 local Char = LP.Character or LP.CharacterAdded:Wait()
 local Body = {
@@ -82,14 +45,9 @@ local Body = {
     RL = Char:FindFirstChild('Right Leg') or Char:FindFirstChild('RightUpperLeg'),
 }
 
--- Остальные полезные переменные одной строкой
 local Cam, Mse, Bp, Tm, UID, PGui = S.WS.CurrentCamera, LP:GetMouse(), LP:FindFirstChildOfClass('Backpack'), LP.Team, LP.UserId, LP:FindFirstChildOfClass('PlayerGui')
 
--- Halalware — основной скрипт GUI
--- Пустое меню с 5 вкладками, менеджеры тем и конфигов во вкладке Config
-
 local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
-
 local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
 local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
 local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
@@ -110,17 +68,9 @@ local Tabs = {
     Config = Window:AddTab('Config'),
 }
 
--- Вкладка Config: менеджеры тем и конфигов
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
-
--- Игнорируем опции тем при сохранении конфигов
 SaveManager:IgnoreThemeSettings()
-
--- Можно добавить дополнительные игнорируемые опции:
--- SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
-
--- Кейбинд для открытия/закрытия меню
 local MenuGroup = Tabs.Config:AddLeftGroupbox('Menu')
 MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', {
     Default = 'None',
@@ -128,16 +78,10 @@ MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', {
     Text = 'Menu keybind'
 })
 Library.ToggleKeybind = Options.MenuKeybind
-
--- Менеджер тем (слева)
 ThemeManager:ApplyToTab(Tabs.Config)
--- Менеджер конфигов (справа)
 SaveManager:BuildConfigSection(Tabs.Config)
-
--- Автозагрузка конфига (опционально)
 SaveManager:LoadAutoloadConfig()
 
--- ESP НАСТРОЙКИ
 local ESPConfig = {
     Enabled = false,
     MaxDistance = 200,
@@ -189,8 +133,7 @@ local ESPConfig = {
     }
 }
 
--- UI для ESP во вкладке Visuals
-local ESPGroup = Tabs.Visuals:AddLeftGroupbox('ESP')
+local ESPGroup = Tabs.Visuals:AddLeftGroupbox('>_<')
 ESPGroup:AddToggle('ESPEnabled', {
     Text = 'ESP',
     Default = ESPConfig.Enabled,
@@ -269,7 +212,6 @@ ESPGroup:AddToggle('ESPHealthbar', {
     Callback = function(v) ESPConfig.Bars.Health.Color1 = v end
 })
 
--- Кэш и утилиты ESP
 local ESPCache, ESPConnections = {}, {}
 local gui_inset = S.GU:GetGuiInset()
 
@@ -379,7 +321,6 @@ local function update_esp(player)
         clear_esp(player)
         return
     end
-    -- Box
     if ESPConfig.Box.Enable then
         if ESPConfig.Box.Type == "Full" then
             cache.Box.Full.Square.Visible = true
@@ -434,7 +375,6 @@ local function update_esp(player)
         cache.Box.Full.Inline.Visible = false
         if cache.Box.Full.Filled then cache.Box.Full.Filled.Visible = false end
     end
-    -- Health Bar
     if ESPConfig.Bars.Health.Enable and humanoid then
         local targetHealth = M.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
         local lastHealth = cache.Bars.Health.LastHealth or targetHealth
@@ -455,7 +395,6 @@ local function update_esp(player)
         if cache.Bars.Health.Outline then cache.Bars.Health.Outline.Visible = false end
         if cache.Bars.Health.Frame then cache.Bars.Health.Frame.Visible = false end
     end
-    -- Text
     if ESPConfig.Text.Enable then
         if cache.Text.Name then
             cache.Text.Name.Visible = ESPConfig.Text.Name.Enable
@@ -490,7 +429,6 @@ local function update_esp(player)
     end
 end
 
--- Подключение ESP к игрокам
 for _, player in ipairs(S.PS:GetPlayers()) do
     if player ~= LP then
         render_esp(player)
@@ -507,7 +445,6 @@ S.PS.PlayerRemoving:Connect(function(player)
     end
 end)
 
--- Heartbeat обновление ESP
 if ESPConnections.Heartbeat then ESPConnections.Heartbeat:Disconnect() end
 ESPConnections.Heartbeat = S.RS.Heartbeat:Connect(function()
     for v, _ in pairs(ESPCache) do
@@ -517,4 +454,45 @@ ESPConnections.Heartbeat = S.RS.Heartbeat:Connect(function()
     end
 end)
 
--- ... остальной код ... 
+local NameESPGroup = Tabs.Visuals:AddRightGroupbox('>_<')
+local ShowNameMethodConfig = {
+    Mode = 'Display',
+}
+
+NameESPGroup:AddDropdown('ShowNameMethod', {
+    Values = {'Display', 'Default', 'None'},
+    Default = 'Display',
+    Multi = false,
+    Text = 'ShowNameMethod',
+    Callback = function(v) ShowNameMethodConfig.Mode = v end
+})
+
+local function UpdateShowNameMethod(player)
+    if player == LP then return end
+    local char = player.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass('Humanoid')
+    if not hum then return end
+    if ShowNameMethodConfig.Mode == 'None' then
+        hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+        return
+    end
+    hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
+    hum.NameOcclusion = Enum.NameOcclusion.NoOcclusion
+    hum.DisplayName = (ShowNameMethodConfig.Mode == 'Display' and player.DisplayName ~= '' and player.DisplayName) or player.Name
+end
+
+local function UpdateAllShowNameMethod()
+    for _, p in ipairs(S.PS:GetPlayers()) do
+        UpdateShowNameMethod(p)
+    end
+end
+
+S.PS.PlayerAdded:Connect(function(p)
+    p.CharacterAdded:Connect(function() UpdateShowNameMethod(p) end)
+end)
+for _, p in ipairs(S.PS:GetPlayers()) do
+    if p.Character then UpdateShowNameMethod(p) end
+    p.CharacterAdded:Connect(function() UpdateShowNameMethod(p) end)
+end
+S.RS.Heartbeat:Connect(UpdateAllShowNameMethod)
