@@ -96,7 +96,7 @@ local ESPConfig = {
                 Enable = true,
                 Color = {
                     Start = Color3.fromRGB(255, 255, 255),
-                    End = Color3.fromRGB(0, 255, 0),
+                    End = Color3.fromRGB(255, 255, 255),
                 },
                 Rotation = {
                     Enable = true,
@@ -128,7 +128,7 @@ local ESPConfig = {
             ShowOutline = false,
             Enable = true,
             Lerp = true,
-            Color1 = Color3.fromRGB(0, 255, 0)
+            Color1 = Color3.fromRGB(255, 255, 255)
         }
     }
 }
@@ -802,7 +802,7 @@ local ChinaHatSettings = {
     radius = 5,
     sides = 25,
     rainbow = false,
-    color = Color3.fromRGB(128, 18, 255),
+    color = Color3.fromRGB(255, 255, 255),
     offset = Vector3.new(0, 0.75, 0)
 }
 
