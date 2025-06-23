@@ -1168,3 +1168,25 @@ WorldGroup:AddSlider('Brightness', {
     Min = -1, Max = 1, Rounding = 1,
     Callback = function(val) WorldConfig.Brightness = val; applyWorld() end
 })
+
+-- === LightingType Controller (RIGHT) ===
+local LightingTypeGroup = Tabs.Visuals:AddRightGroupbox('>_<')
+local LightingTypeList = {"Voxel", "ShadowMap", "Future"}
+local LightingTypeEnum = {
+    Voxel = Enum.Technology.Voxel,
+    ShadowMap = Enum.Technology.ShadowMap,
+    Future = Enum.Technology.Future
+}
+LightingTypeGroup:AddDropdown('LightingType', {
+    Text = 'LightingType',
+    Values = LightingTypeList,
+    Default = 'Voxel',
+    Callback = function(val)
+        local tech = LightingTypeEnum[val]
+        if tech then
+            S.LS.Technology = tech
+        end
+    end
+})
+-- При запуске выставить первый режим
+S.LS.Technology = LightingTypeEnum[LightingTypeList[1]]
