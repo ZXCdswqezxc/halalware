@@ -496,3 +496,298 @@ for _, p in ipairs(S.PS:GetPlayers()) do
     p.CharacterAdded:Connect(function() UpdateShowNameMethod(p) end)
 end
 S.RS.Heartbeat:Connect(UpdateAllShowNameMethod)
+
+-- Unlock Camera Distance (Misc)
+local originalPlayerMaxZoom = LP.CameraMaxZoomDistance
+
+local MiscCameraGroup = Tabs.Misc:AddLeftGroupbox('>_<')
+MiscCameraGroup:AddToggle('UnlockCameraDistance', {
+    Text = 'Unlock Camera Distance',
+    Default = false,
+    Callback = function(v)
+        if v then
+            -- Включено: ставим максимальную дистанцию камеры на бесконечность для игрока
+            LP.CameraMaxZoomDistance = math.huge
+        else
+            -- Выключено: возвращаем оригинальное значение
+            LP.CameraMaxZoomDistance = originalPlayerMaxZoom
+        end
+    end
+})
+
+-- SphereAura UI и логика
+local SphereAuraSettings = {
+    enabled = false,
+    color1 = Color3.new(1, 1, 1),
+    color2 = Color3.new(1, 1, 1),
+    size = 10,
+    lightEmission = 1
+}
+local currentAura
+
+local function updateAura(prop)
+    if not (currentAura and currentAura.Parent) then return end
+    local swirl = currentAura:FindFirstChild("Attachment"):FindFirstChild("swirl")
+    if not swirl then return end
+    if prop == "color" or prop == nil then
+        swirl.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, SphereAuraSettings.color1), ColorSequenceKeypoint.new(1, SphereAuraSettings.color2)})
+    end
+    if prop == "size" or prop == nil then
+        swirl.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, SphereAuraSettings.size), NumberSequenceKeypoint.new(1, SphereAuraSettings.size)})
+    end
+    if prop == "light" or prop == nil then
+        swirl.LightEmission = SphereAuraSettings.lightEmission
+    end
+end
+
+local function removePlayerAura()
+    if currentAura and currentAura.Parent then currentAura:Destroy() end
+    currentAura = nil
+end
+
+local function createPlayerAura(character)
+    removePlayerAura()
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart", 3)
+    if not humanoidRootPart then return end
+    local auraBase = Instance.new("Part")
+    auraBase.Size, auraBase.Transparency, auraBase.Anchored, auraBase.CanCollide, auraBase.Name, auraBase.Parent = Vector3.new(1, 1, 1), 1, false, false, "AuraBase", S.WS
+    local weld = Instance.new("Weld")
+    weld.Part0, weld.Part1, weld.C0, weld.Parent = humanoidRootPart, auraBase, CFrame.new(0, 0, 0), auraBase
+    local attachment = Instance.new("Attachment")
+    attachment.Parent = auraBase
+    local swirlEmitter = Instance.new("ParticleEmitter")
+    swirlEmitter.Name, swirlEmitter.Texture, swirlEmitter.Lifetime, swirlEmitter.Rate, swirlEmitter.RotSpeed, swirlEmitter.Speed = "swirl", "rbxassetid://10558425570", NumberRange.new(2), 150, NumberRange.new(200), NumberRange.new(0.01)
+    swirlEmitter.SpreadAngle, swirlEmitter.VelocitySpread, swirlEmitter.Size, swirlEmitter.Transparency = Vector2.new(-360, 360), -360, NumberSequence.new({NumberSequenceKeypoint.new(0, SphereAuraSettings.size), NumberSequenceKeypoint.new(1, SphereAuraSettings.size)}), NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5006, 0.5), NumberSequenceKeypoint.new(1, 1)})
+    swirlEmitter.Color, swirlEmitter.LightEmission, swirlEmitter.ZOffset, swirlEmitter.Orientation, swirlEmitter.LockedToPart, swirlEmitter.Parent = ColorSequence.new({ColorSequenceKeypoint.new(0, SphereAuraSettings.color1), ColorSequenceKeypoint.new(1, SphereAuraSettings.color2)}), SphereAuraSettings.lightEmission, -1, Enum.ParticleOrientation.VelocityPerpendicular, true, attachment
+    currentAura = auraBase
+end
+
+local function applyPlayerAura()
+    local character = LP.Character
+    if not character then
+        local characterAddedConnection
+        if characterAddedConnection then characterAddedConnection:Disconnect() end
+        characterAddedConnection = LP.CharacterAdded:Connect(function(newCharacter)
+            if SphereAuraSettings.enabled then createPlayerAura(newCharacter) end
+        end)
+        return
+    end
+    createPlayerAura(character)
+    if not characterAddedConnection then
+        local characterAddedConnection
+        characterAddedConnection = LP.CharacterAdded:Connect(function(newCharacter)
+            if SphereAuraSettings.enabled then createPlayerAura(newCharacter) end
+        end)
+    end
+end
+
+getgenv().GetSphereAuraSettings = function() return SphereAuraSettings end
+
+local SphereAuraGroup = Tabs.Visuals:AddRightGroupbox('>_<')
+SphereAuraGroup:AddToggle('SphereAura', {
+    Text = 'SphereAura',
+    Default = false,
+    Callback = function(v)
+        SphereAuraSettings.enabled = v
+        if v then
+            applyPlayerAura()
+        else
+            removePlayerAura()
+        end
+    end
+}):AddColorPicker('SphereAuraColor1', {
+    Default = SphereAuraSettings.color1,
+    Title = 'Color 1',
+    Callback = function(val)
+        SphereAuraSettings.color1 = val
+        updateAura("color")
+    end
+}):AddColorPicker('SphereAuraColor2', {
+    Default = SphereAuraSettings.color2,
+    Title = 'Color 2',
+    Callback = function(val)
+        SphereAuraSettings.color2 = val
+        updateAura("color")
+    end
+})
+
+local SphereAuraSub = SphereAuraGroup:AddDependencyBox()
+SphereAuraSub:AddSlider('SphereAuraSize', {
+    Text = 'Size',
+    Default = SphereAuraSettings.size,
+    Min = 1,
+    Max = 50,
+    Rounding = 1,
+    Callback = function(val)
+        SphereAuraSettings.size = val
+        updateAura("size")
+    end
+})
+SphereAuraSub:AddSlider('SphereAuraLightEmission', {
+    Text = 'LightEmission',
+    Default = SphereAuraSettings.lightEmission,
+    Min = 0,
+    Max = 2,
+    Rounding = 2,
+    Callback = function(val)
+        SphereAuraSettings.lightEmission = val
+        updateAura("light")
+    end
+})
+SphereAuraSub:SetupDependencies({{Toggles.SphereAura, true}})
+
+-- TornadoAura UI и логика
+local TornadoAuraSettings = {
+    enabled = false,
+    beamColor = Color3.new(1, 1, 1),
+    starColor = Color3.new(1, 1, 1),
+    lightEmission = 0.8,
+    starTexture = "rbxassetid://8920246243"
+}
+local currentTornadoAura
+
+local function removeTornadoAura()
+    if currentTornadoAura and currentTornadoAura.Parent then currentTornadoAura:Destroy() end
+    currentTornadoAura = nil
+end
+
+local function updateTornadoAura(prop)
+    if not (currentTornadoAura and currentTornadoAura.Parent) then return end
+    for _, obj in pairs(currentTornadoAura:GetDescendants()) do
+        if (prop == nil or prop == "beamColor") and obj:IsA("Beam") then
+            obj.Color = ColorSequence.new(TornadoAuraSettings.beamColor)
+        end
+        if (prop == nil or prop == "starColor") and obj:IsA("ParticleEmitter") and obj.Name == "Star" then
+            obj.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, TornadoAuraSettings.starColor), ColorSequenceKeypoint.new(1, TornadoAuraSettings.starColor)})
+        end
+        if (prop == nil or prop == "lightEmission") and (obj:IsA("Beam") or obj:IsA("ParticleEmitter")) then
+            obj.LightEmission = TornadoAuraSettings.lightEmission
+        end
+        if (prop == nil or prop == "starTexture") and obj:IsA("ParticleEmitter") and obj.Name == "Star" then
+            obj.Texture = TornadoAuraSettings.starTexture
+        end
+    end
+end
+
+local function createTornadoAura(character)
+    removeTornadoAura()
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart", 3)
+    if not humanoidRootPart then return end
+    local auraBase = Instance.new("Part")
+    auraBase.Size, auraBase.Transparency, auraBase.Anchored, auraBase.CanCollide, auraBase.Name, auraBase.Parent = Vector3.new(1, 1, 1), 1, true, false, "TornadoAuraBase", S.WS
+    auraBase.CFrame = CFrame.new(humanoidRootPart.Position) * CFrame.new(0, -0.15, 0)
+    local positionUpdateConnection
+    positionUpdateConnection = S.RS.Heartbeat:Connect(function()
+        if humanoidRootPart and humanoidRootPart.Parent and auraBase and auraBase.Parent then
+            auraBase.CFrame = CFrame.new(humanoidRootPart.Position) * CFrame.new(0, -0.15, 0)
+        else
+            if positionUpdateConnection then positionUpdateConnection:Disconnect() end
+        end
+    end)
+    auraBase.AncestryChanged:Connect(function() if not auraBase.Parent and positionUpdateConnection then positionUpdateConnection:Disconnect() end end)
+
+    local mainAttachment = Instance.new("Attachment")
+    mainAttachment.Name, mainAttachment.Position, mainAttachment.Parent = "Main", Vector3.new(0, -2.75, 0), auraBase
+    local starEmitter = Instance.new("ParticleEmitter")
+    starEmitter.Name, starEmitter.Texture, starEmitter.Lifetime, starEmitter.Rate, starEmitter.RotSpeed, starEmitter.Speed = "Star", TornadoAuraSettings.starTexture, NumberRange.new(9), 0.333, NumberRange.new(120), NumberRange.new(0.001)
+    starEmitter.Size, starEmitter.Transparency, starEmitter.Color, starEmitter.LightEmission, starEmitter.ZOffset, starEmitter.Orientation, starEmitter.LockedToPart, starEmitter.Parent = NumberSequence.new({NumberSequenceKeypoint.new(0, 3), NumberSequenceKeypoint.new(1, 3)}), NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.1, 0), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(0.6256, 0.0875), NumberSequenceKeypoint.new(0.7691, 0.3875), NumberSequenceKeypoint.new(0.8677, 0.7125), NumberSequenceKeypoint.new(0.9230, 0.875), NumberSequenceKeypoint.new(0.9552, 0.9375), NumberSequenceKeypoint.new(1, 0.975)}), ColorSequence.new({ColorSequenceKeypoint.new(0, TornadoAuraSettings.starColor), ColorSequenceKeypoint.new(1, TornadoAuraSettings.starColor)}), TornadoAuraSettings.lightEmission, 0.05, Enum.ParticleOrientation.VelocityPerpendicular, true, mainAttachment
+
+    local attachOne, attachTwo = Instance.new("Attachment"), Instance.new("Attachment")
+    attachOne.Name, attachOne.Position, attachOne.Parent = "One", Vector3.new(0, -2.8, 2.6), auraBase
+    attachTwo.Name, attachTwo.Position, attachTwo.Parent = "Two", Vector3.new(0, -2.8, -2.6), auraBase
+    local beamOne = Instance.new("Beam")
+    beamOne.Name, beamOne.Texture, beamOne.TextureSpeed, beamOne.TextureLength, beamOne.Width0, beamOne.Width1, beamOne.CurveSize0, beamOne.CurveSize1, beamOne.Segments, beamOne.LightEmission, beamOne.Transparency, beamOne.Color, beamOne.Attachment0, beamOne.Attachment1, beamOne.Parent = "One", "rbxassetid://8920073892", -0.3, 0.5, 4, 4, -3.5, 3.5, 25, TornadoAuraSettings.lightEmission, NumberSequence.new({NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 0.3)}), ColorSequence.new(TornadoAuraSettings.beamColor), attachOne, attachTwo, auraBase
+    local beamTwo = Instance.new("Beam")
+    beamTwo.Name, beamTwo.Texture, beamTwo.TextureSpeed, beamTwo.TextureLength, beamTwo.Width0, beamTwo.Width1, beamTwo.CurveSize0, beamTwo.CurveSize1, beamTwo.Segments, beamTwo.LightEmission, beamTwo.Transparency, beamTwo.Color, beamTwo.Attachment0, beamTwo.Attachment1, beamTwo.Parent = "Two", "rbxassetid://8920073892", 0.3, 0.5, 4, 4, 3.5, -3.5, 25, TornadoAuraSettings.lightEmission, NumberSequence.new({NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 0.3)}), ColorSequence.new(TornadoAuraSettings.beamColor), attachOne, attachTwo, auraBase
+
+    local attachThree, attachFour = Instance.new("Attachment"), Instance.new("Attachment")
+    attachThree.Name, attachThree.Position, attachThree.Parent = "Three", Vector3.new(0, -2.7, 0), auraBase
+    attachFour.Name, attachFour.Position, attachFour.Parent = "Four", Vector3.new(0, 6, 0), auraBase
+    local beamThree = Instance.new("Beam")
+    beamThree.Name, beamThree.Texture, beamThree.TextureSpeed, beamThree.TextureLength, beamThree.Width0, beamThree.Width1, beamThree.Segments, beamThree.LightEmission, beamThree.Transparency, beamThree.Color, beamThree.FaceCamera, beamThree.Attachment0, beamThree.Attachment1, beamThree.Parent = "Three", "rbxassetid://9020147050", 0.3, 0.1, 5, 6, 5, TornadoAuraSettings.lightEmission, NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.1, 1), NumberSequenceKeypoint.new(0.4, 0.4), NumberSequenceKeypoint.new(1, 1)}), ColorSequence.new(TornadoAuraSettings.beamColor), true, attachThree, attachFour, auraBase
+    local beamFour = Instance.new("Beam")
+    beamFour.Name, beamFour.Texture, beamFour.TextureSpeed, beamFour.TextureLength, beamFour.Width0, beamFour.Width1, beamFour.Segments, beamFour.LightEmission, beamFour.Transparency, beamFour.Color, beamFour.FaceCamera, beamFour.Attachment0, beamFour.Attachment1, beamFour.Parent = "Four", "rbxassetid://8984452855", 0.06, 0.4, 5, 6, 5, TornadoAuraSettings.lightEmission, NumberSequence.new({NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1)}), ColorSequence.new(TornadoAuraSettings.beamColor), true, attachThree, attachFour, auraBase
+    local beamFive = Instance.new("Beam")
+    beamFive.Name, beamFive.Texture, beamFive.TextureSpeed, beamFive.TextureLength, beamFive.Width0, beamFive.Width1, beamFive.Segments, beamFive.LightEmission, beamFive.Transparency, beamFive.Color, beamFive.FaceCamera, beamFive.Attachment0, beamFive.Attachment1, beamFive.Parent = "Five", "http://www.roblox.com/asset/?id=4390493166", 0.2, 0.15, 4, 4, 5, TornadoAuraSettings.lightEmission, NumberSequence.new({NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1)}), ColorSequence.new(TornadoAuraSettings.beamColor), true, attachThree, attachFour, auraBase
+
+    currentTornadoAura = auraBase
+end
+
+local function applyTornadoAura()
+    local character = LP.Character
+    if not character then
+        local tornadoAuraConnection
+        if tornadoAuraConnection then tornadoAuraConnection:Disconnect() end
+        tornadoAuraConnection = LP.CharacterAdded:Connect(function(newCharacter)
+            if TornadoAuraSettings.enabled then createTornadoAura(newCharacter) end
+        end)
+        return
+    end
+    createTornadoAura(character)
+    if not tornadoAuraConnection then
+        local tornadoAuraConnection
+        tornadoAuraConnection = LP.CharacterAdded:Connect(function(newCharacter)
+            if TornadoAuraSettings.enabled then createTornadoAura(newCharacter) end
+        end)
+    end
+end
+
+getgenv().GetTornadoAuraSettings = function() return TornadoAuraSettings end
+
+-- UI
+SphereAuraGroup:AddToggle('TornadoAura', {
+    Text = 'TornadoAura',
+    Default = false,
+    Callback = function(v)
+        TornadoAuraSettings.enabled = v
+        if v then
+            applyTornadoAura()
+        else
+            removeTornadoAura()
+        end
+    end
+}):AddColorPicker('TornadoAuraBeamColor', {
+    Default = TornadoAuraSettings.beamColor,
+    Title = 'Beam Color',
+    Callback = function(val)
+        TornadoAuraSettings.beamColor = val
+        updateTornadoAura('beamColor')
+    end
+}):AddColorPicker('TornadoAuraStarColor', {
+    Default = TornadoAuraSettings.starColor,
+    Title = 'Star Color',
+    Callback = function(val)
+        TornadoAuraSettings.starColor = val
+        updateTornadoAura('starColor')
+    end
+})
+
+local TornadoAuraSub = SphereAuraGroup:AddDependencyBox()
+TornadoAuraSub:AddSlider('TornadoAuraLightEmission', {
+    Text = 'LightEmission',
+    Default = TornadoAuraSettings.lightEmission,
+    Min = 0,
+    Max = 2,
+    Rounding = 2,
+    Callback = function(val)
+        TornadoAuraSettings.lightEmission = val
+        updateTornadoAura('lightEmission')
+    end
+})
+TornadoAuraSub:AddDropdown('TornadoAuraStarTexture', {
+    Text = 'Star Texture',
+    Values = {
+        '8920246243',
+        '10365549270',
+        '5726444189',
+        '1266170131',
+        '12363692255',
+        '12363692920',
+    },
+    Default = '8920246243',
+    Callback = function(val)
+        TornadoAuraSettings.starTexture = 'rbxassetid://' .. val
+        updateTornadoAura('starTexture')
+    end
+})
+TornadoAuraSub:SetupDependencies({{Toggles.TornadoAura, true}})
