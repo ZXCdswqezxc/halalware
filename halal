@@ -1,3 +1,4 @@
+-- Все сервисы Roblox в одной таблице S
 local S = {
     PS = game:GetService('Players'),
     RS = game:GetService('RunService'),
@@ -535,5 +536,3 @@ ESPConnections.Heartbeat = S.RS.Heartbeat:Connect(function()
         end
     end
 end)
-
--- ... остальной код ... 
