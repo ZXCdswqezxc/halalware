@@ -1460,3 +1460,50 @@ NoRecoilGroup:AddToggle('NoRecoil', {
         end
     end
 })
+
+-- === NoJumpCD (Misc tab, правая секция) ===
+local NoJumpCDGroup = Tabs.Misc:AddRightGroupbox('>_<')
+
+local noJumpCDHook, originalNewIndexJump, currentNoJumpCDHook
+local noJumpCDEnabled = false
+
+local function enableNoJumpCD()
+    if noJumpCDHook then return end
+    local IsA = game.IsA
+    -- Сохраняем оригинальный только один раз
+    if not originalNewIndexJump then
+        originalNewIndexJump = hookmetamethod(game, "__newindex", function(self, Index, Value)
+            return originalNewIndexJump(self, Index, Value)
+        end)
+    end
+    -- Ставим кастомный хук, всегда используя оригинальный
+    currentNoJumpCDHook = hookmetamethod(game, "__newindex", function(self, Index, Value)
+        if not checkcaller() and IsA(self, "Humanoid") and Index == "JumpPower" then
+            return
+        end
+        return originalNewIndexJump(self, Index, Value)
+    end)
+    noJumpCDHook = true
+end
+
+local function disableNoJumpCD()
+    if not noJumpCDHook then return end
+    if originalNewIndexJump then
+        hookmetamethod(game, "__newindex", originalNewIndexJump)
+    end
+    noJumpCDHook = nil
+    currentNoJumpCDHook = nil
+end
+
+NoJumpCDGroup:AddToggle('NoJumpCD', {
+    Text = 'NoJumpCD',
+    Default = false,
+    Callback = function(v)
+        noJumpCDEnabled = v
+        if v then
+            enableNoJumpCD()
+        else
+            disableNoJumpCD()
+        end
+    end
+})
