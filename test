@@ -719,13 +719,12 @@ MiscCameraGroup:AddToggle('UnlockCameraDistance', {
     Default = false,
     Callback = function(v)
         if v then
-            -- Включено: ставим максимальную дистанцию камеры на бесконечность для игрока
             LP.CameraMaxZoomDistance = math.huge
         else
-            -- Выключено: возвращаем оригинальное значение
             LP.CameraMaxZoomDistance = originalPlayerMaxZoom
         end
-    end
+    end,
+    Tooltip = 'Removes camera zoom limit'
 })
 
 -- SphereAura UI и логика
@@ -1448,8 +1447,8 @@ local function disableNoRecoil()
     noRecoilHook = nil
 end
 
-NoRecoilGroup:AddToggle('NoRecoil', {
-    Text = 'NoRecoil',
+NoRecoilGroup:AddToggle('No Recoil', {
+    Text = 'No Recoil',
     Default = false,
     Callback = function(v)
         noRecoilEnabled = v
@@ -1458,7 +1457,8 @@ NoRecoilGroup:AddToggle('NoRecoil', {
         else
             disableNoRecoil()
         end
-    end
+    end,
+    Tooltip = 'Removes camera recoil (Framework)'
 })
 
 -- === NoJumpCD (Misc tab, правая секция) ===
@@ -1495,8 +1495,8 @@ local function disableNoJumpCD()
     currentNoJumpCDHook = nil
 end
 
-NoJumpCDGroup:AddToggle('NoJumpCD', {
-    Text = 'NoJumpCD',
+NoJumpCDGroup:AddToggle('No Jump CD', {
+    Text = 'No Jump CD',
     Default = false,
     Callback = function(v)
         noJumpCDEnabled = v
@@ -1505,5 +1505,21 @@ NoJumpCDGroup:AddToggle('NoJumpCD', {
         else
             disableNoJumpCD()
         end
-    end
+    end,
+    Tooltip = 'Removes jump cooldown (blocks JumpPower set)'
+})
+
+NoJumpCDGroup:AddButton({
+    Text = 'Destroy Seats',
+    Func = function()
+        local count = 0
+        for _, obj in ipairs(S.WS:GetDescendants()) do
+            if obj:IsA('Seat') or obj:IsA('VehicleSeat') then
+                obj:Destroy()
+                count = count + 1
+            end
+        end
+        Library:Notify('Destroyed seats: ' .. count, 3)
+    end,
+    Tooltip = 'Remove all seats (Seat/VehicleSeat) in the game'
 })
