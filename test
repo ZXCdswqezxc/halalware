@@ -1,0 +1,520 @@
+-- Все сервисы Roblox в одной таблице S
+local S = {
+    PS = game:GetService('Players'),
+    RS = game:GetService('RunService'),
+    WS = game:GetService('Workspace'),
+    UIS = game:GetService('UserInputService'),
+    TS = game:GetService('TweenService'),
+    LS = game:GetService('Lighting'),
+    CG = game:GetService('CoreGui'),
+    SG = game:GetService('StarterGui'),
+    SP = game:GetService('StarterPack'),
+    SR = game:GetService('StarterPlayer'),
+    RP = game:GetService('ReplicatedStorage'),
+    RF = game:GetService('ReplicatedFirst'),
+    SS = game:GetService('SoundService'),
+    TV = game:GetService('TeleportService'),
+    BS = game:GetService('BadgeService'),
+    PL = game:GetService('PolicyService'),
+    PF = game:GetService('PathfindingService'),
+    DS = game:GetService('DataStoreService'),
+    CH = game:GetService('Chat'),
+    MSG = game:GetService('MessagingService'),
+    FS = game:GetService('FriendService'),
+    INS = game:GetService('InsertService'),
+    TM = game:GetService('Teams'),
+    SGv = game:GetService('StarterGear'),
+    VR = game:GetService('VRService'),
+    GU = game:GetService('GuiService'),
+    TScr = game:GetService('TextService'),
+    DB = game:GetService('Debris'),
+    PH = game:GetService('PhysicsService'),
+    LOC = game:GetService('LocalizationService'),
+    TST = game:GetService('TestService'),
+    VS = game:GetService('VoiceChatService'),
+    NS = game:GetService('NotificationService'),
+    HS = game:GetService('HttpService'),
+    CS = game:GetService('CollectionService'),
+    CP = game:GetService('ContentProvider'),
+    PPS = game:GetService('ProximityPromptService'),
+    TCS = game:GetService('TextChatService'),
+    ES = game:GetService('ExperienceService'),
+    PSS = game:GetService('PointsService'),
+    GS = game:GetService('GroupService'),
+    MS = game:GetService('MarketplaceService'),
+}
+
+-- Math-функции в таблице M
+local M = {
+    abs = math.abs, floor = math.floor, ceil = math.ceil, sqrt = math.sqrt, clamp = math.clamp,
+    min = math.min, max = math.max, atan2 = math.atan2, acos = math.acos, asin = math.asin,
+    cos = math.cos, sin = math.sin, tan = math.tan, rad = math.rad, deg = math.deg, random = math.random
+}
+
+-- Table-функции в таблице T
+local T = {
+    insert = table.insert, remove = table.remove, sort = table.sort, find = table.find, concat = table.concat
+}
+
+-- String-функции в таблице STR
+local STR = {
+    sub = string.sub, gsub = string.gsub, lower = string.lower, upper = string.upper,
+    rep = string.rep, split = string.split, fmt = string.format
+}
+
+-- Короткие алиасы для объектов
+local V3, V2, CF, C3, U2, RP = Vector3, Vector2, CFrame, Color3, UDim2, RaycastParams
+
+-- Быстрые алиасы для RenderStepped и других событий
+local RND, SND, HRT = S.RS.RenderStepped, S.RS.Stepped, S.RS.Heartbeat
+
+-- Локальный игрок и его части в одной таблице
+local LP = S.PS.LocalPlayer
+local Char = LP.Character or LP.CharacterAdded:Wait()
+local Body = {
+    Hum = Char:FindFirstChildOfClass('Humanoid'),
+    HRP = Char:FindFirstChild('HumanoidRootPart'),
+    Head = Char:FindFirstChild('Head'),
+    Tor = Char:FindFirstChild('Torso') or Char:FindFirstChild('UpperTorso'),
+    LA = Char:FindFirstChild('Left Arm') or Char:FindFirstChild('LeftUpperArm'),
+    RA = Char:FindFirstChild('Right Arm') or Char:FindFirstChild('RightUpperArm'),
+    LL = Char:FindFirstChild('Left Leg') or Char:FindFirstChild('LeftUpperLeg'),
+    RL = Char:FindFirstChild('Right Leg') or Char:FindFirstChild('RightUpperLeg'),
+}
+
+-- Остальные полезные переменные одной строкой
+local Cam, Mse, Bp, Tm, UID, PGui = S.WS.CurrentCamera, LP:GetMouse(), LP:FindFirstChildOfClass('Backpack'), LP.Team, LP.UserId, LP:FindFirstChildOfClass('PlayerGui')
+
+-- Halalware — основной скрипт GUI
+-- Пустое меню с 5 вкладками, менеджеры тем и конфигов во вкладке Config
+
+local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+
+local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+
+local Window = Library:CreateWindow({
+    Title = 'Halalware',
+    Center = true,
+    AutoShow = true,
+    TabPadding = 8,
+    MenuFadeTime = 0.2
+})
+
+local Tabs = {
+    Combat = Window:AddTab('Combat'),
+    Misc = Window:AddTab('Misc'),
+    Visuals = Window:AddTab('Visuals'),
+    Player = Window:AddTab('Player'),
+    Config = Window:AddTab('Config'),
+}
+
+-- Вкладка Config: менеджеры тем и конфигов
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+
+-- Игнорируем опции тем при сохранении конфигов
+SaveManager:IgnoreThemeSettings()
+
+-- Можно добавить дополнительные игнорируемые опции:
+-- SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
+
+-- Кейбинд для открытия/закрытия меню
+local MenuGroup = Tabs.Config:AddLeftGroupbox('Menu')
+MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', {
+    Default = 'None',
+    NoUI = true,
+    Text = 'Menu keybind'
+})
+Library.ToggleKeybind = Options.MenuKeybind
+
+-- Менеджер тем (слева)
+ThemeManager:ApplyToTab(Tabs.Config)
+-- Менеджер конфигов (справа)
+SaveManager:BuildConfigSection(Tabs.Config)
+
+-- Автозагрузка конфига (опционально)
+SaveManager:LoadAutoloadConfig()
+
+-- ESP НАСТРОЙКИ
+local ESPConfig = {
+    Enabled = false,
+    MaxDistance = 200,
+    Box = {
+        Enable = true,
+        Type = 'Full',
+        Font = 'ProggyClean',
+        Color = Color3.fromRGB(255, 255, 255),
+        Filled = {
+            Enable = false,
+            Gradient = {
+                Enable = true,
+                Color = {
+                    Start = Color3.fromRGB(255, 255, 255),
+                    End = Color3.fromRGB(0, 255, 0),
+                },
+                Rotation = {
+                    Enable = true,
+                    Auto = true,
+                },
+                Transparency = 0.3,
+            }
+        }
+    },
+    Text = {
+        Enable = true,
+        Name = {
+            Enable = true,
+            Teamcheck = true,
+            Color = Color3.fromRGB(255, 255, 255),
+        },
+        Studs = {
+            Enable = true,
+            Color = Color3.fromRGB(255, 255, 255),
+        },
+        Tool = {
+            Enable = true,
+            Color = Color3.fromRGB(255, 255, 255),
+        },
+    },
+    Bars = {
+        Enable = true,
+        Health = {
+            ShowOutline = false,
+            Enable = true,
+            Lerp = true,
+            Color1 = Color3.fromRGB(0, 255, 0)
+        }
+    }
+}
+
+-- UI для ESP во вкладке Visuals
+local ESPGroup = Tabs.Visuals:AddLeftGroupbox('ESP')
+ESPGroup:AddToggle('ESPEnabled', {
+    Text = 'ESP',
+    Default = ESPConfig.Enabled,
+    Callback = function(v) ESPConfig.Enabled = v end
+})
+ESPGroup:AddSlider('ESPMaxDist', {
+    Text = 'Max Distance',
+    Min = 50, Max = 10000, Default = ESPConfig.MaxDistance,
+    Rounding = 0,
+    Callback = function(v) ESPConfig.MaxDistance = v end
+})
+ESPGroup:AddToggle('ESPBox', {
+    Text = 'Box',
+    Default = ESPConfig.Box.Enable,
+    Callback = function(v) ESPConfig.Box.Enable = v end
+}):AddColorPicker('ESPBoxColor', {
+    Default = ESPConfig.Box.Color,
+    Callback = function(v) ESPConfig.Box.Color = v end
+})
+ESPGroup:AddToggle('ESPBoxFilled', {
+    Text = 'Filled',
+    Default = ESPConfig.Box.Filled.Enable,
+    Callback = function(v) ESPConfig.Box.Filled.Enable = v end
+}):AddColorPicker('ESPBoxGradStart', {
+    Default = ESPConfig.Box.Filled.Gradient.Color.Start,
+    Callback = function(v) ESPConfig.Box.Filled.Gradient.Color.Start = v end
+}):AddColorPicker('ESPBoxGradEnd', {
+    Default = ESPConfig.Box.Filled.Gradient.Color.End,
+    Callback = function(v) ESPConfig.Box.Filled.Gradient.Color.End = v end
+})
+ESPGroup:AddToggle('ESPBoxGradient', {
+    Text = 'Gradient Anim',
+    Default = ESPConfig.Box.Filled.Gradient.Enable,
+    Callback = function(v) ESPConfig.Box.Filled.Gradient.Enable = v end
+})
+ESPGroup:AddSlider('ESPBoxGradTrans', {
+    Text = 'Grad Transp',
+    Min = 0, Max = 1, Default = ESPConfig.Box.Filled.Gradient.Transparency, Rounding = 2,
+    Callback = function(v) ESPConfig.Box.Filled.Gradient.Transparency = v end
+})
+ESPGroup:AddToggle('ESPText', {
+    Text = 'Text',
+    Default = ESPConfig.Text.Enable,
+    Callback = function(v) ESPConfig.Text.Enable = v end
+})
+ESPGroup:AddToggle('ESPName', {
+    Text = 'Name',
+    Default = ESPConfig.Text.Name.Enable,
+    Callback = function(v) ESPConfig.Text.Name.Enable = v end
+}):AddColorPicker('ESPNameColor', {
+    Default = ESPConfig.Text.Name.Color,
+    Callback = function(v) ESPConfig.Text.Name.Color = v end
+})
+ESPGroup:AddToggle('ESPStuds', {
+    Text = 'Studs',
+    Default = ESPConfig.Text.Studs.Enable,
+    Callback = function(v) ESPConfig.Text.Studs.Enable = v end
+}):AddColorPicker('ESPStudsColor', {
+    Default = ESPConfig.Text.Studs.Color,
+    Callback = function(v) ESPConfig.Text.Studs.Color = v end
+})
+ESPGroup:AddToggle('ESPTool', {
+    Text = 'Tool',
+    Default = ESPConfig.Text.Tool.Enable,
+    Callback = function(v) ESPConfig.Text.Tool.Enable = v end
+}):AddColorPicker('ESPToolColor', {
+    Default = ESPConfig.Text.Tool.Color,
+    Callback = function(v) ESPConfig.Text.Tool.Color = v end
+})
+ESPGroup:AddToggle('ESPHealthbar', {
+    Text = 'Healthbar',
+    Default = ESPConfig.Bars.Health.Enable,
+    Callback = function(v) ESPConfig.Bars.Health.Enable = v end
+}):AddColorPicker('ESPHealthbarColor', {
+    Default = ESPConfig.Bars.Health.Color1,
+    Callback = function(v) ESPConfig.Bars.Health.Color1 = v end
+})
+
+-- Кэш и утилиты ESP
+local ESPCache, ESPConnections = {}, {}
+local gui_inset = S.GU:GetGuiInset()
+
+local function make_text(parent, font)
+    local d = Instance.new("TextLabel")
+    d.Parent = parent
+    d.Size = U2.new(0, 4, 0, 4)
+    d.BackgroundTransparency = 1
+    d.TextColor3 = Color3.fromRGB(255,255,255)
+    d.TextStrokeTransparency = 0
+    d.TextScaled = false
+    d.TextSize = 10
+    d.TextStrokeColor3 = Color3.fromRGB(0,0,0)
+    d.Font = font or Enum.Font.SourceSans
+    return d
+end
+
+local function clear_esp(player)
+    local cache = ESPCache[player]
+    if not cache then return end
+    if cache.Box and cache.Box.Full then
+        cache.Box.Full.Square.Visible = false
+        cache.Box.Full.Outline.Visible = false
+        cache.Box.Full.Inline.Visible = false
+        if cache.Box.Full.Filled then
+            cache.Box.Full.Filled.Visible = false
+        end
+    end
+    if cache.Text then
+        if cache.Text.Studs then cache.Text.Studs.Visible = false end
+        if cache.Text.Tool then cache.Text.Tool.Visible = false end
+        if cache.Text.Name then cache.Text.Name.Visible = false end
+    end
+    if cache.Bars then
+        if cache.Bars.Health and cache.Bars.Health.Frame then
+            cache.Bars.Health.Frame.Visible = false
+            cache.Bars.Health.Outline.Visible = false
+        end
+    end
+end
+
+local function render_esp(player)
+    if not player then return end
+    ESPCache[player] = ESPCache[player] or {}
+    local cache = ESPCache[player]
+    cache.Box = cache.Box or {}
+    cache.Bars = cache.Bars or {}
+    cache.Text = cache.Text or {}
+    cache.Box.Full = cache.Box.Full or {
+        Square = Drawing.new("Square"),
+        Inline = Drawing.new("Square"),
+        Outline = Drawing.new("Square"),
+        Filled = Instance.new('Frame', Instance.new('ScreenGui', S.CG))
+    }
+    local Studs = Instance.new("ScreenGui")
+    Studs.Parent = S.CG
+    local Name = Instance.new("ScreenGui")
+    Name.Parent = S.CG
+    local Tool = Instance.new("ScreenGui")
+    Tool.Parent = S.CG
+    cache.Text.Studs = make_text(Studs)
+    cache.Text.Tool = make_text(Tool)
+    cache.Text.Name = make_text(Name)
+    local healthGui = Instance.new("ScreenGui")
+    healthGui.Name = player.Name .. "_HealthBar"
+    healthGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    healthGui.Parent = S.CG
+    local healthOutline = Instance.new("Frame")
+    healthOutline.BackgroundColor3 = Color3.new(0, 0, 0)
+    healthOutline.BorderSizePixel = 0
+    healthOutline.Name = "Outline"
+    healthOutline.Parent = healthGui
+    local healthFill = Instance.new("Frame")
+    healthFill.BackgroundTransparency = 0
+    healthFill.BorderSizePixel = 0
+    healthFill.Name = "Fill"
+    healthFill.Parent = healthOutline
+    healthFill.BackgroundColor3 = ESPConfig.Bars.Health.Color1
+    cache.Bars.Health = {
+        Gui = healthGui,
+        Outline = healthOutline,
+        Frame = healthFill
+    }
+end
+
+local function update_esp(player)
+    if not player or not ESPCache[player] then return end
+    local character = player.Character
+    if not character or not LP.Character then return end
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    local client_root_part = LP.Character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChildWhichIsA("Humanoid")
+    if not rootPart or not humanoid or not client_root_part then 
+        clear_esp(player)
+        return 
+    end
+    if (client_root_part.Position - rootPart.Position).Magnitude > ESPConfig.MaxDistance or not ESPConfig.Enabled then
+        clear_esp(player)
+        return
+    end
+    local hrp2D, onScreen = S.WS.CurrentCamera:WorldToViewportPoint(rootPart.Position)
+    local charSize = (S.WS.CurrentCamera:WorldToViewportPoint(rootPart.Position - V3.new(0, 1, 0)).Y - S.WS.CurrentCamera:WorldToViewportPoint(rootPart.Position + V3.new(0, 3, 0)).Y) / 2
+    local size = V2.new(M.floor(charSize * 1.5), M.floor(charSize * 3.2)) 
+    local position = V2.new(M.floor(hrp2D.X - charSize * 1.5 / 2), M.floor(hrp2D.Y - charSize * 3 / 2))
+    local cache = ESPCache[player]
+    if not onScreen then
+        clear_esp(player)
+        return
+    end
+    -- Box
+    if ESPConfig.Box.Enable then
+        if ESPConfig.Box.Type == "Full" then
+            cache.Box.Full.Square.Visible = true
+            cache.Box.Full.Square.Position = position
+            cache.Box.Full.Square.Size = size
+            cache.Box.Full.Square.Color = ESPConfig.Box.Color
+            cache.Box.Full.Square.Thickness = 2
+            cache.Box.Full.Square.Filled = false
+            cache.Box.Full.Square.ZIndex = 9e9
+            cache.Box.Full.Outline.Visible = true
+            cache.Box.Full.Outline.Position = position - V2.new(1, 1)
+            cache.Box.Full.Outline.Size = size + V2.new(2, 2)
+            cache.Box.Full.Outline.Color = Color3.new(0, 0, 0)
+            cache.Box.Full.Outline.Thickness = 1
+            cache.Box.Full.Inline.Visible = true
+            cache.Box.Full.Inline.Position = position + V2.new(1, 1)
+            cache.Box.Full.Inline.Size = size - V2.new(2, 2)
+            cache.Box.Full.Inline.Color = Color3.new(0, 0, 0)
+            cache.Box.Full.Inline.Thickness = 1
+            cache.Box.Full.Inline.Filled = false
+            if ESPConfig.Box.Filled.Enable and cache.Box.Full.Filled then
+                cache.Box.Full.Filled.Position = U2.new(0, position.X, 0, position.Y - S.GU:GetGuiInset().Y)
+                cache.Box.Full.Filled.Size = U2.new(0, size.X, 0, size.Y)
+                cache.Box.Full.Filled.BackgroundTransparency = ESPConfig.Box.Filled.Gradient.Transparency or 0.5
+                cache.Box.Full.Filled.BackgroundColor3 = Color3.new(1, 1, 1)
+                cache.Box.Full.Filled.Visible = true
+                cache.Box.Full.Filled.ZIndex = -9e9
+                local gradient = cache.Box.Full.Filled:FindFirstChild("Gradient") or Instance.new("UIGradient")
+                gradient.Name = "Gradient"
+                gradient.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, ESPConfig.Box.Filled.Gradient.Color.Start),
+                    ColorSequenceKeypoint.new(1, ESPConfig.Box.Filled.Gradient.Color.End)
+                })
+                if ESPConfig.Box.Filled.Gradient.Enable then
+                    gradient.Rotation = math.sin(tick() * 2) * 180
+                else
+                    gradient.Rotation = 0
+                end
+                if not gradient.Parent then gradient.Parent = cache.Box.Full.Filled end
+            elseif cache.Box.Full.Filled then
+                cache.Box.Full.Filled.Visible = false
+            end
+        else
+            cache.Box.Full.Square.Visible = false
+            cache.Box.Full.Outline.Visible = false
+            cache.Box.Full.Inline.Visible = false
+            if cache.Box.Full.Filled then cache.Box.Full.Filled.Visible = false end
+        end
+    else
+        cache.Box.Full.Square.Visible = false
+        cache.Box.Full.Outline.Visible = false
+        cache.Box.Full.Inline.Visible = false
+        if cache.Box.Full.Filled then cache.Box.Full.Filled.Visible = false end
+    end
+    -- Health Bar
+    if ESPConfig.Bars.Health.Enable and humanoid then
+        local targetHealth = M.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+        local lastHealth = cache.Bars.Health.LastHealth or targetHealth
+        local lerpedHealth = lastHealth + (targetHealth - lastHealth) * 0.05
+        cache.Bars.Health.LastHealth = lerpedHealth
+        local x = position.X - 7
+        if cache.Bars.Health.Outline and cache.Bars.Health.Frame then
+            cache.Bars.Health.Outline.Visible = true
+            cache.Bars.Health.Outline.Position = U2.new(0, x - 1, 0, position.Y - S.GU:GetGuiInset().Y - 1)
+            cache.Bars.Health.Outline.Size = U2.new(0, 5, 0, size.Y + 1.1)
+            cache.Bars.Health.Outline.BackgroundTransparency = 0.2
+            cache.Bars.Health.Frame.Visible = true
+            cache.Bars.Health.Frame.Position = U2.new(0, 1, 0, (1 - lerpedHealth) * size.Y + 1)
+            cache.Bars.Health.Frame.Size = U2.new(0, 3, 0, lerpedHealth * size.Y)
+            cache.Bars.Health.Frame.BackgroundColor3 = ESPConfig.Bars.Health.Color1
+        end
+    else
+        if cache.Bars.Health.Outline then cache.Bars.Health.Outline.Visible = false end
+        if cache.Bars.Health.Frame then cache.Bars.Health.Frame.Visible = false end
+    end
+    -- Text
+    if ESPConfig.Text.Enable then
+        if cache.Text.Name then
+            cache.Text.Name.Visible = ESPConfig.Text.Name.Enable
+            if ESPConfig.Text.Name.Enable then
+                cache.Text.Name.Position = U2.new(0, position.X + (size.X / 2) - (cache.Text.Name.AbsoluteSize.X / 2), 0, position.Y - S.GU:GetGuiInset().Y - 9)
+                cache.Text.Name.Text = player.Name
+                cache.Text.Name.TextColor3 = ESPConfig.Text.Name.Color
+            end
+        end
+        if cache.Text.Tool then
+            cache.Text.Tool.Visible = ESPConfig.Text.Tool.Enable
+            if ESPConfig.Text.Tool.Enable then
+                cache.Text.Tool.Position = U2.new(0, position.X + (size.X / 2) - (cache.Text.Tool.AbsoluteSize.X / 2), 0, position.Y - S.GU:GetGuiInset().Y + size.Y + 15)
+                local tool = character:FindFirstChildOfClass("Tool")
+                cache.Text.Tool.Text = tool and tool.Name or "none"
+                cache.Text.Tool.TextColor3 = ESPConfig.Text.Tool.Color
+            end
+        end
+        if cache.Text.Studs then
+            cache.Text.Studs.Visible = ESPConfig.Text.Studs.Enable
+            if ESPConfig.Text.Studs.Enable then
+                cache.Text.Studs.Position = U2.new(0, position.X + (size.X / 2) - (cache.Text.Studs.AbsoluteSize.X / 2), 0, position.Y - S.GU:GetGuiInset().Y + size.Y + 5)
+                local meters = (S.WS.CurrentCamera.CFrame.Position - rootPart.Position).Magnitude * 0.28
+                cache.Text.Studs.Text = STR.fmt("[%.0fm]", meters)
+                cache.Text.Studs.TextColor3 = ESPConfig.Text.Studs.Color
+            end
+        end
+    else
+        if cache.Text.Name then cache.Text.Name.Visible = false end
+        if cache.Text.Tool then cache.Text.Tool.Visible = false end
+        if cache.Text.Studs then cache.Text.Studs.Visible = false end
+    end
+end
+
+-- Подключение ESP к игрокам
+for _, player in ipairs(S.PS:GetPlayers()) do
+    if player ~= LP then
+        render_esp(player)
+    end
+end
+S.PS.PlayerAdded:Connect(function(player)
+    if player ~= LP then
+        render_esp(player)
+    end
+end)
+S.PS.PlayerRemoving:Connect(function(player)
+    if player ~= LP then
+        clear_esp(player)
+    end
+end)
+
+-- Heartbeat обновление ESP
+if ESPConnections.Heartbeat then ESPConnections.Heartbeat:Disconnect() end
+ESPConnections.Heartbeat = S.RS.Heartbeat:Connect(function()
+    for v, _ in pairs(ESPCache) do
+        if v then
+            update_esp(v)
+        end
+    end
+end)
+
+-- ... остальной код ... 
