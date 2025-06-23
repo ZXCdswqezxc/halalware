@@ -640,9 +640,9 @@ SphereAuraSub:SetupDependencies({{Toggles.SphereAura, true}})
 local CircleAuraSettings = {
     enabled = false,
     beamColor = Color3.new(1, 1, 1),
-    starColor = Color3.new(1, 1, 1),
+    circleColor = Color3.new(1, 1, 1),
     lightEmission = 0.8,
-    starTexture = "rbxassetid://8920246243"
+    circleTexture = "rbxassetid://8920246243"
 }
 local currentCircleAura
 
@@ -657,14 +657,14 @@ local function updateCircleAura(prop)
         if (prop == nil or prop == "beamColor") and obj:IsA("Beam") then
             obj.Color = ColorSequence.new(CircleAuraSettings.beamColor)
         end
-        if (prop == nil or prop == "starColor") and obj:IsA("ParticleEmitter") and obj.Name == "Star" then
-            obj.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, CircleAuraSettings.starColor), ColorSequenceKeypoint.new(1, CircleAuraSettings.starColor)})
+        if (prop == nil or prop == "circleColor") and obj:IsA("ParticleEmitter") and obj.Name == "Circle" then
+            obj.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, CircleAuraSettings.circleColor), ColorSequenceKeypoint.new(1, CircleAuraSettings.circleColor)})
         end
         if (prop == nil or prop == "lightEmission") and (obj:IsA("Beam") or obj:IsA("ParticleEmitter")) then
             obj.LightEmission = CircleAuraSettings.lightEmission
         end
-        if (prop == nil or prop == "starTexture") and obj:IsA("ParticleEmitter") and obj.Name == "Star" then
-            obj.Texture = CircleAuraSettings.starTexture
+        if (prop == nil or prop == "circleTexture") and obj:IsA("ParticleEmitter") and obj.Name == "Circle" then
+            obj.Texture = CircleAuraSettings.circleTexture
         end
     end
 end
@@ -688,9 +688,9 @@ local function createCircleAura(character)
 
     local mainAttachment = Instance.new("Attachment")
     mainAttachment.Name, mainAttachment.Position, mainAttachment.Parent = "Main", Vector3.new(0, -2.75, 0), auraBase
-    local starEmitter = Instance.new("ParticleEmitter")
-    starEmitter.Name, starEmitter.Texture, starEmitter.Lifetime, starEmitter.Rate, starEmitter.RotSpeed, starEmitter.Speed = "Star", CircleAuraSettings.starTexture, NumberRange.new(9), 0.333, NumberRange.new(120), NumberRange.new(0.001)
-    starEmitter.Size, starEmitter.Transparency, starEmitter.Color, starEmitter.LightEmission, starEmitter.ZOffset, starEmitter.Orientation, starEmitter.LockedToPart, starEmitter.Parent = NumberSequence.new({NumberSequenceKeypoint.new(0, 3), NumberSequenceKeypoint.new(1, 3)}), NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.1, 0), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(0.6256, 0.0875), NumberSequenceKeypoint.new(0.7691, 0.3875), NumberSequenceKeypoint.new(0.8677, 0.7125), NumberSequenceKeypoint.new(0.9230, 0.875), NumberSequenceKeypoint.new(0.9552, 0.9375), NumberSequenceKeypoint.new(1, 0.975)}), ColorSequence.new({ColorSequenceKeypoint.new(0, CircleAuraSettings.starColor), ColorSequenceKeypoint.new(1, CircleAuraSettings.starColor)}), CircleAuraSettings.lightEmission, 0.05, Enum.ParticleOrientation.VelocityPerpendicular, true, mainAttachment
+    local circleEmitter = Instance.new("ParticleEmitter")
+    circleEmitter.Name, circleEmitter.Texture, circleEmitter.Lifetime, circleEmitter.Rate, circleEmitter.RotSpeed, circleEmitter.Speed = "Circle", CircleAuraSettings.circleTexture, NumberRange.new(9), 0.333, NumberRange.new(120), NumberRange.new(0.001)
+    circleEmitter.Size, circleEmitter.Transparency, circleEmitter.Color, circleEmitter.LightEmission, circleEmitter.ZOffset, circleEmitter.Orientation, circleEmitter.LockedToPart, circleEmitter.Parent = NumberSequence.new({NumberSequenceKeypoint.new(0, 3), NumberSequenceKeypoint.new(1, 3)}), NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.1, 0), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(0.6256, 0.0875), NumberSequenceKeypoint.new(0.7691, 0.3875), NumberSequenceKeypoint.new(0.8677, 0.7125), NumberSequenceKeypoint.new(0.9230, 0.875), NumberSequenceKeypoint.new(0.9552, 0.9375), NumberSequenceKeypoint.new(1, 0.975)}), ColorSequence.new({ColorSequenceKeypoint.new(0, CircleAuraSettings.circleColor), ColorSequenceKeypoint.new(1, CircleAuraSettings.circleColor)}), CircleAuraSettings.lightEmission, 0.05, Enum.ParticleOrientation.VelocityPerpendicular, true, mainAttachment
 
     local attachOne, attachTwo = Instance.new("Attachment"), Instance.new("Attachment")
     attachOne.Name, attachOne.Position, attachOne.Parent = "One", Vector3.new(0, -2.8, 2.6), auraBase
@@ -753,12 +753,12 @@ SphereAuraGroup:AddToggle('CircleAura', {
         CircleAuraSettings.beamColor = val
         updateCircleAura('beamColor')
     end
-}):AddColorPicker('CircleAuraStarColor', {
-    Default = CircleAuraSettings.starColor,
-    Title = 'Star Color',
+}):AddColorPicker('CircleAuraCircleColor', {
+    Default = CircleAuraSettings.circleColor,
+    Title = 'Circle Color',
     Callback = function(val)
-        CircleAuraSettings.starColor = val
-        updateCircleAura('starColor')
+        CircleAuraSettings.circleColor = val
+        updateCircleAura('circleColor')
     end
 })
 
@@ -774,8 +774,8 @@ CircleAuraSub:AddSlider('CircleAuraLightEmission', {
         updateCircleAura('lightEmission')
     end
 })
-CircleAuraSub:AddDropdown('CircleAuraStarTexture', {
-    Text = 'Star Texture',
+CircleAuraSub:AddDropdown('CircleAuraCircleTexture', {
+    Text = 'Circle Texture',
     Values = {
         '8920246243',
         '10365549270',
@@ -786,8 +786,107 @@ CircleAuraSub:AddDropdown('CircleAuraStarTexture', {
     },
     Default = '8920246243',
     Callback = function(val)
-        CircleAuraSettings.starTexture = 'rbxassetid://' .. val
-        updateCircleAura('starTexture')
+        CircleAuraSettings.circleTexture = 'rbxassetid://' .. val
+        updateCircleAura('circleTexture')
     end
 })
 CircleAuraSub:SetupDependencies({{Toggles.CircleAura, true}})
+
+-- ChinaHat UI и логика
+local ChinaHatSettings = {
+    enabled = false,
+    minCameraDistance = 1,
+    hatTransparency = 0.35,
+    circleTransparency = 1,
+    height = 0.75,
+    radius = 5,
+    sides = 25,
+    rainbow = false,
+    color = Color3.fromRGB(128, 18, 255),
+    offset = Vector3.new(0, 0.75, 0)
+}
+
+local ChinaHatGroup = Tabs.Visuals:AddLeftGroupbox('>_<')
+ChinaHatGroup:AddToggle('ChinaHatEnabled', {
+    Text = 'ChinaHat',
+    Default = ChinaHatSettings.enabled,
+    Callback = function(v)
+        ChinaHatSettings.enabled = v
+    end
+}):AddColorPicker('ChinaHatColor', {
+    Default = ChinaHatSettings.color,
+    Title = 'Color',
+    Callback = function(val)
+        ChinaHatSettings.color = val
+    end
+})
+ChinaHatGroup:AddSlider('ChinaHatHeight', {
+    Text = 'Height',
+    Default = ChinaHatSettings.height,
+    Min = 0.1,
+    Max = 3,
+    Rounding = 2,
+    Callback = function(val)
+        ChinaHatSettings.height = val
+    end
+})
+ChinaHatGroup:AddSlider('ChinaHatRadius', {
+    Text = 'Radius',
+    Default = ChinaHatSettings.radius,
+    Min = 1,
+    Max = 10,
+    Rounding = 2,
+    Callback = function(val)
+        ChinaHatSettings.radius = val
+    end
+})
+ChinaHatGroup:AddToggle('ChinaHatRainbow', {
+    Text = 'Rainbow',
+    Default = ChinaHatSettings.rainbow,
+    Callback = function(v)
+        ChinaHatSettings.rainbow = v
+    end
+})
+
+-- ChinaHat rendering logic
+local ChinaHatDrawings = {}
+local tau = math.pi * 2
+for i = 1, ChinaHatSettings.sides do
+    ChinaHatDrawings[i] = {Drawing.new('Line'), Drawing.new('Triangle')}
+    ChinaHatDrawings[i][1].ZIndex = 2
+    ChinaHatDrawings[i][1].Thickness = 2
+    ChinaHatDrawings[i][2].ZIndex = 1
+    ChinaHatDrawings[i][2].Filled = true
+end
+
+S.RS.RenderStepped:Connect(function()
+    local pass = ChinaHatSettings.enabled and LP.Character and LP.Character:FindFirstChild('Head') and (Cam.CFrame.p - Cam.Focus.p).magnitude > ChinaHatSettings.minCameraDistance and LP.Character:FindFirstChildOfClass('Humanoid') and LP.Character:FindFirstChildOfClass('Humanoid').Health > 0
+    for i = 1, #ChinaHatDrawings do
+        local line, triangle = ChinaHatDrawings[i][1], ChinaHatDrawings[i][2]
+        if pass then
+            local color = ChinaHatSettings.rainbow and Color3.fromHSV((tick() % 5 / 5 - (i / #ChinaHatDrawings)) % 1, 0.5, 1) or ChinaHatSettings.color
+            local pos = LP.Character.Head.Position + ChinaHatSettings.offset
+            local topWorld = pos + Vector3.new(0, ChinaHatSettings.height, 0)
+            local last, next = (i / ChinaHatSettings.sides) * tau, ((i + 1) / ChinaHatSettings.sides) * tau
+            local lastWorld = pos + (Vector3.new(math.cos(last), 0, math.sin(last)) * ChinaHatSettings.radius)
+            local nextWorld = pos + (Vector3.new(math.cos(next), 0, math.sin(next)) * ChinaHatSettings.radius)
+            local lastScreen = Cam:WorldToViewportPoint(lastWorld)
+            local nextScreen = Cam:WorldToViewportPoint(nextWorld)
+            local topScreen = Cam:WorldToViewportPoint(topWorld)
+            line.From = Vector2.new(lastScreen.X, lastScreen.Y)
+            line.To = Vector2.new(nextScreen.X, nextScreen.Y)
+            line.Color = color
+            line.Transparency = ChinaHatSettings.circleTransparency
+            line.Visible = true
+            triangle.PointA = Vector2.new(topScreen.X, topScreen.Y)
+            triangle.PointB = line.From
+            triangle.PointC = line.To
+            triangle.Color = color
+            triangle.Transparency = ChinaHatSettings.hatTransparency
+            triangle.Visible = true
+        else
+            line.Visible = false
+            triangle.Visible = false
+        end
+    end
+end)
