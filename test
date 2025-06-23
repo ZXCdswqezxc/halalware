@@ -82,6 +82,31 @@ ThemeManager:ApplyToTab(Tabs.Config)
 SaveManager:BuildConfigSection(Tabs.Config)
 SaveManager:LoadAutoloadConfig()
 
+-- === HUD Section in Config ===
+local HUDGroup = Tabs.Config:AddRightGroupbox('HUD')
+HUDGroup:AddToggle('ShowWatermark', {
+    Text = 'Watermark',
+    Default = false,
+    Callback = function(v)
+        if v then
+            local date = os.date('%d.%m.%Y')
+            local name = LP and LP.Name or 'Player'
+            Library:SetWatermark('Halalware | ' .. date .. ' | ' .. name)
+        else
+            Library:SetWatermark('')
+        end
+    end
+})
+HUDGroup:AddToggle('ShowKeybinds', {
+    Text = 'Keybinds',
+    Default = false,
+    Callback = function(v)
+        if Library.KeybindFrame then
+            Library.KeybindFrame.Visible = v
+        end
+    end
+})
+
 local ESPConfig = {
     Enabled = false,
     MaxDistance = 200,
