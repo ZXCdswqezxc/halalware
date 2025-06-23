@@ -89,9 +89,8 @@ HUDGroup:AddToggle('ShowWatermark', {
     Default = false,
     Callback = function(v)
         if v then
-            local date = os.date('%d.%m.%Y')
             local name = LP and LP.Name or 'Player'
-            Library:SetWatermark('Halalware | ' .. date .. ' | ' .. name)
+            Library:SetWatermark('halalware.skid | ' .. name)
         else
             Library:SetWatermark('')
         end
@@ -1215,3 +1214,68 @@ LightingTypeGroup:AddDropdown('LightingType', {
 })
 -- При запуске выставить первый режим
 S.LS.Technology = LightingTypeEnum[LightingTypeList[1]]
+
+-- === Speedhack (Player tab, right) ===
+local SpeedhackGroup = Tabs.Player:AddRightGroupbox('>_<')
+local SpeedhackConfig = {
+    Enabled = false, -- toggle
+    Active = false,  -- keybind
+    Speed = 50
+}
+local speedHackConnection
+local function updateSpeedHack(character)
+    if not character then return end
+    local rootPart = character:WaitForChild('HumanoidRootPart')
+    local humanoid = character:WaitForChild('Humanoid')
+    if speedHackConnection then speedHackConnection:Disconnect() end
+    speedHackConnection = S.RS.Heartbeat:Connect(function(dt)
+        if SpeedhackConfig.Enabled and SpeedhackConfig.Active then
+            local move = humanoid.MoveDirection
+            if move.Magnitude > 0 then
+                rootPart.CFrame = rootPart.CFrame + (move.Unit * SpeedhackConfig.Speed * dt)
+            end
+        end
+    end)
+end
+SpeedhackGroup:AddToggle('SpeedhackEnabled', {
+    Text = 'Speedhack',
+    Default = false,
+    Callback = function(v)
+        SpeedhackConfig.Enabled = v
+        if v then
+            updateSpeedHack(LP.Character)
+        else
+            SpeedhackConfig.Active = false
+            if speedHackConnection then speedHackConnection:Disconnect() speedHackConnection = nil end
+        end
+    end
+})
+:AddKeyPicker('SpeedhackKey', {
+    Default = 'None',
+    Text = 'Key',
+    NoUI = false,
+    Callback = function()
+        if not SpeedhackConfig.Enabled then return end
+        SpeedhackConfig.Active = not SpeedhackConfig.Active
+    end
+})
+
+local speedInput = SpeedhackGroup:AddInput('SpeedhackSpeedBox', {
+    Text = 'Speed',
+    Default = tostring(SpeedhackConfig.Speed),
+    Numeric = true,
+    Finished = true,
+    Callback = function(val)
+        local num = tonumber(val)
+        if num then
+            num = math.clamp(num, 1, 2000000)
+            SpeedhackConfig.Speed = num
+        end
+    end
+})
+
+LP.CharacterAdded:Connect(function(char)
+    if SpeedhackConfig.Enabled then
+        updateSpeedHack(char)
+    end
+end)
