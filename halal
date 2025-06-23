@@ -190,7 +190,7 @@ local ESPConfig = {
 }
 
 -- UI для ESP во вкладке Visuals
-local ESPGroup = Tabs.Visuals:AddLeftGroupbox('ESP')
+local ESPGroup = Tabs.Visuals:AddLeftGroupbox('>_<')
 ESPGroup:AddToggle('ESPEnabled', {
     Text = 'ESP',
     Default = ESPConfig.Enabled,
@@ -358,23 +358,20 @@ end
 local function update_esp(player)
     if not player or not ESPCache[player] then return end
     local character = player.Character
-    local client_character = LP.Character
-    local Camera = Cam
-    if not character or not client_character then return end
+    if not character or not LP.Character then return end
     local rootPart = character:FindFirstChild("HumanoidRootPart")
-    local client_root_part = client_character:FindFirstChild("HumanoidRootPart")
+    local client_root_part = LP.Character:FindFirstChild("HumanoidRootPart")
     local humanoid = character:FindFirstChildWhichIsA("Humanoid")
     if not rootPart or not humanoid or not client_root_part then 
         clear_esp(player)
         return 
     end
-    local distance = (client_root_part.Position - rootPart.Position).Magnitude
-    if distance > ESPConfig.MaxDistance or not ESPConfig.Enabled then
+    if (client_root_part.Position - rootPart.Position).Magnitude > ESPConfig.MaxDistance or not ESPConfig.Enabled then
         clear_esp(player)
         return
     end
-    local hrp2D, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
-    local charSize = (Camera:WorldToViewportPoint(rootPart.Position - V3.new(0, 1, 0)).Y - Camera:WorldToViewportPoint(rootPart.Position + V3.new(0, 3, 0)).Y) / 2
+    local hrp2D, onScreen = S.WS.CurrentCamera:WorldToViewportPoint(rootPart.Position)
+    local charSize = (S.WS.CurrentCamera:WorldToViewportPoint(rootPart.Position - V3.new(0, 1, 0)).Y - S.WS.CurrentCamera:WorldToViewportPoint(rootPart.Position + V3.new(0, 3, 0)).Y) / 2
     local size = V2.new(M.floor(charSize * 1.5), M.floor(charSize * 3.2)) 
     local position = V2.new(M.floor(hrp2D.X - charSize * 1.5 / 2), M.floor(hrp2D.Y - charSize * 3 / 2))
     local cache = ESPCache[player]
@@ -383,38 +380,34 @@ local function update_esp(player)
         return
     end
     -- Box
-    local fullBox = cache.Box.Full
-    local square, outline, inline, filled = fullBox.Square, fullBox.Outline, fullBox.Inline, fullBox.Filled
     if ESPConfig.Box.Enable then
         if ESPConfig.Box.Type == "Full" then
-            square.Visible = true
-            square.Position = position
-            square.Size = size
-            square.Color = ESPConfig.Box.Color
-            square.Thickness = 2
-            square.Filled = false
-            square.ZIndex = 9e9
-            outline.Visible = true
-            outline.Position = position - V2.new(1, 1)
-            outline.Size = size + V2.new(2, 2)
-            outline.Color = Color3.new(0, 0, 0)
-            outline.Thickness = 1
-            outline.Filled = false
-            inline.Visible = true
-            inline.Position = position + V2.new(1, 1)
-            inline.Size = size - V2.new(2, 2)
-            inline.Color = Color3.new(0, 0, 0)
-            inline.Thickness = 1
-            inline.Filled = false
-            if ESPConfig.Box.Filled.Enable and filled then
-                filled.Position = U2.new(0, position.X, 0, position.Y - gui_inset.Y)
-                filled.Size = U2.new(0, size.X, 0, size.Y)
-                filled.BackgroundTransparency = ESPConfig.Box.Filled.Gradient.Transparency or 0.5
-                filled.BackgroundColor3 = Color3.new(1, 1, 1)
-                filled.Visible = true
-                filled.ZIndex = -9e9
-                -- Градиент всегда обновляется
-                local gradient = filled:FindFirstChild("Gradient") or Instance.new("UIGradient")
+            cache.Box.Full.Square.Visible = true
+            cache.Box.Full.Square.Position = position
+            cache.Box.Full.Square.Size = size
+            cache.Box.Full.Square.Color = ESPConfig.Box.Color
+            cache.Box.Full.Square.Thickness = 2
+            cache.Box.Full.Square.Filled = false
+            cache.Box.Full.Square.ZIndex = 9e9
+            cache.Box.Full.Outline.Visible = true
+            cache.Box.Full.Outline.Position = position - V2.new(1, 1)
+            cache.Box.Full.Outline.Size = size + V2.new(2, 2)
+            cache.Box.Full.Outline.Color = Color3.new(0, 0, 0)
+            cache.Box.Full.Outline.Thickness = 1
+            cache.Box.Full.Inline.Visible = true
+            cache.Box.Full.Inline.Position = position + V2.new(1, 1)
+            cache.Box.Full.Inline.Size = size - V2.new(2, 2)
+            cache.Box.Full.Inline.Color = Color3.new(0, 0, 0)
+            cache.Box.Full.Inline.Thickness = 1
+            cache.Box.Full.Inline.Filled = false
+            if ESPConfig.Box.Filled.Enable and cache.Box.Full.Filled then
+                cache.Box.Full.Filled.Position = U2.new(0, position.X, 0, position.Y - S.GU:GetGuiInset().Y)
+                cache.Box.Full.Filled.Size = U2.new(0, size.X, 0, size.Y)
+                cache.Box.Full.Filled.BackgroundTransparency = ESPConfig.Box.Filled.Gradient.Transparency or 0.5
+                cache.Box.Full.Filled.BackgroundColor3 = Color3.new(1, 1, 1)
+                cache.Box.Full.Filled.Visible = true
+                cache.Box.Full.Filled.ZIndex = -9e9
+                local gradient = cache.Box.Full.Filled:FindFirstChild("Gradient") or Instance.new("UIGradient")
                 gradient.Name = "Gradient"
                 gradient.Color = ColorSequence.new({
                     ColorSequenceKeypoint.new(0, ESPConfig.Box.Filled.Gradient.Color.Start),
@@ -425,88 +418,75 @@ local function update_esp(player)
                 else
                     gradient.Rotation = 0
                 end
-                if not gradient.Parent then gradient.Parent = filled end
-            elseif filled then
-                filled.Visible = false
+                if not gradient.Parent then gradient.Parent = cache.Box.Full.Filled end
+            elseif cache.Box.Full.Filled then
+                cache.Box.Full.Filled.Visible = false
             end
         else
-            square.Visible = false
-            outline.Visible = false
-            inline.Visible = false
-            if filled then filled.Visible = false end
+            cache.Box.Full.Square.Visible = false
+            cache.Box.Full.Outline.Visible = false
+            cache.Box.Full.Inline.Visible = false
+            if cache.Box.Full.Filled then cache.Box.Full.Filled.Visible = false end
         end
     else
-        square.Visible = false
-        outline.Visible = false
-        inline.Visible = false
-        if filled then filled.Visible = false end
+        cache.Box.Full.Square.Visible = false
+        cache.Box.Full.Outline.Visible = false
+        cache.Box.Full.Inline.Visible = false
+        if cache.Box.Full.Filled then cache.Box.Full.Filled.Visible = false end
     end
     -- Health Bar
-    local bar_height = size.Y
-    local bar_width = 3
-    local base_x = position.X
-    local y = position.Y - gui_inset.Y
-    local outline = cache.Bars.Health.Outline
-    local fill = cache.Bars.Health.Frame
     if ESPConfig.Bars.Health.Enable and humanoid then
         local targetHealth = M.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
         local lastHealth = cache.Bars.Health.LastHealth or targetHealth
         local lerpedHealth = lastHealth + (targetHealth - lastHealth) * 0.05
         cache.Bars.Health.LastHealth = lerpedHealth
-        local x = base_x - (bar_width + 4)
-        if outline and fill then
-            outline.Visible = true
-            outline.Position = U2.new(0, x - 1, 0, y - 1)
-            outline.Size = U2.new(0, bar_width + 2, 0, bar_height + 1.1)
-            outline.BackgroundTransparency = 0.2
-            fill.Visible = true
-            fill.Position = U2.new(0, 1, 0, (1 - lerpedHealth) * bar_height + 1)
-            fill.Size = U2.new(0, bar_width, 0, lerpedHealth * bar_height)
-            fill.BackgroundColor3 = ESPConfig.Bars.Health.Color1
+        local x = position.X - 7
+        if cache.Bars.Health.Outline and cache.Bars.Health.Frame then
+            cache.Bars.Health.Outline.Visible = true
+            cache.Bars.Health.Outline.Position = U2.new(0, x - 1, 0, position.Y - S.GU:GetGuiInset().Y - 1)
+            cache.Bars.Health.Outline.Size = U2.new(0, 5, 0, size.Y + 1.1)
+            cache.Bars.Health.Outline.BackgroundTransparency = 0.2
+            cache.Bars.Health.Frame.Visible = true
+            cache.Bars.Health.Frame.Position = U2.new(0, 1, 0, (1 - lerpedHealth) * size.Y + 1)
+            cache.Bars.Health.Frame.Size = U2.new(0, 3, 0, lerpedHealth * size.Y)
+            cache.Bars.Health.Frame.BackgroundColor3 = ESPConfig.Bars.Health.Color1
         end
     else
-        if outline then outline.Visible = false end
-        if fill then fill.Visible = false end
+        if cache.Bars.Health.Outline then cache.Bars.Health.Outline.Visible = false end
+        if cache.Bars.Health.Frame then cache.Bars.Health.Frame.Visible = false end
     end
     -- Text
-    local nameLabel = cache.Text.Name
-    local toolLabel = cache.Text.Tool
-    local studsLabel = cache.Text.Studs
-    local textOffset = 15
-    local baseX = position.X + (size.X / 2)
-    local baseY = position.Y - gui_inset.Y
     if ESPConfig.Text.Enable then
-        if nameLabel then
-            nameLabel.Visible = ESPConfig.Text.Name.Enable
+        if cache.Text.Name then
+            cache.Text.Name.Visible = ESPConfig.Text.Name.Enable
             if ESPConfig.Text.Name.Enable then
-                nameLabel.Position = U2.new(0, baseX - (nameLabel.AbsoluteSize.X / 2), 0, baseY - textOffset + 6)
-                nameLabel.Text = player.Name
-                nameLabel.TextColor3 = ESPConfig.Text.Name.Color
+                cache.Text.Name.Position = U2.new(0, position.X + (size.X / 2) - (cache.Text.Name.AbsoluteSize.X / 2), 0, position.Y - S.GU:GetGuiInset().Y - 9)
+                cache.Text.Name.Text = player.Name
+                cache.Text.Name.TextColor3 = ESPConfig.Text.Name.Color
             end
         end
-        if toolLabel then
-            toolLabel.Visible = ESPConfig.Text.Tool.Enable
+        if cache.Text.Tool then
+            cache.Text.Tool.Visible = ESPConfig.Text.Tool.Enable
             if ESPConfig.Text.Tool.Enable then
-                toolLabel.Position = U2.new(0, baseX - (toolLabel.AbsoluteSize.X / 2), 0, baseY + size.Y + 15)
+                cache.Text.Tool.Position = U2.new(0, position.X + (size.X / 2) - (cache.Text.Tool.AbsoluteSize.X / 2), 0, position.Y - S.GU:GetGuiInset().Y + size.Y + 15)
                 local tool = character:FindFirstChildOfClass("Tool")
-                toolLabel.Text = tool and tool.Name or "none"
-                toolLabel.TextColor3 = ESPConfig.Text.Tool.Color
+                cache.Text.Tool.Text = tool and tool.Name or "none"
+                cache.Text.Tool.TextColor3 = ESPConfig.Text.Tool.Color
             end
         end
-        if studsLabel then
-            studsLabel.Visible = ESPConfig.Text.Studs.Enable
+        if cache.Text.Studs then
+            cache.Text.Studs.Visible = ESPConfig.Text.Studs.Enable
             if ESPConfig.Text.Studs.Enable then
-                studsLabel.Position = U2.new(0, baseX - (studsLabel.AbsoluteSize.X / 2), 0, baseY + size.Y + 5)
-                local distance = (Camera.CFrame.Position - rootPart.Position).Magnitude
-                local meters = distance * 0.28
-                studsLabel.Text = STR.fmt("[%.0fm]", meters)
-                studsLabel.TextColor3 = ESPConfig.Text.Studs.Color
+                cache.Text.Studs.Position = U2.new(0, position.X + (size.X / 2) - (cache.Text.Studs.AbsoluteSize.X / 2), 0, position.Y - S.GU:GetGuiInset().Y + size.Y + 5)
+                local meters = (S.WS.CurrentCamera.CFrame.Position - rootPart.Position).Magnitude * 0.28
+                cache.Text.Studs.Text = STR.fmt("[%.0fm]", meters)
+                cache.Text.Studs.TextColor3 = ESPConfig.Text.Studs.Color
             end
         end
     else
-        if nameLabel then nameLabel.Visible = false end
-        if toolLabel then toolLabel.Visible = false end
-        if studsLabel then studsLabel.Visible = false end
+        if cache.Text.Name then cache.Text.Name.Visible = false end
+        if cache.Text.Tool then cache.Text.Tool.Visible = false end
+        if cache.Text.Studs then cache.Text.Studs.Visible = false end
     end
 end
 
@@ -536,3 +516,50 @@ ESPConnections.Heartbeat = S.RS.Heartbeat:Connect(function()
         end
     end
 end)
+
+-- Name ESP Section (справа)
+local NameESPGroup = Tabs.Visuals:AddRightGroupbox('>_<')
+
+local ShowNameMethodConfig = {
+    Mode = 'Display', -- 'Display', 'Default', 'None'
+}
+
+NameESPGroup:AddDropdown('ShowNameMethod', {
+    Values = {'Display', 'Default', 'None'},
+    Default = 'Display',
+    Multi = false,
+    Text = 'ShowNameMethod',
+    Callback = function(v) ShowNameMethodConfig.Mode = v end
+})
+
+local function UpdateShowNameMethod(player)
+    if player == LP then return end
+    local char = player.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass('Humanoid')
+    if not hum then return end
+    if ShowNameMethodConfig.Mode == 'None' then
+        hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+        return
+    end
+    hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
+    hum.NameOcclusion = Enum.NameOcclusion.NoOcclusion
+    hum.DisplayName = (ShowNameMethodConfig.Mode == 'Display' and player.DisplayName ~= '' and player.DisplayName) or player.Name
+end
+
+local function UpdateAllShowNameMethod()
+    for _, p in ipairs(S.PS:GetPlayers()) do
+        UpdateShowNameMethod(p)
+    end
+end
+
+S.PS.PlayerAdded:Connect(function(p)
+    p.CharacterAdded:Connect(function() UpdateShowNameMethod(p) end)
+end)
+for _, p in ipairs(S.PS:GetPlayers()) do
+    if p.Character then UpdateShowNameMethod(p) end
+    p.CharacterAdded:Connect(function() UpdateShowNameMethod(p) end)
+end
+S.RS.Heartbeat:Connect(UpdateAllShowNameMethod)
+
+-- ... остальной код ... 
