@@ -1619,3 +1619,191 @@ AntiInertiaGroup:AddToggle('AntiInertia', {
     end,
     Tooltip = 'Removes inertia from movement (instant stop/start)'
 })
+
+-- === Yaw Locker (Player tab, новая секция) ===
+local YawLockerGroup = Tabs.Player:AddLeftGroupbox('>_<')
+
+local YawLockerConfig = {
+    Enabled = false,
+    Angle = 0,
+    Mode = 'Locked',
+    Modes = {'Locked', 'Jitter', '3 Ways', '5 Ways'}
+}
+
+local yawLockerConnection = nil
+local yawJitterState = 1
+local yawJitterTimer = 0
+
+local function getYawAngles()
+    local a = YawLockerConfig.Angle
+    if YawLockerConfig.Mode == 'Locked' then
+        return {a}
+    elseif YawLockerConfig.Mode == 'Jitter' then
+        return {a, -a}
+    elseif YawLockerConfig.Mode == '3 Ways' then
+        return {-a, 0, a}
+    elseif YawLockerConfig.Mode == '5 Ways' then
+        return {-a, -a/2, 0, a/2, a}
+    end
+    return {a}
+end
+
+local function setYawLocker(state)
+    YawLockerConfig.Enabled = state
+    if yawLockerConnection then
+        yawLockerConnection:Disconnect()
+        yawLockerConnection = nil
+    end
+    yawJitterState = 1
+    yawJitterTimer = 0
+    if state then
+        yawLockerConnection = RND:Connect(function(dt)
+            local char = LP.Character
+            if not char then return end
+            local hrp = char:FindFirstChild('HumanoidRootPart')
+            if not hrp then return end
+            local pos = hrp.Position
+            local angles = getYawAngles()
+            local yaw
+            if YawLockerConfig.Mode == 'Locked' then
+                yaw = math.rad(angles[1])
+            elseif YawLockerConfig.Mode == 'Jitter' then
+                yawJitterTimer = yawJitterTimer + dt
+                if yawJitterTimer > 0.1 then
+                    yawJitterState = 3 - yawJitterState -- 1 <-> 2
+                    yawJitterTimer = 0
+                end
+                yaw = math.rad(angles[yawJitterState])
+            elseif YawLockerConfig.Mode == '3 Ways' then
+                yawJitterTimer = yawJitterTimer + dt
+                if yawJitterTimer > 0.15 then
+                    yawJitterState = yawJitterState % 3 + 1
+                    yawJitterTimer = 0
+                end
+                yaw = math.rad(angles[yawJitterState])
+            elseif YawLockerConfig.Mode == '5 Ways' then
+                yawJitterTimer = yawJitterTimer + dt
+                if yawJitterTimer > 0.12 then
+                    yawJitterState = yawJitterState % 5 + 1
+                    yawJitterTimer = 0
+                end
+                yaw = math.rad(angles[yawJitterState])
+            else
+                yaw = math.rad(YawLockerConfig.Angle)
+            end
+            local look = Vector3.new(math.sin(yaw), 0, math.cos(yaw))
+            hrp.CFrame = CFrame.new(pos, pos + look)
+        end)
+    end
+end
+
+YawLockerGroup:AddToggle('YawLocker', {
+    Text = 'Yaw Locker',
+    Default = false,
+    Callback = function(v)
+        setYawLocker(v)
+    end,
+    Tooltip = 'Locks your yaw (horizontal rotation) to the selected angle.'
+})
+
+YawLockerGroup:AddDropdown('YawLockerMode', {
+    Text = 'Yaw Mode',
+    Values = YawLockerConfig.Modes,
+    Default = 'Locked',
+    Callback = function(val)
+        YawLockerConfig.Mode = val
+        yawJitterState = 1
+        yawJitterTimer = 0
+    end,
+    Tooltip = 'Yaw lock mode: Locked, Jitter, 3 Ways, 5 Ways'
+})
+
+YawLockerGroup:AddSlider('YawLockerAngle', {
+    Text = 'Yaw Angle',
+    Default = 0,
+    Min = 0,
+    Max = 360,
+    Rounding = 0,
+    Callback = function(val)
+        YawLockerConfig.Angle = val
+    end,
+    Tooltip = 'Set the yaw angle (0-360 degrees)'
+})
+
+-- === AnimBreaker (Player tab, новая секция) ===
+local AnimBreakerGroup = Tabs.Player:AddRightGroupbox('AnimBreaker')
+
+local AnimBreakerSettings = {
+    enabled = false,
+    delayTime = 0.4,
+    stepSize = 0.4
+}
+
+local animBreakerTracks = {}
+local animBreakerAnimatorConn = nil
+local animBreakerHeartbeatConn = nil
+local animBreakerCoroutine = nil
+
+local function freezeAnimBreakerTrack(track)
+    if not track or not track.IsPlaying then return end
+    track:AdjustSpeed(0)
+    animBreakerTracks[track] = true
+end
+
+local function setupAnimBreakerCharacter(character)
+    local humanoid = character:WaitForChild("Humanoid")
+    local animator = humanoid:WaitForChild("Animator")
+    table.clear(animBreakerTracks)
+    for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+        freezeAnimBreakerTrack(track)
+    end
+    if animBreakerAnimatorConn then animBreakerAnimatorConn:Disconnect() end
+    animBreakerAnimatorConn = animator.AnimationPlayed:Connect(freezeAnimBreakerTrack)
+end
+
+local function toggleAnimBreaker(state)
+    AnimBreakerSettings.enabled = state
+    if animBreakerHeartbeatConn then animBreakerHeartbeatConn:Disconnect() animBreakerHeartbeatConn = nil end
+    if animBreakerCoroutine then coroutine.close(animBreakerCoroutine) animBreakerCoroutine = nil end
+    if state then
+        animBreakerHeartbeatConn = HRT:Connect(function()
+            for track in pairs(animBreakerTracks) do
+                if track and track.IsPlaying then
+                    track:AdjustSpeed(0)
+                else
+                    animBreakerTracks[track] = nil
+                end
+            end
+        end)
+        animBreakerCoroutine = coroutine.create(function()
+            while AnimBreakerSettings.enabled do
+                for track in pairs(animBreakerTracks) do
+                    if track and track.IsPlaying then
+                        track.TimePosition = track.TimePosition + AnimBreakerSettings.stepSize
+                    end
+                end
+                task.wait(AnimBreakerSettings.delayTime)
+            end
+        end)
+        coroutine.resume(animBreakerCoroutine)
+    end
+end
+
+LP.CharacterAdded:Connect(function(character)
+    if AnimBreakerSettings.enabled then
+        setupAnimBreakerCharacter(character)
+    end
+end)
+if LP.Character then setupAnimBreakerCharacter(LP.Character) end
+
+AnimBreakerGroup:AddToggle('AnimBreaker', {
+    Text = 'Anim Breaker',
+    Default = false,
+    Callback = function(v)
+        toggleAnimBreaker(v)
+        if v and LP.Character then
+            setupAnimBreakerCharacter(LP.Character)
+        end
+    end,
+    Tooltip = 'Breaks your animations (freezes and jitters)'
+})
