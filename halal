@@ -514,3 +514,124 @@ MiscCameraGroup:AddToggle('UnlockCameraDistance', {
         end
     end
 })
+
+-- SphereAura UI и логика
+local SphereAuraSettings = {
+    enabled = false,
+    color1 = Color3.new(1, 1, 1),
+    color2 = Color3.new(1, 1, 1),
+    size = 10,
+    lightEmission = 1
+}
+local currentAura
+
+local function updateAura(prop)
+    if not (currentAura and currentAura.Parent) then return end
+    local swirl = currentAura:FindFirstChild("Attachment"):FindFirstChild("swirl")
+    if not swirl then return end
+    if prop == "color" or prop == nil then
+        swirl.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, SphereAuraSettings.color1), ColorSequenceKeypoint.new(1, SphereAuraSettings.color2)})
+    end
+    if prop == "size" or prop == nil then
+        swirl.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, SphereAuraSettings.size), NumberSequenceKeypoint.new(1, SphereAuraSettings.size)})
+    end
+    if prop == "light" or prop == nil then
+        swirl.LightEmission = SphereAuraSettings.lightEmission
+    end
+end
+
+local function removePlayerAura()
+    if currentAura and currentAura.Parent then currentAura:Destroy() end
+    currentAura = nil
+end
+
+local function createPlayerAura(character)
+    removePlayerAura()
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart", 3)
+    if not humanoidRootPart then return end
+    local auraBase = Instance.new("Part")
+    auraBase.Size, auraBase.Transparency, auraBase.Anchored, auraBase.CanCollide, auraBase.Name, auraBase.Parent = Vector3.new(1, 1, 1), 1, false, false, "AuraBase", S.WS
+    local weld = Instance.new("Weld")
+    weld.Part0, weld.Part1, weld.C0, weld.Parent = humanoidRootPart, auraBase, CFrame.new(0, 0, 0), auraBase
+    local attachment = Instance.new("Attachment")
+    attachment.Parent = auraBase
+    local swirlEmitter = Instance.new("ParticleEmitter")
+    swirlEmitter.Name, swirlEmitter.Texture, swirlEmitter.Lifetime, swirlEmitter.Rate, swirlEmitter.RotSpeed, swirlEmitter.Speed = "swirl", "rbxassetid://10558425570", NumberRange.new(2), 150, NumberRange.new(200), NumberRange.new(0.01)
+    swirlEmitter.SpreadAngle, swirlEmitter.VelocitySpread, swirlEmitter.Size, swirlEmitter.Transparency = Vector2.new(-360, 360), -360, NumberSequence.new({NumberSequenceKeypoint.new(0, SphereAuraSettings.size), NumberSequenceKeypoint.new(1, SphereAuraSettings.size)}), NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5006, 0.5), NumberSequenceKeypoint.new(1, 1)})
+    swirlEmitter.Color, swirlEmitter.LightEmission, swirlEmitter.ZOffset, swirlEmitter.Orientation, swirlEmitter.LockedToPart, swirlEmitter.Parent = ColorSequence.new({ColorSequenceKeypoint.new(0, SphereAuraSettings.color1), ColorSequenceKeypoint.new(1, SphereAuraSettings.color2)}), SphereAuraSettings.lightEmission, -1, Enum.ParticleOrientation.VelocityPerpendicular, true, attachment
+    currentAura = auraBase
+end
+
+local function applyPlayerAura()
+    local character = LP.Character
+    if not character then
+        local characterAddedConnection
+        if characterAddedConnection then characterAddedConnection:Disconnect() end
+        characterAddedConnection = LP.CharacterAdded:Connect(function(newCharacter)
+            if SphereAuraSettings.enabled then createPlayerAura(newCharacter) end
+        end)
+        return
+    end
+    createPlayerAura(character)
+    if not characterAddedConnection then
+        local characterAddedConnection
+        characterAddedConnection = LP.CharacterAdded:Connect(function(newCharacter)
+            if SphereAuraSettings.enabled then createPlayerAura(newCharacter) end
+        end)
+    end
+end
+
+getgenv().GetSphereAuraSettings = function() return SphereAuraSettings end
+
+local SphereAuraGroup = Tabs.Visuals:AddRightGroupbox('>_<')
+SphereAuraGroup:AddToggle('SphereAura', {
+    Text = 'SphereAura',
+    Default = false,
+    Callback = function(v)
+        SphereAuraSettings.enabled = v
+        if v then
+            applyPlayerAura()
+        else
+            removePlayerAura()
+        end
+    end
+}):AddColorPicker('SphereAuraColor1', {
+    Default = SphereAuraSettings.color1,
+    Title = 'Color 1',
+    Callback = function(val)
+        SphereAuraSettings.color1 = val
+        updateAura("color")
+    end
+}):AddColorPicker('SphereAuraColor2', {
+    Default = SphereAuraSettings.color2,
+    Title = 'Color 2',
+    Callback = function(val)
+        SphereAuraSettings.color2 = val
+        updateAura("color")
+    end
+})
+
+local SphereAuraSub = SphereAuraGroup:AddDependencyBox()
+SphereAuraSub:AddSlider('SphereAuraSize', {
+    Text = 'Size',
+    Default = SphereAuraSettings.size,
+    Min = 1,
+    Max = 50,
+    Rounding = 1,
+    Callback = function(val)
+        SphereAuraSettings.size = val
+        updateAura("size")
+    end
+})
+SphereAuraSub:AddSlider('SphereAuraLightEmission', {
+    Text = 'LightEmission',
+    Default = SphereAuraSettings.lightEmission,
+    Min = 0,
+    Max = 2,
+    Rounding = 2,
+    Callback = function(val)
+        SphereAuraSettings.lightEmission = val
+        updateAura("light")
+    end
+})
+SphereAuraSub:SetupDependencies({{Toggles.SphereAura, true}})
