@@ -1279,3 +1279,134 @@ LP.CharacterAdded:Connect(function(char)
         updateSpeedHack(char)
     end
 end)
+
+-- === Fly (Player tab, left) ===
+local FlyGroup = Tabs.Player:AddLeftGroupbox('>_<')
+local FlyConfig = {
+    Enabled = false, -- toggle (мастер)
+    Active = false,  -- keybind (активность)
+    Speed = 1,       -- множитель (1x = 50 studs/sec)
+    Keybind = Enum.KeyCode.F
+}
+local FlyLoop = nil
+local function setNoClip(character, state)
+    if not character then return end
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA('BasePart') then
+            if state then
+                if not part:GetAttribute('OriginalCollision') then
+                    part:SetAttribute('OriginalCollision', part.CanCollide)
+                    part:SetAttribute('OriginalTouch', part.CanTouch)
+                    if part:GetAttribute('CanQuery') ~= nil then
+                        part:SetAttribute('OriginalQuery', part.CanQuery)
+                    end
+                end
+                part.CanCollide = false
+                part.CanTouch = false
+                part.CanQuery = false
+            else
+                if part:GetAttribute('OriginalCollision') ~= nil then
+                    part.CanCollide = part:GetAttribute('OriginalCollision')
+                    part.CanTouch = part:GetAttribute('OriginalTouch')
+                    if part:GetAttribute('OriginalQuery') ~= nil then
+                        part.CanQuery = part:GetAttribute('OriginalQuery')
+                    end
+                    part:SetAttribute('OriginalCollision', nil)
+                    part:SetAttribute('OriginalTouch', nil)
+                    part:SetAttribute('OriginalQuery', nil)
+                end
+            end
+        end
+    end
+end
+local function updateFly(character)
+    if FlyLoop then FlyLoop:Disconnect() FlyLoop = nil end
+    if not character then return end
+    if not (FlyConfig.Enabled and FlyConfig.Active) then return end
+    setNoClip(character, true)
+    FlyLoop = S.RS.Stepped:Connect(function()
+        local char = S.PS.LocalPlayer.Character
+        if not char then return end
+        setNoClip(char, true)
+        local hrp = char:FindFirstChild('HumanoidRootPart')
+        local hum = char:FindFirstChild('Humanoid')
+        if not hrp or not hum then return end
+        local speed = FlyConfig.Speed * 50
+        local velocity = Vector3.new(0, 0, 0)
+        if S.UIS:IsKeyDown(Enum.KeyCode.Space) then velocity = velocity + Vector3.new(0, speed, 0) end
+        if S.UIS:IsKeyDown(Enum.KeyCode.LeftControl) then velocity = velocity + Vector3.new(0, -speed, 0) end
+        if S.UIS:IsKeyDown(Enum.KeyCode.W) then velocity = velocity + (S.WS.CurrentCamera.CFrame.LookVector * speed) end
+        if S.UIS:IsKeyDown(Enum.KeyCode.A) then velocity = velocity + (S.WS.CurrentCamera.CFrame.RightVector * -speed) end
+        if S.UIS:IsKeyDown(Enum.KeyCode.S) then velocity = velocity + (S.WS.CurrentCamera.CFrame.LookVector * -speed) end
+        if S.UIS:IsKeyDown(Enum.KeyCode.D) then velocity = velocity + (S.WS.CurrentCamera.CFrame.RightVector * speed) end
+        hrp.Velocity = velocity
+        hum:ChangeState('Freefall')
+    end)
+end
+local function stopFly()
+    if FlyLoop then FlyLoop:Disconnect() FlyLoop = nil end
+    local char = S.PS.LocalPlayer.Character
+    setNoClip(char, false)
+    if char then
+        local hrp = char:FindFirstChild('HumanoidRootPart')
+        local hum = char:FindFirstChild('Humanoid')
+        if hrp then
+            hrp.Velocity = Vector3.new(0, -2, 0)
+            local tempConn
+            tempConn = S.RS.Stepped:Connect(function()
+                if not hrp or not hrp.Parent then tempConn:Disconnect() return end
+                hrp.Velocity = Vector3.new(0, hrp.Velocity.Y, 0)
+                tempConn:Disconnect()
+            end)
+        end
+        if hum then hum:ChangeState('Landing') end
+    end
+end
+local function setFlyActive(state)
+    FlyConfig.Active = state
+    if FlyConfig.Enabled and FlyConfig.Active then
+        updateFly(S.PS.LocalPlayer.Character)
+    else
+        stopFly()
+    end
+end
+FlyGroup:AddToggle('FlyEnabled', {
+    Text = 'Fly',
+    Default = false,
+    Callback = function(v)
+        FlyConfig.Enabled = v
+        if not v then
+            setFlyActive(false)
+        end
+        if v and FlyConfig.Active then
+            updateFly(S.PS.LocalPlayer.Character)
+        end
+    end
+})
+:AddKeyPicker('FlyKey', {
+    Default = 'F',
+    Text = 'Key',
+    NoUI = false,
+    Callback = function()
+        if not FlyConfig.Enabled then return end
+        setFlyActive(not FlyConfig.Active)
+    end
+})
+FlyGroup:AddInput('FlySpeed', {
+    Text = 'Speed',
+    Default = tostring(FlyConfig.Speed),
+    Numeric = true,
+    Finished = true,
+    Callback = function(val)
+        local num = tonumber(val)
+        if num then
+            num = math.clamp(num, 0.1, 100)
+            FlyConfig.Speed = num
+        end
+    end
+})
+S.PS.LocalPlayer.CharacterAdded:Connect(function(char)
+    if FlyConfig.Enabled and FlyConfig.Active then
+        updateFly(char)
+    end
+end)
