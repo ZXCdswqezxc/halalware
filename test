@@ -212,6 +212,193 @@ ESPGroup:AddToggle('ESPHealthbar', {
     Callback = function(v) ESPConfig.Bars.Health.Color1 = v end
 })
 
+-- === Bullet Tracers UI (ENGLISH, SHORT) ===
+local BulletTracersGroup = Tabs.Visuals:AddRightGroupbox('>_<')
+
+local BulletTracersConfig = {
+    Enabled = false,
+    Color1 = C3.new(1,1,1),
+    Color2 = C3.new(1,1,1),
+    Thickness = 1,
+    Texture = "rbxassetid://446111271"
+}
+local BulletTextures = {
+    ["Starhook"] = "rbxassetid://446111271",
+    ["Chain"] = "rbxassetid://3029306948",
+    ["Lightning"] = "rbxassetid://7216850022",
+    ["Beam"] = "rbxassetid://1263079249"
+}
+
+local BulletToggle = BulletTracersGroup:AddToggle('BulletTracersEnabled', {
+    Text = 'Tracer',
+    Default = BulletTracersConfig.Enabled,
+    Callback = function(v) BulletTracersConfig.Enabled = v end
+})
+BulletToggle:AddColorPicker('BulletTracersColor1', {
+    Default = BulletTracersConfig.Color1,
+    Title = 'C1',
+    Callback = function(val) BulletTracersConfig.Color1 = val end
+})
+BulletToggle:AddColorPicker('BulletTracersColor2', {
+    Default = BulletTracersConfig.Color2,
+    Title = 'C2',
+    Callback = function(val) BulletTracersConfig.Color2 = val end
+})
+BulletTracersGroup:AddSlider('BulletTracersThickness', {
+    Text = 'Thick',
+    Default = BulletTracersConfig.Thickness,
+    Min = 0.1, Max = 10, Rounding = 1,
+    Callback = function(val) BulletTracersConfig.Thickness = val end
+})
+BulletTracersGroup:AddDropdown('BulletTracersTexture', {
+    Text = 'Tex',
+    Values = {"Starhook", "Chain", "Lightning", "Beam"},
+    Default = 'Starhook',
+    Callback = function(val) BulletTracersConfig.Texture = BulletTextures[val] end
+})
+
+-- === Bullet Tracers Logic (ONLY) ===
+local gS = { t = nil, a = 0, s = false, c = {} }
+local gM = {
+    [2788229376] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
+    [71189885129233] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
+    [5602055394] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
+    [17403265390] = { BN = "Part", BBN = "gb", BP = "" },
+    [17403166075] = { BN = "Part", BBN = "gb", BP = "" },
+    [18111448661] = { BN = "Part", BBN = "gb", BP = "" },
+    [15186202290] = { BN = "Part", BBN = "gb", BP = "" },
+    [11143225577] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
+    [15763494605] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
+    [15166543806] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
+    [17897702920] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
+    [16033173781] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
+    [7213786345] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
+    [9825515356] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
+    [16859411452] = { BN = "bulletray", BBN = "beam", BP = "Ignored" },
+    [14277620939] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
+    [0] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" }
+}
+local function gP(r, p)
+    if p == "" then return r end
+    local ps = STR.split(p, ".")
+    local c = r
+    for _, pt in ipairs(ps) do
+        c = c:FindFirstChild(pt)
+        if not c then return nil end
+    end
+    return c
+end
+local function dG()
+    local d = gM[game.PlaceId] or gM[0]
+    d.BP = gP(S.WS, d.BP) or S.WS
+    return d
+end
+local function cB(f, t, c1, c2, thickness, texture)
+    local p = Instance.new("Part")
+    p.Name = "BT"
+    p.Parent = S.WS
+    p.Size = V3.zero
+    p.Massless = true
+    p.Transparency = 1
+    p.CanCollide = false
+    p.Position = f
+    p.Anchored = true
+    local p0, p1 = Instance.new("Part"), Instance.new("Part")
+    for _, pt in ipairs({p0, p1}) do
+        pt.Parent = p
+        pt.Size = V3.zero
+        pt.Massless = true
+        pt.Transparency = 1
+        pt.CanCollide = false
+        pt.Anchored = true
+    end
+    p0.Position = f
+    p1.Position = t
+    local a0, a1 = Instance.new("Attachment", p0), Instance.new("Attachment", p1)
+    local b = Instance.new("Beam")
+    b.Texture = texture
+    b.TextureMode = Enum.TextureMode.Wrap
+    b.TextureLength = 10
+    b.LightEmission = 1
+    b.LightInfluence = 1
+    b.FaceCamera = true
+    b.ZOffset = -1
+    b.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1)})
+    b.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, c1), ColorSequenceKeypoint.new(1, c2)})
+    b.Attachment0 = a0
+    b.Attachment1 = a1
+    b.Enabled = true
+    b.Width0 = thickness
+    b.Width1 = thickness
+    b.Parent = p
+    task.delay(1, function() p:Destroy() end)
+end
+local function gG(p)
+    if not p.Character then return end
+    local t = p.Character:FindFirstChildWhichIsA("Tool")
+    if not t then return end
+    for _, o in ipairs(t:GetDescendants()) do
+        if STR.lower(o.Name):find("ammo") and not STR.lower(o.Name):find("max") and o.ClassName:match("Value$") then
+            return { a = o, t = t }
+        end
+    end
+end
+local function sGT(p)
+    for _, cn in ipairs(gS.c) do cn:Disconnect() end
+    gS.c = {}
+    if not p.Character then
+        table.insert(gS.c, p.CharacterAdded:Connect(function() sGT(p) end))
+        return
+    end
+    local function oG(c, ia)
+        if not c:IsA("Tool") then return end
+        if ia then
+            local g = gG(p)
+            if g then
+                gS.t = g.t
+                gS.a = g.a.Value
+                table.insert(gS.c, g.a.Changed:Connect(function(na)
+                    if na < gS.a then
+                        gS.s = true
+                        task.wait()
+                        gS.s = false
+                    end
+                    gS.a = na
+                end))
+            end
+        else
+            if c == gS.t then gS.t, gS.a = nil, 0 end
+        end
+    end
+    table.insert(gS.c, p.Character.ChildAdded:Connect(function(c) oG(c, true) end))
+    table.insert(gS.c, p.Character.ChildRemoved:Connect(function(c) oG(c, false) end))
+    local g = gG(p)
+    if g then oG(g.t, true) end
+end
+local function sE()
+    local g = dG()
+    if not g.BP then return end
+    sGT(LP)
+    if not LP.Character then LP.CharacterAdded:Connect(function() sGT(LP) end) end
+    g.BP.ChildAdded:Connect(function(o)
+        if not gS.s then return end
+        if BulletTracersConfig.Enabled and o.Name == g.BN then
+            local b = o:WaitForChild(g.BBN, 1)
+            if not b then return end
+            local sp, ep = o.Position, b.Attachment1.WorldPosition
+            b:Destroy()
+            cB(
+                sp, ep,
+                BulletTracersConfig.Color1,
+                BulletTracersConfig.Color2,
+                BulletTracersConfig.Thickness,
+                BulletTracersConfig.Texture
+            )
+        end
+    end)
+end
+sE()
+
 local ESPCache, ESPConnections = {}, {}
 local gui_inset = S.GU:GetGuiInset()
 
