@@ -1524,37 +1524,6 @@ NoJumpCDGroup:AddButton({
     Tooltip = 'Remove all seats (Seat/VehicleSeat) in the game'
 })
 
--- === NoSlow (Misc tab, правая секция) ===
-NoJumpCDGroup:AddToggle('No Slow', {
-    Text = 'No Slow',
-    Default = false,
-    Callback = (function()
-        local mt = getrawmetatable(game)
-        local origNewIndex, noSlowHook
-        return function(v)
-            if v then
-                if not origNewIndex then
-                    origNewIndex = mt.__newindex
-                end
-                if not noSlowHook then
-                    noSlowHook = hookfunction(mt.__newindex, newcclosure(function(self, key, value)
-                        if key == "WalkSpeed" and value < 16 then
-                            value = 16
-                        end
-                        return origNewIndex(self, key, value)
-                    end))
-                end
-            else
-                if origNewIndex then
-                    hookfunction(mt.__newindex, origNewIndex)
-                    noSlowHook = nil
-                end
-            end
-        end
-    end)(),
-    Tooltip = 'Prevents WalkSpeed from being set below 16'
-})
-
 -- === AntiInertia (Misc tab, отдельная правая секция) ===
 local AntiInertiaGroup = Tabs.Misc:AddRightGroupbox('>_<')
 
@@ -1611,7 +1580,7 @@ LP.CharacterAdded:Connect(function()
     end
 end)
 
-AntiInertiaGroup:AddToggle('AntiInertia', {
+AntiInertiaGroup:AddToggle('Anti Inertia', {
     Text = 'Anti Inertia',
     Default = false,
     Callback = function(v)
@@ -1938,4 +1907,90 @@ RapidFireM1Group:AddToggle('RapidFireM1Spam', {
         end
     end,
     Tooltip = 'Auto spam Mouse1 (tool activation)'
+})
+
+-- === Destroy Cheaters (Misc tab, новая левая секция) ===
+local DestroyCheatersGroup = Tabs.Misc:AddLeftGroupbox('>_<')
+
+local destroyCheatersEnabled = false -- разрешение работы функции (toggle)
+local destroyCheatersActive = false  -- текущее состояние (keybind)
+local destroyCheatersKey = Enum.KeyCode.X
+local destroyCheatersLastCFrame = nil
+local destroyCheatersHook = nil
+local destroyCheatersConn = nil
+
+local function setDestroyCheatersActive(state)
+    destroyCheatersActive = state
+    getgenv().Finobe1 = state
+    if not state and LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') and destroyCheatersLastCFrame then
+        LP.Character.HumanoidRootPart.CFrame = destroyCheatersLastCFrame
+        Library:Notify('Destroy Cheaters: Disabled', 3)
+    elseif state then
+        destroyCheatersLastCFrame = nil
+        Library:Notify('Destroy Cheaters: Enabled', 3)
+    end
+end
+
+if destroyCheatersConn then destroyCheatersConn:Disconnect() end
+
+destroyCheatersConn = HRT:Connect(function()
+    if not destroyCheatersEnabled or not destroyCheatersActive then return end
+    if LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') then
+        local hrp = LP.Character.HumanoidRootPart
+        local offset = hrp.CFrame * CFrame.new(9e9, 0/0, math.huge)
+        destroyCheatersLastCFrame = hrp.CFrame
+        hrp.CFrame = offset
+        RND:Wait()
+        hrp.CFrame = destroyCheatersLastCFrame
+    end
+end)
+
+if destroyCheatersHook == nil then
+    destroyCheatersHook = hookmetamethod(game, "__index", newcclosure(function(self, key)
+        if not checkcaller() then
+            if key == "CFrame" and getgenv().Finobe1 and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character:FindFirstChild("Humanoid") and LP.Character:FindFirstChild("Humanoid").Health > 0 then
+                if self == LP.Character.HumanoidRootPart and destroyCheatersLastCFrame ~= nil then
+                    return destroyCheatersLastCFrame
+                end
+            end
+        end
+        return destroyCheatersHook(self, key)
+    end))
+end
+
+local destroyCheatersKeyConn
+if destroyCheatersKeyConn then destroyCheatersKeyConn:Disconnect() end
+
+destroyCheatersKeyConn = S.UIS.InputBegan:Connect(function(input, gp)
+    if not gp and input.KeyCode == destroyCheatersKey and destroyCheatersEnabled then
+        setDestroyCheatersActive(not destroyCheatersActive)
+    end
+end)
+
+DestroyCheatersGroup:AddToggle('DestroyCheaters', {
+    Text = 'Destroy Cheaters',
+    Default = false,
+    Callback = function(v)
+        destroyCheatersEnabled = v
+        if not v and destroyCheatersActive then
+            setDestroyCheatersActive(false)
+        end
+    end,
+    Tooltip = 'Enable keybind to toggle anti-exploit position breaker.'
+}):AddKeyPicker('DestroyCheatersKey', {
+    Default = 'X',
+    Text = 'Keybind',
+    NoUI = false,
+    Callback = function(key)
+        destroyCheatersKey = Enum.KeyCode[key] or Enum.KeyCode.X
+    end
+})
+
+DestroyCheatersGroup:AddButton({
+    Text = 'Destroy Void',
+    Func = function()
+        workspace.FallenPartsDestroyHeight = 0/0
+        Library:Notify('Void destroyed!', 3)
+    end,
+    Tooltip = 'Set FallenPartsDestroyHeight to NaN'
 })
