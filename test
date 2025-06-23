@@ -1523,3 +1523,99 @@ NoJumpCDGroup:AddButton({
     end,
     Tooltip = 'Remove all seats (Seat/VehicleSeat) in the game'
 })
+
+-- === NoSlow (Misc tab, правая секция) ===
+NoJumpCDGroup:AddToggle('No Slow', {
+    Text = 'No Slow',
+    Default = false,
+    Callback = (function()
+        local mt = getrawmetatable(game)
+        local origNewIndex, noSlowHook
+        return function(v)
+            if v then
+                if not origNewIndex then
+                    origNewIndex = mt.__newindex
+                end
+                if not noSlowHook then
+                    noSlowHook = hookfunction(mt.__newindex, newcclosure(function(self, key, value)
+                        if key == "WalkSpeed" and value < 16 then
+                            value = 16
+                        end
+                        return origNewIndex(self, key, value)
+                    end))
+                end
+            else
+                if origNewIndex then
+                    hookfunction(mt.__newindex, origNewIndex)
+                    noSlowHook = nil
+                end
+            end
+        end
+    end)(),
+    Tooltip = 'Prevents WalkSpeed from being set below 16'
+})
+
+-- === AntiInertia (Misc tab, отдельная правая секция) ===
+local AntiInertiaGroup = Tabs.Misc:AddRightGroupbox('>_<')
+
+local AntiInertiaSettings = {
+    Enabled = false,
+    Speed = {
+        Ground = 0.3,
+        Air = 0.3
+    },
+    NoInertia = true
+}
+
+local antiInertiaConnection = nil
+
+local function ToggleAntiInertia(state)
+    AntiInertiaSettings.Enabled = state
+    if antiInertiaConnection then
+        antiInertiaConnection:Disconnect()
+        antiInertiaConnection = nil
+    end
+    if state then
+        antiInertiaConnection = HRT:Connect(function()
+            if not AntiInertiaSettings.Enabled then return end
+            local character = LP.Character
+            if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if not humanoid then return end
+            local rootPart = character.HumanoidRootPart
+            local moveDir = humanoid.MoveDirection
+            if moveDir.Magnitude > 0 then
+                local speedMult = (humanoid:GetState() == Enum.HumanoidStateType.Freefall or humanoid:GetState() == Enum.HumanoidStateType.Jumping)
+                    and AntiInertiaSettings.Speed.Air or AntiInertiaSettings.Speed.Ground
+                local newVel = moveDir * speedMult * 50
+                if AntiInertiaSettings.NoInertia then
+                    rootPart.Velocity = Vector3.new(newVel.X, rootPart.Velocity.Y, newVel.Z)
+                else
+                    local curVel = rootPart.Velocity
+                    rootPart.Velocity = Vector3.new(
+                        curVel.X + (newVel.X - curVel.X) * 0.5,
+                        rootPart.Velocity.Y,
+                        curVel.Z + (newVel.Z - curVel.Z) * 0.5
+                    )
+                end
+            elseif AntiInertiaSettings.NoInertia then
+                rootPart.Velocity = Vector3.new(0, rootPart.Velocity.Y, 0)
+            end
+        end)
+    end
+end
+
+LP.CharacterAdded:Connect(function()
+    if AntiInertiaSettings.Enabled then
+        ToggleAntiInertia(true)
+    end
+end)
+
+AntiInertiaGroup:AddToggle('AntiInertia', {
+    Text = 'Anti Inertia',
+    Default = false,
+    Callback = function(v)
+        ToggleAntiInertia(v)
+    end,
+    Tooltip = 'Removes inertia from movement (instant stop/start)'
+})
