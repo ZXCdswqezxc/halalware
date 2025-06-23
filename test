@@ -1077,3 +1077,94 @@ S.RS.RenderStepped:Connect(function()
         end
     end
 end)
+
+-- === World Controller UI (LEFT) ===
+local WorldGroup = Tabs.Visuals:AddLeftGroupbox('>_<')
+
+local Lighting = S.LS
+local function ensureCC()
+    local cc = Lighting:FindFirstChildOfClass('ColorCorrectionEffect')
+    if not cc then
+        cc = Instance.new('ColorCorrectionEffect')
+        cc.Parent = Lighting
+        cc.Enabled = true
+    end
+    return cc
+end
+local cc = ensureCC()
+
+local WorldConfig = {
+    FogEnabled = false,
+    FogColor = Color3.new(1,1,1),
+    FogStart = Lighting.FogStart or 0,
+    FogEnd = Lighting.FogEnd or 100,
+    Shadows = false,
+    ShadowColor = Lighting.ShadowColor or Color3.new(0,0,0),
+    Time = Lighting.ClockTime or 12,
+    Saturation = cc.Saturation or 0,
+    Brightness = cc.Brightness or 0
+}
+
+local function applyWorld()
+    if WorldConfig.FogEnabled then
+        Lighting.FogStart = WorldConfig.FogStart
+        Lighting.FogEnd = WorldConfig.FogEnd
+        Lighting.FogColor = WorldConfig.FogColor
+    else
+        Lighting.FogStart = 1e6
+        Lighting.FogEnd = 1e6
+        -- Не трогаем Lighting.FogColor
+    end
+    Lighting.GlobalShadows = WorldConfig.Shadows
+    Lighting.ShadowColor = WorldConfig.ShadowColor
+    Lighting.ClockTime = WorldConfig.Time
+    local cc = ensureCC()
+    cc.Saturation = WorldConfig.Saturation
+    cc.Brightness = WorldConfig.Brightness
+end
+
+local FogToggle = WorldGroup:AddToggle('FogEnabled', {
+    Text = 'Fog',
+    Default = false,
+    Callback = function(v) WorldConfig.FogEnabled = v; applyWorld() end
+})
+FogToggle:AddColorPicker('FogColor', {
+    Default = Color3.new(1,1,1),
+    Title = 'Col',
+    Callback = function(val) WorldConfig.FogColor = val; applyWorld() end
+})
+WorldGroup:AddSlider('FogStart', {
+    Text = 'FStart',
+    Default = WorldConfig.FogStart,
+    Min = 0, Max = 10000, Rounding = 1,
+    Callback = function(val) WorldConfig.FogStart = val; applyWorld() end
+})
+WorldGroup:AddSlider('FogEnd', {
+    Text = 'FEnd',
+    Default = WorldConfig.FogEnd,
+    Min = 0, Max = 10000, Rounding = 1,
+    Callback = function(val) WorldConfig.FogEnd = val; applyWorld() end
+})
+local ShadowsToggle = WorldGroup:AddToggle('Shadows', {
+    Text = 'Shadows',
+    Default = false,
+    Callback = function(v) WorldConfig.Shadows = v; applyWorld() end
+})
+WorldGroup:AddSlider('Time', {
+    Text = 'Time',
+    Default = WorldConfig.Time,
+    Min = 0, Max = 24, Rounding = 1,
+    Callback = function(val) WorldConfig.Time = val; applyWorld() end
+})
+WorldGroup:AddSlider('Saturation', {
+    Text = 'Sat',
+    Default = WorldConfig.Saturation,
+    Min = -1, Max = 1, Rounding = 1,
+    Callback = function(val) WorldConfig.Saturation = val; applyWorld() end
+})
+WorldGroup:AddSlider('Brightness', {
+    Text = 'Brt',
+    Default = WorldConfig.Brightness,
+    Min = -1, Max = 1, Rounding = 1,
+    Callback = function(val) WorldConfig.Brightness = val; applyWorld() end
+})
