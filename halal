@@ -112,20 +112,20 @@ local ESPConfig = {
     Enabled = false,
     MaxDistance = 200,
     Box = {
-        Enable = true,
+        Enable = false, -- выключено по умолчанию
         Type = 'Full',
         Font = 'ProggyClean',
         Color = Color3.fromRGB(255, 255, 255),
         Filled = {
             Enable = false,
             Gradient = {
-                Enable = true,
+                Enable = false,
                 Color = {
                     Start = Color3.fromRGB(255, 255, 255),
                     End = Color3.fromRGB(255, 255, 255),
                 },
                 Rotation = {
-                    Enable = true,
+                    Enable = false,
                     Auto = true,
                 },
                 Transparency = 0.3,
@@ -133,26 +133,26 @@ local ESPConfig = {
         }
     },
     Text = {
-        Enable = true,
+        Enable = false,
         Name = {
-            Enable = true,
+            Enable = false,
             Teamcheck = true,
             Color = Color3.fromRGB(255, 255, 255),
         },
         Studs = {
-            Enable = true,
+            Enable = false,
             Color = Color3.fromRGB(255, 255, 255),
         },
         Tool = {
-            Enable = true,
+            Enable = false,
             Color = Color3.fromRGB(255, 255, 255),
         },
     },
     Bars = {
-        Enable = true,
+        Enable = false,
         Health = {
             ShowOutline = false,
-            Enable = true,
+            Enable = false,
             Lerp = true,
             Color1 = Color3.fromRGB(255, 255, 255)
         }
@@ -162,7 +162,7 @@ local ESPConfig = {
 local ESPGroup = Tabs.Visuals:AddLeftGroupbox('>_<')
 ESPGroup:AddToggle('ESPEnabled', {
     Text = 'ESP',
-    Default = ESPConfig.Enabled,
+    Default = false,
     Callback = function(v) ESPConfig.Enabled = v end
 })
 ESPGroup:AddSlider('ESPMaxDist', {
@@ -173,7 +173,7 @@ ESPGroup:AddSlider('ESPMaxDist', {
 })
 ESPGroup:AddToggle('ESPBox', {
     Text = 'Box',
-    Default = ESPConfig.Box.Enable,
+    Default = false,
     Callback = function(v) ESPConfig.Box.Enable = v end
 }):AddColorPicker('ESPBoxColor', {
     Default = ESPConfig.Box.Color,
@@ -181,7 +181,7 @@ ESPGroup:AddToggle('ESPBox', {
 })
 ESPGroup:AddToggle('ESPBoxFilled', {
     Text = 'Filled',
-    Default = ESPConfig.Box.Filled.Enable,
+    Default = false,
     Callback = function(v) ESPConfig.Box.Filled.Enable = v end
 }):AddColorPicker('ESPBoxGradStart', {
     Default = ESPConfig.Box.Filled.Gradient.Color.Start,
@@ -192,7 +192,7 @@ ESPGroup:AddToggle('ESPBoxFilled', {
 })
 ESPGroup:AddToggle('ESPBoxGradient', {
     Text = 'Gradient Anim',
-    Default = ESPConfig.Box.Filled.Gradient.Enable,
+    Default = false,
     Callback = function(v) ESPConfig.Box.Filled.Gradient.Enable = v end
 })
 ESPGroup:AddSlider('ESPBoxGradTrans', {
@@ -202,12 +202,12 @@ ESPGroup:AddSlider('ESPBoxGradTrans', {
 })
 ESPGroup:AddToggle('ESPText', {
     Text = 'Text',
-    Default = ESPConfig.Text.Enable,
+    Default = false,
     Callback = function(v) ESPConfig.Text.Enable = v end
 })
 ESPGroup:AddToggle('ESPName', {
     Text = 'Name',
-    Default = ESPConfig.Text.Name.Enable,
+    Default = false,
     Callback = function(v) ESPConfig.Text.Name.Enable = v end
 }):AddColorPicker('ESPNameColor', {
     Default = ESPConfig.Text.Name.Color,
@@ -215,7 +215,7 @@ ESPGroup:AddToggle('ESPName', {
 })
 ESPGroup:AddToggle('ESPStuds', {
     Text = 'Studs',
-    Default = ESPConfig.Text.Studs.Enable,
+    Default = false,
     Callback = function(v) ESPConfig.Text.Studs.Enable = v end
 }):AddColorPicker('ESPStudsColor', {
     Default = ESPConfig.Text.Studs.Color,
@@ -223,7 +223,7 @@ ESPGroup:AddToggle('ESPStuds', {
 })
 ESPGroup:AddToggle('ESPTool', {
     Text = 'Tool',
-    Default = ESPConfig.Text.Tool.Enable,
+    Default = false,
     Callback = function(v) ESPConfig.Text.Tool.Enable = v end
 }):AddColorPicker('ESPToolColor', {
     Default = ESPConfig.Text.Tool.Color,
@@ -231,7 +231,7 @@ ESPGroup:AddToggle('ESPTool', {
 })
 ESPGroup:AddToggle('ESPHealthbar', {
     Text = 'Healthbar',
-    Default = ESPConfig.Bars.Health.Enable,
+    Default = false,
     Callback = function(v) ESPConfig.Bars.Health.Enable = v end
 }):AddColorPicker('ESPHealthbarColor', {
     Default = ESPConfig.Bars.Health.Color1,
@@ -257,7 +257,7 @@ local BulletTextures = {
 
 local BulletToggle = BulletTracersGroup:AddToggle('BulletTracersEnabled', {
     Text = 'Tracer',
-    Default = BulletTracersConfig.Enabled,
+    Default = false,
     Callback = function(v) BulletTracersConfig.Enabled = v end
 })
 BulletToggle:AddColorPicker('BulletTracersColor1', {
@@ -2168,29 +2168,30 @@ SilentAimGroup:AddLabel('Sticky Key'):AddKeyPicker('SilentAimStickyKey', {
 -- ... существующий UI для Silent Aim ...
 SilentAimGroup:AddToggle('SilentAimWallCheck', {
     Text = 'Wall Check',
-    Default = getgenv().SilentAim.Misc.Checks.WallCheck,
+    Default = false,
     Callback = function(v) getgenv().SilentAim.Misc.Checks.WallCheck = v end
 })
 SilentAimGroup:AddToggle('SilentAimKOCheck', {
     Text = 'KO Check',
-    Default = getgenv().SilentAim.Misc.Checks.KOCheck,
+    Default = false,
     Callback = function(v) getgenv().SilentAim.Misc.Checks.KOCheck = v end
 })
 SilentAimGroup:AddToggle('SilentAimGrabbedCheck', {
     Text = 'Grabbed Check',
-    Default = getgenv().SilentAim.Misc.Checks.GrabbedCheck,
+    Default = false,
     Callback = function(v) getgenv().SilentAim.Misc.Checks.GrabbedCheck = v end
 })
 SilentAimGroup:AddToggle('SilentAimTargetDeathCheck', {
     Text = 'Target Death Check',
-    Default = getgenv().SilentAim.Misc.Checks.TargetDeathCheck,
+    Default = false,
     Callback = function(v) getgenv().SilentAim.Misc.Checks.TargetDeathCheck = v end
 })
 SilentAimGroup:AddToggle('SilentAimResolverEnabled', {
     Text = 'Resolver',
-    Default = getgenv().SilentAim.Misc.Checks.Resolver.Enabled,
+    Default = false,
     Callback = function(v) getgenv().SilentAim.Misc.Checks.Resolver.Enabled = v end
 })
+
 SilentAimGroup:AddDropdown('SilentAimResolverType', {
     Text = 'Resolver Type',
     Values = {'Calculate CFrame', 'Velocity', 'Move direction'},
@@ -2585,5 +2586,146 @@ CrosshairGroup:AddSlider('CrosshairAngle', {
 S.UIS.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.R and not gameProcessed and CrosshairConfig.Enabled then
         CrosshairConfig.Rotate = not CrosshairConfig.Rotate
+    end
+end)
+
+-- === HitChams (Combat tab, правая секция) ===
+local HitChamsConfig = {
+    Enabled = false,
+    Material = Enum.Material.Neon,
+    Duration = 2,
+    Color = Color3.fromRGB(255, 0, 0),
+    Transparency = 0,
+}
+
+local function HitChams(Player, config)
+    config = config or HitChamsConfig
+    if not config.Enabled then return end
+    if Player and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        Player.Character.Archivable = true
+        local Cloned = Player.Character:Clone()
+        Cloned.Name = "Player Clone"
+        local BodyParts = {
+            "Head", "UpperTorso", "LowerTorso",
+            "LeftUpperArm", "LeftLowerArm", "LeftHand",
+            "RightUpperArm", "RightLowerArm", "RightHand",
+            "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
+            "RightUpperLeg", "RightLowerLeg", "RightFoot"
+        }
+        for _, Part in ipairs(Cloned:GetChildren()) do
+            if Part:IsA("BasePart") then
+                local PartValid = false
+                for _, validPart in ipairs(BodyParts) do
+                    if Part.Name == validPart then
+                        PartValid = true
+                        break
+                    end
+                end
+                if not PartValid then
+                    Part:Destroy()
+                end
+            elseif Part:IsA("Accessory") or Part:IsA("Tool") or Part.Name == "face" or Part:IsA("Shirt") or Part:IsA("Pants") or Part:IsA("Hat") then
+                Part:Destroy()
+            end
+        end
+        if Cloned:FindFirstChild("Humanoid") then
+            Cloned.Humanoid:Destroy()
+        end
+        for _, BodyPart in ipairs(Cloned:GetChildren()) do
+            if BodyPart:IsA("BasePart") then
+                BodyPart.CanCollide = false
+                BodyPart.Anchored = true
+                BodyPart.Transparency = config.Transparency
+                BodyPart.Color = config.Color
+                BodyPart.Material = config.Material
+            end
+        end
+        if Cloned:FindFirstChild("Head") then
+            local Head = Cloned.Head
+            Head.Transparency = config.Transparency
+            Head.Color = config.Color
+            Head.Material = config.Material
+            if Head:FindFirstChild("face") then
+                Head.face:Destroy()
+            end
+        end
+        Cloned.Parent = game.Workspace
+        local tweenInfo = TweenInfo.new(
+            config.Duration,
+            Enum.EasingStyle.Sine,
+            Enum.EasingDirection.InOut,
+            0,
+            true
+        )
+        for _, BodyPart in ipairs(Cloned:GetChildren()) do
+            if BodyPart:IsA("BasePart") then
+                local tween = game:GetService("TweenService"):Create(BodyPart, tweenInfo, { Transparency = 1 })
+                tween:Play()
+            end
+        end
+        task.delay(config.Duration, function()
+            if Cloned and Cloned.Parent then
+                Cloned:Destroy()
+            end
+        end)
+    end
+end
+
+local HitChamsGroup = Tabs.Combat:AddRightGroupbox('>_<')
+HitChamsGroup:AddToggle('HitChamsEnabled', {
+    Text = 'HitChams',
+    Default = false,
+    Callback = function(v) HitChamsConfig.Enabled = v end,
+    Tooltip = 'Show chams on aimbot target when HP decreases.'
+})
+:AddColorPicker('HitChamsColor', {
+    Default = HitChamsConfig.Color,
+    Title = 'Color',
+    Callback = function(val) HitChamsConfig.Color = val end
+})
+HitChamsGroup:AddSlider('HitChamsDuration', {
+    Text = 'Duration',
+    Default = HitChamsConfig.Duration,
+    Min = 0.2, Max = 5, Rounding = 2,
+    Callback = function(val) HitChamsConfig.Duration = val end
+})
+HitChamsGroup:AddSlider('HitChamsTransparency', {
+    Text = 'Transparency',
+    Default = HitChamsConfig.Transparency,
+    Min = 0, Max = 1, Rounding = 2,
+    Callback = function(val) HitChamsConfig.Transparency = val end
+})
+HitChamsGroup:AddDropdown('HitChamsMaterial', {
+    Text = 'Material',
+    Values = {'Neon', 'ForceField', 'Plastic', 'SmoothPlastic', 'Glass'},
+    Default = 'Neon',
+    Callback = function(val)
+        local mat = Enum.Material[val] or Enum.Material.Neon
+        HitChamsConfig.Material = mat
+    end
+})
+
+-- Логика: отслеживание уменьшения HP у цели аимбота
+local lastTarget, lastHP
+RND:Connect(function()
+    if not HitChamsConfig.Enabled then
+        lastTarget, lastHP = nil, nil
+        return
+    end
+    local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget
+    if target and target.Character and target.Character:FindFirstChild('Humanoid') then
+        local hum = target.Character.Humanoid
+        local hp = hum.Health
+        if lastTarget ~= target then
+            lastTarget = target
+            lastHP = hp
+        else
+            if hp < lastHP then
+                HitChams(target, HitChamsConfig)
+            end
+            lastHP = hp
+        end
+    else
+        lastTarget, lastHP = nil, nil
     end
 end)
