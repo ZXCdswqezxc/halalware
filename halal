@@ -2385,3 +2385,205 @@ end
 
 -- ... остальной код ...
 -- ... остальной код ...
+
+-- === Crosshair (Visuals tab, right) ===
+local CrosshairGroup = Tabs.Visuals:AddRightGroupbox('>_<')
+
+local CrosshairConfig = {
+    Enabled = false,
+    Color = Color3.fromRGB(255, 255, 255),
+    Length = 100,
+    Spacing = 5,
+    Thickness = 2,
+    Rotate = true,
+    RotSpeed = 350,
+    Outline = false,
+    OutlineColor = Color3.fromRGB(0, 0, 0),
+    OutlineThickness = 4,
+    AttachToTarget = false,
+    AttachPart = 'UpperTorso',
+    StaticAngle = 0,
+}
+
+local crosshairLines, crosshairOutlines = {}, {}
+local crosshairAngle = 0
+local crosshairConn = nil
+
+local function destroyCrosshair()
+    for _, line in ipairs(crosshairLines) do pcall(function() line:Remove() end) end
+    for _, line in ipairs(crosshairOutlines) do pcall(function() line:Remove() end) end
+    crosshairLines, crosshairOutlines = {}, {}
+    if crosshairConn then crosshairConn:Disconnect() crosshairConn = nil end
+end
+
+local function createCrosshair()
+    destroyCrosshair()
+    for i = 1, 4 do
+        crosshairLines[i] = Drawing.new("Line")
+        if CrosshairConfig.Outline then
+            crosshairOutlines[i] = Drawing.new("Line")
+        end
+    end
+    crosshairConn = S.RS.RenderStepped:Connect(function(dt)
+        if not CrosshairConfig.Enabled then
+            for _, l in ipairs(crosshairLines) do l.Visible = false end
+            for _, l in ipairs(crosshairOutlines) do l.Visible = false end
+            return
+        end
+        local mousePos
+        if CrosshairConfig.AttachToTarget and getgenv().SilentAim and getgenv().SilentAim.currentTarget then
+            local target = getgenv().SilentAim.currentTarget
+            if target and target.Character then
+                local part = target.Character:FindFirstChild(CrosshairConfig.AttachPart) or target.Character:FindFirstChild('HumanoidRootPart')
+                if part then
+                    local screenPos, onScreen = S.WS.CurrentCamera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        mousePos = V2.new(screenPos.X, screenPos.Y)
+                    end
+                end
+            end
+        end
+        if not mousePos then
+            mousePos = S.UIS:GetMouseLocation()
+        end
+        if CrosshairConfig.Rotate then
+            crosshairAngle = crosshairAngle + CrosshairConfig.RotSpeed * dt
+        else
+            crosshairAngle = CrosshairConfig.StaticAngle
+        end
+        local rad = math.rad(crosshairAngle)
+        local cosA, sinA = math.cos(rad), math.sin(rad)
+        local function rot(x, y)
+            return V2.new(cosA * x - sinA * y, sinA * x + cosA * y)
+        end
+        local points = {
+            {V2.new(0, -CrosshairConfig.Length/2 - CrosshairConfig.Spacing), V2.new(0, -CrosshairConfig.Spacing)},
+            {V2.new(0, CrosshairConfig.Spacing), V2.new(0, CrosshairConfig.Length/2 + CrosshairConfig.Spacing)},
+            {V2.new(-CrosshairConfig.Length/2 - CrosshairConfig.Spacing, 0), V2.new(-CrosshairConfig.Spacing, 0)},
+            {V2.new(CrosshairConfig.Spacing, 0), V2.new(CrosshairConfig.Length/2 + CrosshairConfig.Spacing, 0)}
+        }
+        for i = 1, 4 do
+            local startPoint = rot(points[i][1].X, points[i][1].Y)
+            local endPoint = rot(points[i][2].X, points[i][2].Y)
+            if CrosshairConfig.Outline and crosshairOutlines[i] then
+                local ol = crosshairOutlines[i]
+                ol.Visible = true
+                ol.Thickness = CrosshairConfig.OutlineThickness
+                ol.Color = CrosshairConfig.OutlineColor
+                ol.From = mousePos + startPoint
+                ol.To = mousePos + endPoint
+                ol.ZIndex = 0
+            elseif crosshairOutlines[i] then
+                crosshairOutlines[i].Visible = false
+            end
+            local l = crosshairLines[i]
+            l.Visible = true
+            l.Thickness = CrosshairConfig.Thickness
+            l.Color = CrosshairConfig.Color
+            l.From = mousePos + startPoint
+            l.To = mousePos + endPoint
+            l.ZIndex = 1
+        end
+    end)
+end
+
+CrosshairGroup:AddToggle('CrosshairEnabled', {
+    Text = 'Crosshair',
+    Default = false,
+    Callback = function(v)
+        CrosshairConfig.Enabled = v
+        if v then createCrosshair() else destroyCrosshair() end
+    end
+})
+:AddColorPicker('CrosshairColor', {
+    Default = CrosshairConfig.Color,
+    Title = 'Color',
+    Callback = function(val) CrosshairConfig.Color = val end
+})
+
+CrosshairGroup:AddSlider('CrosshairLength', {
+    Text = 'Length',
+    Default = CrosshairConfig.Length,
+    Min = 10, Max = 300, Rounding = 0,
+    Callback = function(val) CrosshairConfig.Length = val end
+})
+CrosshairGroup:AddSlider('CrosshairSpacing', {
+    Text = 'Spacing',
+    Default = CrosshairConfig.Spacing,
+    Min = 0, Max = 30, Rounding = 0,
+    Callback = function(val) CrosshairConfig.Spacing = val end
+})
+CrosshairGroup:AddSlider('CrosshairThickness', {
+    Text = 'Thickness',
+    Default = CrosshairConfig.Thickness,
+    Min = 1, Max = 10, Rounding = 0,
+    Callback = function(val) CrosshairConfig.Thickness = val end
+})
+CrosshairGroup:AddSlider('CrosshairRotSpeed', {
+    Text = 'RotSpeed',
+    Default = CrosshairConfig.RotSpeed,
+    Min = 0, Max = 1000, Rounding = 0,
+    Callback = function(val) CrosshairConfig.RotSpeed = val end
+})
+CrosshairGroup:AddToggle('CrosshairRotate', {
+    Text = 'Rotate',
+    Default = CrosshairConfig.Rotate,
+    Callback = function(v)
+        CrosshairConfig.Rotate = v
+        if not v then
+            crosshairAngle = CrosshairConfig.StaticAngle
+        end
+    end
+})
+CrosshairGroup:AddToggle('CrosshairOutline', {
+    Text = 'Outline',
+    Default = CrosshairConfig.Outline,
+    Callback = function(v)
+        CrosshairConfig.Outline = v
+        if CrosshairConfig.Enabled then createCrosshair() end
+    end
+})
+:AddColorPicker('CrosshairOutlineColor', {
+    Default = CrosshairConfig.OutlineColor,
+    Title = 'Outline Color',
+    Callback = function(val) CrosshairConfig.OutlineColor = val end
+})
+CrosshairGroup:AddSlider('CrosshairOutlineThickness', {
+    Text = 'Outline Th.',
+    Default = CrosshairConfig.OutlineThickness,
+    Min = 1, Max = 20, Rounding = 0,
+    Callback = function(val) CrosshairConfig.OutlineThickness = val end
+})
+
+CrosshairGroup:AddToggle('CrosshairAttachToTarget', {
+    Text = 'Attach to Target',
+    Default = false,
+    Callback = function(v) CrosshairConfig.AttachToTarget = v end,
+    Tooltip = 'Прицел крепится к цели (SilentAim)' 
+})
+CrosshairGroup:AddDropdown('CrosshairAttachPart', {
+    Text = 'Attach Part',
+    Values = {'UpperTorso', 'HumanoidRootPart', 'Head', 'LowerTorso'},
+    Default = 'UpperTorso',
+    Callback = function(val) CrosshairConfig.AttachPart = val end,
+    Tooltip = 'К какой части цели крепить прицел'
+})
+
+CrosshairGroup:AddSlider('CrosshairAngle', {
+    Text = 'Angle',
+    Default = CrosshairConfig.StaticAngle,
+    Min = 0, Max = 360, Rounding = 0,
+    Callback = function(val)
+        CrosshairConfig.StaticAngle = val
+        if not CrosshairConfig.Rotate then
+            crosshairAngle = val
+        end
+    end
+})
+
+-- Hotkey for rotate toggle (R)
+S.UIS.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.R and not gameProcessed and CrosshairConfig.Enabled then
+        CrosshairConfig.Rotate = not CrosshairConfig.Rotate
+    end
+end)
