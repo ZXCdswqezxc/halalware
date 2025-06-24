@@ -2097,12 +2097,12 @@ getgenv().SilentAim = {
     },
     Misc = {
         Checks = {
-            WallCheck = true,
+            WallCheck = false,
             TargetDeathCheck = false,
-            KOCheck = true,
-            GrabbedCheck = true,
+            KOCheck = false,
+            GrabbedCheck = false,
             Resolver = {
-                Enabled = true,
+                Enabled = false,
                 Type = "Calculate CFrame",
             },
         },
@@ -2598,6 +2598,7 @@ local HitChamsConfig = {
     Transparency = 0,
 }
 
+-- ВОССТАНОВЛЕНИЕ HitChams
 local function HitChams(Player, config)
     config = config or HitChamsConfig
     if not config.Enabled then return end
@@ -2671,8 +2672,52 @@ local function HitChams(Player, config)
     end
 end
 
+-- === HitSounds (инлайн-модуль) ===
+local HitSoundsConfig = {
+    Enabled = false,
+    Sound = "Bameware",
+    Volume = 1,
+}
+local hitsounds = {
+    ["RIFK7"]        = "rbxassetid://9102080552",
+    ["Bubble"]       = "rbxassetid://6534947588",
+    ["Minecraft"]    = "rbxassetid://8837706727",
+    ["Cod"]          = "rbxassetid://160432334",
+    ["Bameware"]     = "rbxassetid://3124331820",
+    ["Neverlose"]    = "rbxassetid://6534948092",
+    ["Gamesense"]    = "rbxassetid://4817809188",
+    ["Rust"]         = "rbxassetid://1255040462",
+    ["Bruh"]         = "rbxassetid://4578740568",
+    ["Bell"]         = "rbxassetid://6534947240",
+    ["Pick"]         = "rbxassetid://1347140027",
+    ["Pop"]          = "rbxassetid://198598793",
+    ["Sans"]         = "rbxassetid://3188795283",
+    ["Fart"]         = "rbxassetid://130833677",
+    ["Big"]          = "rbxassetid://5332005053",
+    ["Vine"]         = "rbxassetid://5332680810",
+    ["Skeet"]        = "rbxassetid://5633695679",
+    ["Fatality"]     = "rbxassetid://6534947869",
+    ["Bonk"]         = "rbxassetid://5766898159",
+    ["Totem"]        = "rbxassetid://135055101757201",
+    ["CSHS"]         = "rbxassetid://9065951723",
+}
+local function PlayHitSound(config)
+    config = config or HitSoundsConfig
+    if not config.Enabled then return end
+    local soundId = hitsounds[config.Sound]
+    if not soundId then return end
+    local sound = Instance.new("Sound")
+    sound.SoundId = soundId
+    sound.Volume = config.Volume or 1
+    sound.Parent = S.SS
+    sound:Play()
+    sound.Ended:Connect(function()
+        sound:Destroy()
+    end)
+end
+
 local HitChamsGroup = Tabs.Combat:AddRightGroupbox('>_<')
-HitChamsGroup:AddToggle('HitChamsEnabled', {
+local HitChamsToggle = HitChamsGroup:AddToggle('HitChamsEnabled', {
     Text = 'HitChams',
     Default = false,
     Callback = function(v) HitChamsConfig.Enabled = v end,
@@ -2683,19 +2728,22 @@ HitChamsGroup:AddToggle('HitChamsEnabled', {
     Title = 'Color',
     Callback = function(val) HitChamsConfig.Color = val end
 })
-HitChamsGroup:AddSlider('HitChamsDuration', {
+
+-- Саббокс для HitChams
+local HitChamsSub = HitChamsGroup:AddDependencyBox()
+HitChamsSub:AddSlider('HitChamsDuration', {
     Text = 'Duration',
     Default = HitChamsConfig.Duration,
     Min = 0.2, Max = 5, Rounding = 2,
     Callback = function(val) HitChamsConfig.Duration = val end
 })
-HitChamsGroup:AddSlider('HitChamsTransparency', {
+HitChamsSub:AddSlider('HitChamsTransparency', {
     Text = 'Transparency',
     Default = HitChamsConfig.Transparency,
     Min = 0, Max = 1, Rounding = 2,
     Callback = function(val) HitChamsConfig.Transparency = val end
 })
-HitChamsGroup:AddDropdown('HitChamsMaterial', {
+HitChamsSub:AddDropdown('HitChamsMaterial', {
     Text = 'Material',
     Values = {'Neon', 'ForceField', 'Plastic', 'SmoothPlastic', 'Glass'},
     Default = 'Neon',
@@ -2704,11 +2752,34 @@ HitChamsGroup:AddDropdown('HitChamsMaterial', {
         HitChamsConfig.Material = mat
     end
 })
+HitChamsSub:SetupDependencies({{Toggles.HitChamsEnabled, true}})
+
+-- Тоггл и саббокс для HitSounds
+local HitSoundsToggle = HitChamsGroup:AddToggle('HitSoundsEnabled', {
+    Text = 'HitSounds',
+    Default = false,
+    Callback = function(v) HitSoundsConfig.Enabled = v end,
+    Tooltip = 'Play sound on aimbot hit.'
+})
+local HitSoundsSub = HitChamsGroup:AddDependencyBox()
+HitSoundsSub:AddDropdown('HitSoundsSound', {
+    Text = 'Sound',
+    Values = (function() local t = {}; for k in pairs(hitsounds) do table.insert(t, k) end; table.sort(t); return t end)(),
+    Default = HitSoundsConfig.Sound,
+    Callback = function(val) HitSoundsConfig.Sound = val end
+})
+HitSoundsSub:AddSlider('HitSoundsVolume', {
+    Text = 'Volume',
+    Default = HitSoundsConfig.Volume,
+    Min = 0, Max = 3, Rounding = 2,
+    Callback = function(val) HitSoundsConfig.Volume = val end
+})
+HitSoundsSub:SetupDependencies({{Toggles.HitSoundsEnabled, true}})
 
 -- Логика: отслеживание уменьшения HP у цели аимбота
 local lastTarget, lastHP
 RND:Connect(function()
-    if not HitChamsConfig.Enabled then
+    if not HitChamsConfig.Enabled and not HitSoundsConfig.Enabled then
         lastTarget, lastHP = nil, nil
         return
     end
@@ -2721,7 +2792,12 @@ RND:Connect(function()
             lastHP = hp
         else
             if hp < lastHP then
-                HitChams(target, HitChamsConfig)
+                if HitChamsConfig.Enabled then
+                    HitChams(target, HitChamsConfig)
+                end
+                if HitSoundsConfig.Enabled then
+                    PlayHitSound(HitSoundsConfig)
+                end
             end
             lastHP = hp
         end
