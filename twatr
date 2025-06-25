@@ -24,7 +24,8 @@ local M = {
 }
 
 local T = {
-    insert = table.insert, remove = table.remove, sort = table.sort, find = table.find, concat = table.concat
+    insert = table.insert, remove = table.remove, sort = table.sort, find = table.find, concat = table.concat,
+    clear = table.clear
 }
 
 local STR = {
@@ -373,7 +374,7 @@ local function sGT(p)
     for _, cn in ipairs(gS.c) do cn:Disconnect() end
     gS.c = {}
     if not p.Character then
-        table.insert(gS.c, p.CharacterAdded:Connect(function() sGT(p) end))
+        T.insert(gS.c, p.CharacterAdded:Connect(function() sGT(p) end))
         return
     end
     local function oG(c, ia)
@@ -383,7 +384,7 @@ local function sGT(p)
             if g then
                 gS.t = g.t
                 gS.a = g.a.Value
-                table.insert(gS.c, g.a.Changed:Connect(function(na)
+                T.insert(gS.c, g.a.Changed:Connect(function(na)
                     if na < gS.a then
                         gS.s = true
                         task.wait()
@@ -396,8 +397,8 @@ local function sGT(p)
             if c == gS.t then gS.t, gS.a = nil, 0 end
         end
     end
-    table.insert(gS.c, p.Character.ChildAdded:Connect(function(c) oG(c, true) end))
-    table.insert(gS.c, p.Character.ChildRemoved:Connect(function(c) oG(c, false) end))
+    T.insert(gS.c, p.Character.ChildAdded:Connect(function(c) oG(c, true) end))
+    T.insert(gS.c, p.Character.ChildRemoved:Connect(function(c) oG(c, false) end))
     local g = gG(p)
     if g then oG(g.t, true) end
 end
@@ -568,7 +569,7 @@ local function update_esp(player)
                     ColorSequenceKeypoint.new(1, ESPConfig.Box.Filled.Gradient.Color.End)
                 })
                 if ESPConfig.Box.Filled.Gradient.Enable then
-                    gradient.Rotation = math.sin(tick() * 2) * 180
+                    gradient.Rotation = M.sin(tick() * 2) * 180
                 else
                     gradient.Rotation = 0
                 end
@@ -719,7 +720,7 @@ MiscCameraGroup:AddToggle('UnlockCameraDistance', {
     Default = false,
     Callback = function(v)
         if v then
-            LP.CameraMaxZoomDistance = math.huge
+            LP.CameraMaxZoomDistance = M.huge
         else
             LP.CameraMaxZoomDistance = originalPlayerMaxZoom
         end
@@ -1062,7 +1063,7 @@ ChinaHatGroup:AddToggle('ChinaHatRainbow', {
 
 -- ChinaHat rendering logic
 local ChinaHatDrawings = {}
-local tau = math.pi * 2
+local tau = M.rad(360) -- или просто 2*math.pi
 for i = 1, ChinaHatSettings.sides do
     ChinaHatDrawings[i] = {Drawing.new('Line'), Drawing.new('Triangle')}
     ChinaHatDrawings[i][1].ZIndex = 2
@@ -1080,8 +1081,8 @@ RND:Connect(function()
             local pos = LP.Character.Head.Position + ChinaHatSettings.offset
             local topWorld = pos + Vector3.new(0, ChinaHatSettings.height, 0)
             local last, next = (i / ChinaHatSettings.sides) * tau, ((i + 1) / ChinaHatSettings.sides) * tau
-            local lastWorld = pos + (Vector3.new(math.cos(last), 0, math.sin(last)) * ChinaHatSettings.radius)
-            local nextWorld = pos + (Vector3.new(math.cos(next), 0, math.sin(next)) * ChinaHatSettings.radius)
+            local lastWorld = pos + (Vector3.new(M.cos(last), 0, M.sin(last)) * ChinaHatSettings.radius)
+            local nextWorld = pos + (Vector3.new(M.cos(next), 0, M.sin(next)) * ChinaHatSettings.radius)
             local lastScreen = Cam:WorldToViewportPoint(lastWorld)
             local nextScreen = Cam:WorldToViewportPoint(nextWorld)
             local topScreen = Cam:WorldToViewportPoint(topWorld)
@@ -1269,7 +1270,7 @@ local speedInput = SpeedhackGroup:AddInput('SpeedhackSpeedBox', {
     Callback = function(val)
         local num = tonumber(val)
         if num then
-            num = math.clamp(num, 1, 2000000)
+            num = M.clamp(num, 1, 2000000)
             SpeedhackConfig.Speed = num
         end
     end
@@ -1401,7 +1402,7 @@ FlyGroup:AddInput('FlySpeed', {
     Callback = function(val)
         local num = tonumber(val)
         if num then
-            num = math.clamp(num, 0.1, 100)
+            num = M.clamp(num, 0.1, 100)
             FlyConfig.Speed = num
         end
     end
@@ -1423,7 +1424,7 @@ local function isframework(scriptInstance)
 end
 
 local function checkArgs(instance, index)
-    return tostring(instance):lower():find("camera") and tostring(index) == "CFrame"
+    return STR.lower(tostring(instance)):find("camera") and tostring(index) == "CFrame"
 end
 
 local function enableNoRecoil()
@@ -1653,7 +1654,7 @@ local function setYawLocker(state)
                 if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
                     local targetHrp = target.Character.HumanoidRootPart
                     local directionToTarget = (targetHrp.Position - myPos)
-                    local baseYaw = math.atan2(directionToTarget.X, directionToTarget.Z)
+                    local baseYaw = M.atan2(directionToTarget.X, directionToTarget.Z)
                     
                     local angles = getYawAngles()
                     local finalYaw
@@ -1664,57 +1665,57 @@ local function setYawLocker(state)
                             yawJitterState = 3 - yawJitterState -- 1 <-> 2
                             yawJitterTimer = 0
                         end
-                        finalYaw = baseYaw + math.rad(angles[yawJitterState])
+                        finalYaw = baseYaw + M.rad(angles[yawJitterState])
                     elseif YawLockerConfig.Mode == '3 Ways' then
                          yawJitterTimer = yawJitterTimer + dt
                         if yawJitterTimer > 0.15 then
                             yawJitterState = yawJitterState % 3 + 1
                             yawJitterTimer = 0
                         end
-                        finalYaw = baseYaw + math.rad(angles[yawJitterState])
+                        finalYaw = baseYaw + M.rad(angles[yawJitterState])
                     elseif YawLockerConfig.Mode == '5 Ways' then
                          yawJitterTimer = yawJitterTimer + dt
                         if yawJitterTimer > 0.12 then
                             yawJitterState = yawJitterState % 5 + 1
                              yawJitterTimer = 0
                         end
-                        finalYaw = baseYaw + math.rad(angles[yawJitterState])
+                        finalYaw = baseYaw + M.rad(angles[yawJitterState])
                     else -- Locked
-                        finalYaw = baseYaw + math.rad(angles[1])
+                        finalYaw = baseYaw + M.rad(angles[1])
                     end
                     
-                    lookVector = Vector3.new(math.sin(finalYaw), 0, math.cos(finalYaw))
+                    lookVector = Vector3.new(M.sin(finalYaw), 0, M.cos(finalYaw))
                 end
             else -- Режим не AtTarget
                 local angles = getYawAngles()
                 local yaw
                 if YawLockerConfig.Mode == 'Locked' then
-                    yaw = math.rad(angles[1])
+                    yaw = M.rad(angles[1])
                 elseif YawLockerConfig.Mode == 'Jitter' then
                     yawJitterTimer = yawJitterTimer + dt
                     if yawJitterTimer > 0.1 then
                         yawJitterState = 3 - yawJitterState -- 1 <-> 2
                         yawJitterTimer = 0
                     end
-                    yaw = math.rad(angles[yawJitterState])
+                    yaw = M.rad(angles[yawJitterState])
                 elseif YawLockerConfig.Mode == '3 Ways' then
                     yawJitterTimer = yawJitterTimer + dt
                     if yawJitterTimer > 0.15 then
                         yawJitterState = yawJitterState % 3 + 1
                         yawJitterTimer = 0
                     end
-                    yaw = math.rad(angles[yawJitterState])
+                    yaw = M.rad(angles[yawJitterState])
                 elseif YawLockerConfig.Mode == '5 Ways' then
                     yawJitterTimer = yawJitterTimer + dt
                     if yawJitterTimer > 0.12 then
                         yawJitterState = yawJitterState % 5 + 1
                         yawJitterTimer = 0
                     end
-                    yaw = math.rad(angles[yawJitterState])
+                    yaw = M.rad(angles[yawJitterState])
                 else
-                    yaw = math.rad(YawLockerConfig.Angle)
+                    yaw = M.rad(YawLockerConfig.Angle)
                 end
-                lookVector = Vector3.new(math.sin(yaw), 0, math.cos(yaw))
+                lookVector = Vector3.new(M.sin(yaw), 0, M.cos(yaw))
             end
 
             if lookVector then
@@ -1801,10 +1802,32 @@ local function freezeAnimBreakerTrack(track)
     animBreakerTracks[track] = true
 end
 
+local function restoreAnimations(character)
+    local humanoid = character and character:FindFirstChildOfClass('Humanoid')
+    if not humanoid then return end
+    
+    local animator = humanoid:FindFirstChildOfClass('Animator')
+    if not animator then return end
+    
+    for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+        if animBreakerTracks[track] then
+            track:AdjustSpeed(1) -- Восстанавливаем нормальную скорость
+            animBreakerTracks[track] = nil
+        end
+    end
+    
+    if animBreakerAnimatorConn then 
+        animBreakerAnimatorConn:Disconnect()
+        animBreakerAnimatorConn = nil
+    end
+end
+
 local function setupAnimBreakerCharacter(character)
+    if not AnimBreakerSettings.enabled then return end -- Не устанавливаем, если функция отключена
+    
     local humanoid = character:WaitForChild("Humanoid")
     local animator = humanoid:WaitForChild("Animator")
-    table.clear(animBreakerTracks)
+    T.clear(animBreakerTracks)
     for _, track in pairs(animator:GetPlayingAnimationTracks()) do
         freezeAnimBreakerTrack(track)
     end
@@ -1816,7 +1839,12 @@ local function toggleAnimBreaker(state)
     AnimBreakerSettings.enabled = state
     if animBreakerHeartbeatConn then animBreakerHeartbeatConn:Disconnect() animBreakerHeartbeatConn = nil end
     if animBreakerCoroutine then coroutine.close(animBreakerCoroutine) animBreakerCoroutine = nil end
+    
     if state then
+        if LP.Character then
+            setupAnimBreakerCharacter(LP.Character)
+        end
+        
         animBreakerHeartbeatConn = HRT:Connect(function()
             for track in pairs(animBreakerTracks) do
                 if track and track.IsPlaying then
@@ -1837,6 +1865,11 @@ local function toggleAnimBreaker(state)
             end
         end)
         coroutine.resume(animBreakerCoroutine)
+    else
+        -- Восстанавливаем нормальные анимации при отключении
+        if LP.Character then
+            restoreAnimations(LP.Character)
+        end
     end
 end
 
@@ -1845,16 +1878,15 @@ LP.CharacterAdded:Connect(function(character)
         setupAnimBreakerCharacter(character)
     end
 end)
-if LP.Character then setupAnimBreakerCharacter(LP.Character) end
+
+-- Удаляем безусловный вызов setupAnimBreakerCharacter
+-- if LP.Character then setupAnimBreakerCharacter(LP.Character) end
 
 AnimBreakerGroup:AddToggle('AnimBreaker', {
     Text = 'Anim Breaker',
     Default = false,
     Callback = function(v)
         toggleAnimBreaker(v)
-        if v and LP.Character then
-            setupAnimBreakerCharacter(LP.Character)
-        end
     end,
     Tooltip = 'Breaks your animations (freezes and jitters)'
 })
@@ -2019,7 +2051,7 @@ destroyCheatersConn = HRT:Connect(function()
     if not destroyCheatersEnabled or not destroyCheatersActive then return end
     if LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') then
         local hrp = LP.Character.HumanoidRootPart
-        local offset = hrp.CFrame * CFrame.new(9e9, 0/0, math.huge)
+        local offset = hrp.CFrame * CFrame.new(9e9, 0/0, M.huge)
         destroyCheatersLastCFrame = hrp.CFrame
         hrp.CFrame = offset
         RND:Wait()
@@ -2071,7 +2103,7 @@ DestroyCheatersGroup:AddToggle('DestroyCheaters', {
 DestroyCheatersGroup:AddButton({
     Text = 'Destroy Void',
     Func = function()
-        workspace.FallenPartsDestroyHeight = 0/0
+        S.WS.FallenPartsDestroyHeight = 0/0
         Library:Notify('Void destroyed!', 3)
     end,
     Tooltip = 'Set FallenPartsDestroyHeight to NaN'
@@ -2085,6 +2117,7 @@ getgenv().SilentAim = {
         Enabled = false,
         Mode = "Nuker",
         StickyKey = Enum.KeyCode.Q,
+        AutoAir = false, -- Добавлена новая опция AutoAir
     },
     Silent = {
         PredictionXZ = 0.12362,
@@ -2121,6 +2154,35 @@ SilentAimGroup:AddDropdown('SilentAimMode', {
     Values = {'Sticky', 'Nuker'},
     Default = 'Nuker',
     Callback = function(v) getgenv().SilentAim.Options.Mode = v end
+})
+SilentAimGroup:AddToggle('SilentAimAutoAir', {
+    Text = 'Auto Air',
+    Default = false,
+    Callback = function(v) 
+        getgenv().SilentAim.Options.AutoAir = v 
+        
+        -- Очищаем соединения при отключении AutoAir
+        if not v and getgenv().SilentAim.AutoAirConnections then
+            for _, conn in ipairs(getgenv().SilentAim.AutoAirConnections) do
+                if conn then conn:Disconnect() end
+            end
+            getgenv().SilentAim.AutoAirConnections = {}
+        end
+        
+        -- Переинициализируем соединения при включении
+        if v and getgenv().SilentAim.Options.Enabled then
+            -- Если функция уже загружена, вызываем setupAutoAirConnections
+            if getgenv().Loaded_SilentAim then
+                -- Устанавливаем небольшую задержку для гарантии корректной инициализации
+                task.delay(0.1, function()
+                    if getgenv().SilentAim and getgenv().SilentAim.setupAutoAirConnections then
+                        getgenv().SilentAim.setupAutoAirConnections()
+                    end
+                end)
+            end
+        end
+    end,
+    Tooltip = 'Автоматически стреляет, когда цель находится в воздухе'
 })
 SilentAimGroup:AddInput('SilentAimPredictionXZ', {
     Text = 'Prediction XZ',
@@ -2210,9 +2272,9 @@ SilentAimGroup:AddDropdown('SilentAimPart', {
 if not getgenv().Loaded_SilentAim then
     getgenv().Loaded_SilentAim = true
     local SilentAim = getgenv().SilentAim
-    local Players = game:GetService("Players")
-    local Workspace = game:GetService("Workspace")
-    local UserInputService = game:GetService("UserInputService")
+    local Players = S.PS
+    local Workspace = S.WS
+    local UserInputService = S.UIS
     local LocalPlayer = Players.LocalPlayer
     local Camera = Workspace.CurrentCamera
     local Inf = math.huge
@@ -2317,6 +2379,139 @@ if not getgenv().Loaded_SilentAim then
         return predictedPos
     end
 
+    -- Добавляем функции для AutoAir
+    local function calculateVelocity(player)
+        if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            return Vector3.new(0, 0, 0)
+        end
+        return player.Character.HumanoidRootPart.Velocity
+    end
+
+    local function getGun(player)
+        if not player.Character then return end
+        local tool = player.Character:FindFirstChildOfClass("Tool")
+        if not tool then return end
+        local info = {}
+        for _, obj in pairs(tool:GetDescendants()) do
+            local name = STR.lower(obj.Name)
+            if name:find("ammo") and not name:find("max") and (obj:IsA("IntValue") or obj:IsA("NumberValue")) then
+                info.ammo = obj
+                info.tool = tool
+                return info
+            end
+        end
+    end
+
+    -- Добавляем дебаунс для AutoAir
+    local autoAirDebounce = false
+    local autoAirDebounceTime = 0.1 -- 100 мс между выстрелами
+
+    local function autoAir(target)
+        if autoAirDebounce or not SilentAim.Options.AutoAir or not target or not target.Character then return end
+        
+        local targetRootPart = target.Character:FindFirstChild("HumanoidRootPart")
+        if not targetRootPart then return end
+        
+        local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
+        if not humanoid then return end
+        
+        -- Проверяем состояние humanoid или скорость по Y
+        local isInAir = humanoid:GetState() == Enum.HumanoidStateType.Jumping or 
+                        humanoid:GetState() == Enum.HumanoidStateType.Freefall
+        
+        local targetVel = calculateVelocity(target)
+        local isMovingUp = targetVel.Y > 15
+        
+        if isInAir or isMovingUp then -- Если цель в воздухе (по состоянию или скорости)
+            local character = LocalPlayer.Character
+            if not character then return end
+            
+            local tool = character:FindFirstChildOfClass("Tool")
+            if tool then
+                autoAirDebounce = true
+                tool:Activate() -- Активировать оружие (выстрел)
+                
+                -- Сбрасываем дебаунс через указанное время
+                task.delay(autoAirDebounceTime, function()
+                    autoAirDebounce = false
+                end)
+            end
+        end
+    end
+
+    -- Настройка соединений для AutoAir (оптимизированная версия)
+    local function setupAutoAirConnections()
+        -- Используем только один обработчик для текущей цели
+        local targetStateConnection = nil
+        
+        -- Функция для обновления соединения с текущей целью
+        local function updateTargetConnection()
+            -- Отключаем предыдущее соединение, если оно существует
+            if targetStateConnection then 
+                targetStateConnection:Disconnect() 
+                targetStateConnection = nil
+            end
+            
+            -- Подключаемся только к текущей цели
+            if SilentAim.currentTarget and SilentAim.currentTarget.Character then
+                local humanoid = SilentAim.currentTarget.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    targetStateConnection = humanoid.StateChanged:Connect(function(_, newState)
+                        if SilentAim.Options.AutoAir and 
+                          (newState == Enum.HumanoidStateType.Jumping or newState == Enum.HumanoidStateType.Freefall) then
+                            autoAir(SilentAim.currentTarget)
+                        end
+                    end)
+                    
+                    -- Добавляем соединение в таблицу для последующей очистки
+                    SilentAim.AutoAirConnections = SilentAim.AutoAirConnections or {}
+                    table.insert(SilentAim.AutoAirConnections, targetStateConnection)
+                end
+            end
+        end
+        
+        -- Очищаем предыдущие соединения
+        if SilentAim.AutoAirConnections then
+            for _, conn in ipairs(SilentAim.AutoAirConnections) do
+                if conn then conn:Disconnect() end
+            end
+            SilentAim.AutoAirConnections = {}
+        end
+        
+        -- Обновляем соединение при изменении цели
+        local targetChangeConnection = RND:Connect(function()
+            if SilentAim.Options.Enabled and SilentAim.Options.AutoAir then
+                updateTargetConnection()
+            end
+        end)
+        
+        -- Очищаем соединения при отключении AutoAir
+        SilentAim.AutoAirConnections = SilentAim.AutoAirConnections or {}
+        table.insert(SilentAim.AutoAirConnections, targetChangeConnection)
+        
+        -- Добавляем дополнительное соединение для проверки AutoAir при каждом кадре
+        local checkAutoAirConnection = RND:Connect(function()
+            if SilentAim.Options.Enabled and SilentAim.Options.AutoAir and SilentAim.currentTarget then
+                local targetChar = SilentAim.currentTarget.Character
+                if targetChar then
+                    local humanoid = targetChar:FindFirstChildOfClass("Humanoid")
+                    if humanoid and (humanoid:GetState() == Enum.HumanoidStateType.Jumping or 
+                                    humanoid:GetState() == Enum.HumanoidStateType.Freefall) then
+                        autoAir(SilentAim.currentTarget)
+                    end
+                end
+            end
+        end)
+        
+        table.insert(SilentAim.AutoAirConnections, checkAutoAirConnection)
+        
+        -- Сразу вызываем обновление соединения для текущей цели
+        updateTargetConnection()
+    end
+    
+    -- Делаем функцию доступной глобально
+    SilentAim.setupAutoAirConnections = setupAutoAirConnections
+
     RND:Connect(function()
         if not SilentAim.Options.Enabled then
             SilentAim.currentTarget = nil
@@ -2333,6 +2528,11 @@ if not getgenv().Loaded_SilentAim then
             currentTarget = getClosestPlayer()
         end
         SilentAim.currentTarget = currentTarget
+        
+        -- Проверка AutoAir для текущей цели - ограничиваем частоту вызовов
+        if SilentAim.Options.AutoAir and currentTarget and tick() % 0.2 < 0.02 then
+            autoAir(currentTarget)
+        end
     end)
     
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -2382,6 +2582,9 @@ if not getgenv().Loaded_SilentAim then
     end
     fixTool(LocalPlayer.Character)
     LocalPlayer.CharacterAdded:Connect(fixTool)
+    
+    -- Инициализация AutoAir соединений
+    setupAutoAirConnections()
 end
 
 -- ... остальной код ...
@@ -2452,8 +2655,8 @@ local function createCrosshair()
         else
             crosshairAngle = CrosshairConfig.StaticAngle
         end
-        local rad = math.rad(crosshairAngle)
-        local cosA, sinA = math.cos(rad), math.sin(rad)
+        local rad = M.rad(crosshairAngle)
+        local cosA, sinA = M.cos(rad), M.sin(rad)
         local function rot(x, y)
             return V2.new(cosA * x - sinA * y, sinA * x + cosA * y)
         end
@@ -2660,7 +2863,7 @@ local function HitChams(Player, config)
         )
         for _, BodyPart in ipairs(Cloned:GetChildren()) do
             if BodyPart:IsA("BasePart") then
-                local tween = game:GetService("TweenService"):Create(BodyPart, tweenInfo, { Transparency = 1 })
+                local tween = S.TS:Create(BodyPart, tweenInfo, { Transparency = 1 })
                 tween:Play()
             end
         end
@@ -2706,7 +2909,7 @@ local function PlayHitSound(config)
     local soundId = hitsounds[config.Sound]
     if not soundId then return end
     local sound = Instance.new("Sound")
-    sound.SoundId = (string.sub(soundId, 1, 4) == "http") and soundId or soundId
+    sound.SoundId = (STR.sub(soundId, 1, 4) == "http") and soundId or soundId
     sound.Volume = config.Volume or 1
     sound.Parent = S.SS
     sound:Play()
@@ -2763,7 +2966,7 @@ local HitSoundsToggle = HitChamsGroup:AddToggle('HitSoundsEnabled', {
 local HitSoundsSub = HitChamsGroup:AddDependencyBox()
 HitSoundsSub:AddDropdown('HitSoundsSound', {
     Text = 'Sound',
-    Values = (function() local t = {}; for k in pairs(hitsounds) do table.insert(t, k) end; table.sort(t); return t end)(),
+    Values = (function() local t = {}; for k in pairs(hitsounds) do T.insert(t, k) end; T.sort(t); return t end)(),
     Default = HitSoundsConfig.Sound,
     Callback = function(val) HitSoundsConfig.Sound = val end
 })
