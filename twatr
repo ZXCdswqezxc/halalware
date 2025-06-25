@@ -2594,7 +2594,7 @@ local HitChamsConfig = {
     Enabled = false,
     Material = Enum.Material.Neon,
     Duration = 2,
-    Color = Color3.fromRGB(255, 0, 0),
+    Color = Color3.fromRGB(255, 255, 255), -- белый по умолчанию
     Transparency = 0,
 }
 
@@ -2698,7 +2698,7 @@ local hitsounds = {
     ["Fatality"]     = "rbxassetid://6534947869",
     ["Bonk"]         = "rbxassetid://5766898159",
     ["Totem"]        = "rbxassetid://135055101757201",
-    ["CSHS"]         = "rbxassetid://9065951723",
+    ["CSHS"]         = "rbxassetid://9065951723"
 }
 local function PlayHitSound(config)
     config = config or HitSoundsConfig
@@ -2706,7 +2706,7 @@ local function PlayHitSound(config)
     local soundId = hitsounds[config.Sound]
     if not soundId then return end
     local sound = Instance.new("Sound")
-    sound.SoundId = soundId
+    sound.SoundId = (string.sub(soundId, 1, 4) == "http") and soundId or soundId
     sound.Volume = config.Volume or 1
     sound.Parent = S.SS
     sound:Play()
@@ -2723,7 +2723,7 @@ local HitChamsToggle = HitChamsGroup:AddToggle('HitChamsEnabled', {
     Tooltip = 'Show chams on aimbot target when HP decreases.'
 })
 :AddColorPicker('HitChamsColor', {
-    Default = HitChamsConfig.Color,
+    Default = Color3.fromRGB(255,255,255), -- белый по умолчанию
     Title = 'Color',
     Callback = function(val) HitChamsConfig.Color = val end
 })
@@ -2802,5 +2802,145 @@ RND:Connect(function()
         end
     else
         lastTarget, lastHP = nil, nil
+    end
+end)
+
+-- === Combat Tracer (трейсер до цели) ===
+local CombatTracerConfig = {
+    Enabled = false,
+    Color = Color3.fromRGB(255, 255, 255), -- белый по умолчанию
+}
+local combatTracerLine = nil
+
+HitChamsGroup:AddToggle('CombatTracerEnabled', {
+    Text = 'TracerToTarget',
+    Default = false,
+    Callback = function(v)
+        CombatTracerConfig.Enabled = v
+        if not v and combatTracerLine then
+            combatTracerLine.Visible = false
+        end
+    end
+}):AddColorPicker('CombatTracerColor', {
+    Default = Color3.fromRGB(255,255,255), -- белый по умолчанию
+    Title = 'Color',
+    Callback = function(val)
+        CombatTracerConfig.Color = val
+        if combatTracerLine then
+            combatTracerLine.Color = val
+        end
+    end
+})
+
+-- Логика отрисовки трейсеров
+RND:Connect(function()
+    if not CombatTracerConfig.Enabled then
+        if combatTracerLine then
+            combatTracerLine.Visible = false
+        end
+        return
+    end
+    local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget
+    if target and target.Character and target.Character:FindFirstChild('UpperTorso') then
+        local torso = target.Character.UpperTorso
+        local screenPos, onScreen = S.WS.CurrentCamera:WorldToViewportPoint(torso.Position)
+        if onScreen then
+            local mousePos = S.UIS:GetMouseLocation()
+            if not combatTracerLine then
+                combatTracerLine = Drawing.new('Line')
+                combatTracerLine.Thickness = 2
+                combatTracerLine.Color = CombatTracerConfig.Color
+                combatTracerLine.ZIndex = 10000
+            end
+            combatTracerLine.From = mousePos
+            combatTracerLine.To = Vector2.new(screenPos.X, screenPos.Y)
+            combatTracerLine.Color = CombatTracerConfig.Color
+            combatTracerLine.Visible = true
+        else
+            if combatTracerLine then
+                combatTracerLine.Visible = false
+            end
+        end
+    else
+        if combatTracerLine then
+            combatTracerLine.Visible = false
+        end
+    end
+end)
+
+-- 2. Добавить тоггл и дропдаун для HitEffects
+local HitEffectsConfig = {
+    Enabled = false,
+    Type = 'Nova',
+    Color = Color3.fromRGB(255,255,255), -- белый по умолчанию
+}
+local hitEffectsTypes = {'Nova', 'Crescent Slash', 'Coom', 'Cosmic Explosion', 'Slash', 'Atomic Slash'}
+local HitEffectsToggle = HitChamsGroup:AddToggle('HitEffectsEnabled', {
+    Text = 'HitEffects',
+    Default = false,
+    Callback = function(v) HitEffectsConfig.Enabled = v end,
+    Tooltip = 'Включить визуальные эффекты на цели при уроне.'
+})
+:AddColorPicker('HitEffectsColor', {
+    Default = Color3.fromRGB(255,255,255), -- белый по умолчанию
+    Title = 'Effect Color',
+    Callback = function(val) HitEffectsConfig.Color = val end
+})
+local HitEffectsSub = HitChamsGroup:AddDependencyBox()
+HitEffectsSub:AddDropdown('HitEffectsType', {
+    Text = 'Effect Type',
+    Values = hitEffectsTypes,
+    Default = HitEffectsConfig.Type,
+    Callback = function(val) HitEffectsConfig.Type = val end
+})
+HitEffectsSub:SetupDependencies({{Toggles.HitEffectsEnabled, true}})
+
+-- 3. Загрузка библиотеки эффектов (один раз)
+local HitEffectsLib = nil
+local function getHitEffectsLib()
+    if not HitEffectsLib then
+        HitEffectsLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/effects'))()
+    end
+    return HitEffectsLib
+end
+
+-- 4. Вызов эффекта при уроне цели (в том же месте, где HitChams/HitSounds)
+local lastTarget, lastHP, lastDamageTick = nil, nil, 0
+RND:Connect(function()
+    if not HitChamsConfig.Enabled and not HitSoundsConfig.Enabled and not HitEffectsConfig.Enabled then
+        lastTarget, lastHP, lastDamageTick = nil, nil, 0
+        return
+    end
+    local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget
+    if target and target.Character and target.Character:FindFirstChild('Humanoid') then
+        local hum = target.Character.Humanoid
+        local hp = hum.Health
+        if lastTarget ~= target then
+            lastTarget = target
+            lastHP = hp
+            lastDamageTick = 0
+        else
+            if hp < lastHP then
+                local now = tick()
+                if now - lastDamageTick > 0.05 then -- debounce: не чаще 1 раза за 0.05 сек
+                    lastDamageTick = now
+                    if HitChamsConfig.Enabled then
+                        HitChams(target, HitChamsConfig)
+                    end
+                    if HitSoundsConfig.Enabled then
+                        PlayHitSound(HitSoundsConfig)
+                    end
+                    if HitEffectsConfig.Enabled then
+                        local lib = getHitEffectsLib()
+                        if lib and lib.Functions and lib.Functions.Effect then
+                            lib.Functions.Effect(target.Character, HitEffectsConfig.Type, HitEffectsConfig.Color or Color3.fromRGB(255,255,255))
+                        end
+                    end
+                end
+            end
+            lastHP = hp
+        end
+    else
+        lastTarget, lastHP, lastDamageTick = nil, nil, 0
     end
 end)
