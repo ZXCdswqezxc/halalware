@@ -33,6 +33,56 @@ local STR = {
     rep = string.rep, split = string.split, fmt = string.format
 }
 
+-- Глобальная таблица для хранения переменных
+local G = {
+    -- Трейсеры
+    lastTracerUpdate = 0,
+    tracerUpdateInterval = 1/60,
+    ActiveTracers = {},
+    TracerCount = 0,
+    tracerDebounce = false,
+    tracerDebounceTime = 0.005, -- 5 мс между трейсерами
+    
+    -- AutoAir
+    autoAirDebounce = false,
+    autoAirDebounceTime = 0.03, -- 100 мс между выстрелами
+    
+    -- Общие переменные дебаунса
+    hitEffectDebounce = false,
+    lastDamageTick = 0,
+    
+    -- Crosshair
+    crosshairLines = {},
+    crosshairOutlines = {},
+    crosshairAngle = 0,
+    crosshairConn = nil,
+    
+    -- Camera
+    originalPlayerMaxZoom = 0,
+    
+    -- Target Strafe variables have been removed
+    
+    -- RapidFireM1
+    rapidFireM1Firing = false,
+    rapidFireM1Debounce = false,
+    rapidFireM1MinDelay = 0,
+    rapidFireM1ConnBegan = nil,
+    rapidFireM1ConnEnded = nil,
+    rapidFireM1CharConn = nil,
+    
+    -- YawLocker
+    yawLockerConnection = nil,
+    yawJitterState = 1,
+    yawJitterTimer = 0,
+    
+    -- Grip
+    GripSettings = {
+        Enabled = false,
+        Position = Vector3.new(0, 0, 0),
+        Rotation = Vector3.new(0, 0, 0)
+    }
+}
+
 local V3, V2, CF, C3, U2, RP = Vector3, Vector2, CFrame, Color3, UDim2, RaycastParams
 local RND, SND, HRT = S.RS.RenderStepped, S.RS.Stepped, S.RS.Heartbeat
 local LP = S.PS.LocalPlayer
@@ -321,6 +371,30 @@ local function dG()
     return d
 end
 local function cB(f, t, c1, c2, thickness, texture)
+    -- Ограничиваем количество одновременно отображаемых трейсеров
+    local maxTracers = 15 -- Увеличиваем максимальное количество трейсеров
+    local tracerLifetime = 0.4 -- Немного уменьшаем время жизни трейсера
+    
+    -- Используем глобальную таблицу для отслеживания активных трейсеров
+    if not G.ActiveTracers then
+        G.ActiveTracers = {}
+        G.TracerCount = 0
+    end
+    
+    -- Если достигнут лимит, удаляем самый старый трейсер
+    if G.TracerCount >= maxTracers and #G.ActiveTracers > 0 then
+        local oldestTracer = G.ActiveTracers[1]
+        if oldestTracer and oldestTracer.Parent then
+            oldestTracer:Destroy()
+        end
+        table.remove(G.ActiveTracers, 1)
+        G.TracerCount = G.TracerCount - 1
+    end
+    
+    -- Увеличиваем счетчик трейсеров
+    G.TracerCount = G.TracerCount + 1
+    
+    -- Создаем трейсер с оптимизированными параметрами
     local p = Instance.new("Part")
     p.Name = "BT"
     p.Parent = S.WS
@@ -330,6 +404,8 @@ local function cB(f, t, c1, c2, thickness, texture)
     p.CanCollide = false
     p.Position = f
     p.Anchored = true
+    
+    -- Оптимизируем создание частей - используем только необходимые объекты
     local p0, p1 = Instance.new("Part"), Instance.new("Part")
     for _, pt in ipairs({p0, p1}) do
         pt.Parent = p
@@ -341,6 +417,7 @@ local function cB(f, t, c1, c2, thickness, texture)
     end
     p0.Position = f
     p1.Position = t
+    
     local a0, a1 = Instance.new("Attachment", p0), Instance.new("Attachment", p1)
     local b = Instance.new("Beam")
     b.Texture = texture
@@ -358,7 +435,25 @@ local function cB(f, t, c1, c2, thickness, texture)
     b.Width0 = thickness
     b.Width1 = thickness
     b.Parent = p
-    task.delay(1, function() p:Destroy() end)
+    
+    -- Сохраняем трейсер в таблице активных трейсеров
+    table.insert(G.ActiveTracers, p)
+    
+    -- Удаляем трейсер через указанное время и уменьшаем счетчик
+    task.delay(tracerLifetime, function()
+        if p and p.Parent then
+            p:Destroy()
+        end
+        G.TracerCount = G.TracerCount - 1
+        
+        -- Удаляем трейсер из таблицы активных трейсеров
+        for i, tracer in ipairs(G.ActiveTracers) do
+            if tracer == p then
+                table.remove(G.ActiveTracers, i)
+                break
+            end
+        end
+    end)
 end
 local function gG(p)
     if not p.Character then return end
@@ -407,22 +502,51 @@ local function sE()
     if not g.BP then return end
     sGT(LP)
     if not LP.Character then LP.CharacterAdded:Connect(function() sGT(LP) end) end
+    
+    -- Используем дебаунс из таблицы G для обработки трейсеров
+    
     g.BP.ChildAdded:Connect(function(o)
         if not gS.s then return end
         if BulletTracersConfig.Enabled and o.Name == g.BN then
-            local b = o:WaitForChild(g.BBN, 1)
-            if not b then return end
-            local sp, ep = o.Position, b.Attachment1.WorldPosition
-            b:Destroy()
-            cB(
-                sp, ep,
-                BulletTracersConfig.Color1,
-                BulletTracersConfig.Color2,
-                BulletTracersConfig.Thickness,
-                BulletTracersConfig.Texture
-            )
+            -- Проверяем дебаунс
+            if G.tracerDebounce then return end
+            G.tracerDebounce = true
+            
+            task.spawn(function()
+                local b = o:WaitForChild(g.BBN, 0.2) -- Уменьшаем время ожидания
+                if not b then 
+                    tracerDebounce = false
+                    return 
+                end
+                
+                local sp, ep = o.Position, b.Attachment1.WorldPosition
+                
+                -- Проверяем расстояние трейсера, чтобы избежать слишком длинных трейсеров
+                local distance = (sp - ep).Magnitude
+                if distance > 2000 then -- Увеличиваем максимальную длину трейсера
+                    tracerDebounce = false
+                    return
+                end
+                
+                b:Destroy()
+                
+                cB(
+                    sp, ep,
+                    BulletTracersConfig.Color1,
+                    BulletTracersConfig.Color2,
+                    BulletTracersConfig.Thickness,
+                    BulletTracersConfig.Texture
+                )
+                
+                -- Сбрасываем дебаунс через небольшую задержку
+                task.delay(G.tracerDebounceTime, function()
+                    G.tracerDebounce = false
+                end)
+            end)
         end
     end)
+    
+    -- Удаляем кнопку Clear All
 end
 sE()
 
@@ -712,7 +836,7 @@ end
 HRT:Connect(UpdateAllShowNameMethod)
 
 -- Unlock Camera Distance (Misc)
-local originalPlayerMaxZoom = LP.CameraMaxZoomDistance
+G.originalPlayerMaxZoom = LP.CameraMaxZoomDistance
 
 local MiscCameraGroup = Tabs.Misc:AddLeftGroupbox('>_<')
 MiscCameraGroup:AddToggle('UnlockCameraDistance', {
@@ -721,11 +845,47 @@ MiscCameraGroup:AddToggle('UnlockCameraDistance', {
     Callback = function(v)
         if v then
             LP.CameraMaxZoomDistance = M.huge
+            LP.CameraMinZoomDistance = 0.5 -- Оставляем минимальное расстояние, чтобы избежать проблем с камерой
         else
-            LP.CameraMaxZoomDistance = originalPlayerMaxZoom
+            LP.CameraMaxZoomDistance = G.originalPlayerMaxZoom
+            LP.CameraMinZoomDistance = 0.5 -- Стандартное минимальное значение
         end
     end,
     Tooltip = 'Removes camera zoom limit'
+})
+
+-- Сохраняем оригинальные значения при загрузке
+G.originalPlayerMaxZoom = LP.CameraMaxZoomDistance
+G.originalPlayerMinZoom = LP.CameraMinZoomDistance
+
+-- Добавляем опцию режима от первого лица
+MiscCameraGroup:AddToggle('FirstPersonMode', {
+    Text = 'First Person Mode',
+    Default = false,
+    Callback = function(v)
+        if v then
+            -- Сохраняем текущие значения, если еще не сохранены
+            if not G.savedCameraValues then
+                G.savedCameraValues = {
+                    MaxZoom = LP.CameraMaxZoomDistance,
+                    MinZoom = LP.CameraMinZoomDistance
+                }
+            end
+            -- Устанавливаем режим от первого лица
+            LP.CameraMaxZoomDistance = 0.5
+            LP.CameraMinZoomDistance = 0.5
+        else
+            -- Восстанавливаем предыдущие значения
+            if G.savedCameraValues then
+                LP.CameraMaxZoomDistance = G.savedCameraValues.MaxZoom
+                LP.CameraMinZoomDistance = G.savedCameraValues.MinZoom
+            else
+                LP.CameraMaxZoomDistance = G.originalPlayerMaxZoom
+                LP.CameraMinZoomDistance = G.originalPlayerMinZoom
+            end
+        end
+    end,
+    Tooltip = 'Forces first person view'
 })
 
 -- SphereAura UI и логика
@@ -1602,9 +1762,7 @@ local YawLockerConfig = {
     DisableAutoRotate = false
 }
 
-local yawLockerConnection = nil
-local yawJitterState = 1
-local yawJitterTimer = 0
+-- Используем переменные из таблицы G для YawLocker
 
 local function getYawAngles()
     local a = YawLockerConfig.Angle
@@ -1632,15 +1790,15 @@ end
 
 local function setYawLocker(state)
     YawLockerConfig.Enabled = state
-    if yawLockerConnection then
-        yawLockerConnection:Disconnect()
-        yawLockerConnection = nil
+    if G.yawLockerConnection then
+        G.yawLockerConnection:Disconnect()
+        G.yawLockerConnection = nil
     end
-    yawJitterState = 1
-    yawJitterTimer = 0
+    G.yawJitterState = 1
+    G.yawJitterTimer = 0
     applyYawLockerAutoRotate()
     if state then
-        yawLockerConnection = RND:Connect(function(dt)
+        G.yawLockerConnection = RND:Connect(function(dt)
             local char = LP.Character
             if not char then return end
             local hrp = char:FindFirstChild('HumanoidRootPart')
@@ -1660,26 +1818,26 @@ local function setYawLocker(state)
                     local finalYaw
                     
                     if YawLockerConfig.Mode == 'Jitter' then
-                        yawJitterTimer = yawJitterTimer + dt
-                        if yawJitterTimer > 0.1 then
-                            yawJitterState = 3 - yawJitterState -- 1 <-> 2
-                            yawJitterTimer = 0
+                        G.yawJitterTimer = G.yawJitterTimer + dt
+                        if G.yawJitterTimer > 0.1 then
+                            G.yawJitterState = 3 - G.yawJitterState -- 1 <-> 2
+                            G.yawJitterTimer = 0
                         end
-                        finalYaw = baseYaw + M.rad(angles[yawJitterState])
+                        finalYaw = baseYaw + M.rad(angles[G.yawJitterState])
                     elseif YawLockerConfig.Mode == '3 Ways' then
-                         yawJitterTimer = yawJitterTimer + dt
-                        if yawJitterTimer > 0.15 then
-                            yawJitterState = yawJitterState % 3 + 1
-                            yawJitterTimer = 0
+                         G.yawJitterTimer = G.yawJitterTimer + dt
+                        if G.yawJitterTimer > 0.15 then
+                            G.yawJitterState = G.yawJitterState % 3 + 1
+                            G.yawJitterTimer = 0
                         end
-                        finalYaw = baseYaw + M.rad(angles[yawJitterState])
+                        finalYaw = baseYaw + M.rad(angles[G.yawJitterState])
                     elseif YawLockerConfig.Mode == '5 Ways' then
-                         yawJitterTimer = yawJitterTimer + dt
-                        if yawJitterTimer > 0.12 then
-                            yawJitterState = yawJitterState % 5 + 1
-                             yawJitterTimer = 0
+                         G.yawJitterTimer = G.yawJitterTimer + dt
+                        if G.yawJitterTimer > 0.12 then
+                            G.yawJitterState = G.yawJitterState % 5 + 1
+                             G.yawJitterTimer = 0
                         end
-                        finalYaw = baseYaw + M.rad(angles[yawJitterState])
+                        finalYaw = baseYaw + M.rad(angles[G.yawJitterState])
                     else -- Locked
                         finalYaw = baseYaw + M.rad(angles[1])
                     end
@@ -1692,26 +1850,26 @@ local function setYawLocker(state)
                 if YawLockerConfig.Mode == 'Locked' then
                     yaw = M.rad(angles[1])
                 elseif YawLockerConfig.Mode == 'Jitter' then
-                    yawJitterTimer = yawJitterTimer + dt
-                    if yawJitterTimer > 0.1 then
-                        yawJitterState = 3 - yawJitterState -- 1 <-> 2
-                        yawJitterTimer = 0
+                    G.yawJitterTimer = G.yawJitterTimer + dt
+                    if G.yawJitterTimer > 0.1 then
+                        G.yawJitterState = 3 - G.yawJitterState -- 1 <-> 2
+                        G.yawJitterTimer = 0
                     end
-                    yaw = M.rad(angles[yawJitterState])
+                    yaw = M.rad(angles[G.yawJitterState])
                 elseif YawLockerConfig.Mode == '3 Ways' then
-                    yawJitterTimer = yawJitterTimer + dt
-                    if yawJitterTimer > 0.15 then
-                        yawJitterState = yawJitterState % 3 + 1
-                        yawJitterTimer = 0
+                    G.yawJitterTimer = G.yawJitterTimer + dt
+                    if G.yawJitterTimer > 0.15 then
+                        G.yawJitterState = G.yawJitterState % 3 + 1
+                        G.yawJitterTimer = 0
                     end
-                    yaw = M.rad(angles[yawJitterState])
+                    yaw = M.rad(angles[G.yawJitterState])
                 elseif YawLockerConfig.Mode == '5 Ways' then
-                    yawJitterTimer = yawJitterTimer + dt
-                    if yawJitterTimer > 0.12 then
-                        yawJitterState = yawJitterState % 5 + 1
-                        yawJitterTimer = 0
+                    G.yawJitterTimer = G.yawJitterTimer + dt
+                    if G.yawJitterTimer > 0.12 then
+                        G.yawJitterState = G.yawJitterState % 5 + 1
+                        G.yawJitterTimer = 0
                     end
-                    yaw = M.rad(angles[yawJitterState])
+                    yaw = M.rad(angles[G.yawJitterState])
                 else
                     yaw = M.rad(YawLockerConfig.Angle)
                 end
@@ -1900,26 +2058,52 @@ local rapidFireGunScriptConn = nil
 
 local function enableRapidFireGunScript()
     if rapidFireGunScriptConn then rapidFireGunScriptConn:Disconnect() end
-    rapidFireGunScriptConn = RND:Connect(function()
+    
+    -- Оптимизируем, добавив дебаунс и уменьшив частоту проверок
+    local lastToolCheck = 0
+    local toolCheckInterval = 0.2 -- Проверяем каждые 200мс вместо каждого кадра
+    local currentTool = nil
+    local isOptimizing = false
+    
+    rapidFireGunScriptConn = HRT:Connect(function()
+        local now = tick()
+        -- Проверяем оружие только через интервал или при смене оружия
+        if now - lastToolCheck < toolCheckInterval and currentTool then return end
+        
+        lastToolCheck = now
         local tool = LP.Character and LP.Character:FindFirstChildOfClass('Tool')
-        if tool and tool:FindFirstChild('GunScript') then
-            for _, connection in ipairs(getconnections(tool.Activated)) do
-                local func = connection.Function
-                if func then
-                    local funcInfo = debug.getinfo(func)
-                    for i = 1, funcInfo.nups do
-                        local c, n = debug.getupvalue(func, i)
-                        if type(c) == 'number' then
-                            if not Orginal[i] then
-                                Orginal[i] = c
+        
+        -- Если оружие не изменилось, не делаем повторную оптимизацию
+        if tool == currentTool then return end
+        currentTool = tool
+        
+        -- Если уже идет процесс оптимизации, не запускаем новый
+        if isOptimizing then return end
+        
+        -- Запускаем оптимизацию в отдельном потоке, чтобы не влиять на FPS
+        task.spawn(function()
+            isOptimizing = true
+            if tool and tool:FindFirstChild('GunScript') then
+                for _, connection in ipairs(getconnections(tool.Activated)) do
+                    local func = connection.Function
+                    if func then
+                        local funcInfo = debug.getinfo(func)
+                        for i = 1, funcInfo.nups do
+                            local c, n = debug.getupvalue(func, i)
+                            if type(c) == 'number' then
+                                if not Orginal[i] then
+                                    Orginal[i] = c
+                                end
+                                debug.setupvalue(func, i, Traced.RapidFire and 0.00000000000000000001 or Orginal[i])
                             end
-                            debug.setupvalue(func, i, Traced.RapidFire and 0.00000000000000000001 or Orginal[i])
                         end
                     end
                 end
             end
-        end
+            isOptimizing = false
+        end)
     end)
+    
     Traced.RapidFire = true
 end
 
@@ -1944,22 +2128,19 @@ RapidFireGunScriptGroup:AddToggle('RapidFireGunScript', {
 -- === RapidFireM1Spam (Player tab, новая секция) ===
 local RapidFireM1Group = Tabs.Player:AddRightGroupbox('>_<')
 
-local rapidFireM1Firing = false
-local rapidFireM1Debounce = false
-local rapidFireM1MinDelay = 0 -- Можно сделать настройку через UI
-local rapidFireM1ConnBegan, rapidFireM1ConnEnded, rapidFireM1CharConn
+-- Используем переменные из таблицы G
 
 local function rapidFireM1SafeActivate(tool)
-    if not rapidFireM1Debounce and tool and tool:IsA('Tool') then
-        rapidFireM1Debounce = true
+    if not G.rapidFireM1Debounce and tool and tool:IsA('Tool') then
+        G.rapidFireM1Debounce = true
         pcall(function() tool:Activate() end)
-        task.wait(rapidFireM1MinDelay)
-        rapidFireM1Debounce = false
+        task.wait(G.rapidFireM1MinDelay)
+        G.rapidFireM1Debounce = false
     end
 end
 
 local function rapidFireM1FireLoop()
-    while rapidFireM1Firing do
+    while G.rapidFireM1Firing do
         local character = LP.Character
         if character then
             local tool = character:FindFirstChildOfClass('Tool')
@@ -1970,11 +2151,11 @@ local function rapidFireM1FireLoop()
 end
 
 local function rapidFireM1SetupCharacter(character)
-    if rapidFireM1CharConn then rapidFireM1CharConn:Disconnect() end
-    rapidFireM1CharConn = character.ChildAdded:Connect(function(child)
+    if G.rapidFireM1CharConn then G.rapidFireM1CharConn:Disconnect() end
+    G.rapidFireM1CharConn = character.ChildAdded:Connect(function(child)
         if child:IsA('Tool') then
             child.Activated:Connect(function()
-                if rapidFireM1Firing then
+                if G.rapidFireM1Firing then
                     rapidFireM1SafeActivate(child)
                 end
             end)
@@ -1983,17 +2164,17 @@ local function rapidFireM1SetupCharacter(character)
 end
 
 local function enableRapidFireM1()
-    if rapidFireM1ConnBegan then rapidFireM1ConnBegan:Disconnect() end
-    if rapidFireM1ConnEnded then rapidFireM1ConnEnded:Disconnect() end
-    rapidFireM1ConnBegan = S.UIS.InputBegan:Connect(function(input, gp)
+    if G.rapidFireM1ConnBegan then G.rapidFireM1ConnBegan:Disconnect() end
+    if G.rapidFireM1ConnEnded then G.rapidFireM1ConnEnded:Disconnect() end
+    G.rapidFireM1ConnBegan = S.UIS.InputBegan:Connect(function(input, gp)
         if not gp and input.UserInputType == Enum.UserInputType.MouseButton1 then
-            rapidFireM1Firing = true
+            G.rapidFireM1Firing = true
             rapidFireM1FireLoop()
         end
     end)
-    rapidFireM1ConnEnded = S.UIS.InputEnded:Connect(function(input)
+    G.rapidFireM1ConnEnded = S.UIS.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            rapidFireM1Firing = false
+            G.rapidFireM1Firing = false
         end
     end)
     if LP.Character then rapidFireM1SetupCharacter(LP.Character) end
@@ -2004,10 +2185,10 @@ local function enableRapidFireM1()
 end
 
 local function disableRapidFireM1()
-    if rapidFireM1ConnBegan then rapidFireM1ConnBegan:Disconnect() rapidFireM1ConnBegan = nil end
-    if rapidFireM1ConnEnded then rapidFireM1ConnEnded:Disconnect() rapidFireM1ConnEnded = nil end
-    if rapidFireM1CharConn then rapidFireM1CharConn:Disconnect() rapidFireM1CharConn = nil end
-    rapidFireM1Firing = false
+    if G.rapidFireM1ConnBegan then G.rapidFireM1ConnBegan:Disconnect() G.rapidFireM1ConnBegan = nil end
+    if G.rapidFireM1ConnEnded then G.rapidFireM1ConnEnded:Disconnect() G.rapidFireM1ConnEnded = nil end
+    if G.rapidFireM1CharConn then G.rapidFireM1CharConn:Disconnect() G.rapidFireM1CharConn = nil end
+    G.rapidFireM1Firing = false
 end
 
 RapidFireM1Group:AddToggle('RapidFireM1Spam', {
@@ -2147,7 +2328,9 @@ getgenv().SilentAim = {
 SilentAimGroup:AddToggle('SilentAimEnabled', {
     Text = 'Silent Aim',
     Default = false,
-    Callback = function(v) getgenv().SilentAim.Options.Enabled = v end
+    Callback = function(v) 
+        getgenv().SilentAim.Options.Enabled = v 
+    end
 })
 SilentAimGroup:AddDropdown('SilentAimMode', {
     Text = 'Mode',
@@ -2402,12 +2585,10 @@ if not getgenv().Loaded_SilentAim then
         end
     end
 
-    -- Добавляем дебаунс для AutoAir
-    local autoAirDebounce = false
-    local autoAirDebounceTime = 0.1 -- 100 мс между выстрелами
+    -- Используем дебаунс из таблицы G для AutoAir
 
     local function autoAir(target)
-        if autoAirDebounce or not SilentAim.Options.AutoAir or not target or not target.Character then return end
+        if G.autoAirDebounce or not SilentAim.Options.AutoAir or not target or not target.Character then return end
         
         local targetRootPart = target.Character:FindFirstChild("HumanoidRootPart")
         if not targetRootPart then return end
@@ -2428,12 +2609,12 @@ if not getgenv().Loaded_SilentAim then
             
             local tool = character:FindFirstChildOfClass("Tool")
             if tool then
-                autoAirDebounce = true
+                G.autoAirDebounce = true
                 tool:Activate() -- Активировать оружие (выстрел)
                 
                 -- Сбрасываем дебаунс через указанное время
-                task.delay(autoAirDebounceTime, function()
-                    autoAirDebounce = false
+                task.delay(G.autoAirDebounceTime, function()
+                    G.autoAirDebounce = false
                 end)
             end
         end
@@ -2478,10 +2659,17 @@ if not getgenv().Loaded_SilentAim then
             SilentAim.AutoAirConnections = {}
         end
         
-        -- Обновляем соединение при изменении цели
+        -- Обновляем соединение при изменении цели, но с дебаунсом
+        local lastTargetUpdateTime = 0
+        local targetUpdateDebounce = 0.1 -- 100 мс
+        
         local targetChangeConnection = RND:Connect(function()
             if SilentAim.Options.Enabled and SilentAim.Options.AutoAir then
-                updateTargetConnection()
+                local now = tick()
+                if now - lastTargetUpdateTime > targetUpdateDebounce then
+                    lastTargetUpdateTime = now
+                    updateTargetConnection()
+                end
             end
         end)
         
@@ -2489,8 +2677,8 @@ if not getgenv().Loaded_SilentAim then
         SilentAim.AutoAirConnections = SilentAim.AutoAirConnections or {}
         table.insert(SilentAim.AutoAirConnections, targetChangeConnection)
         
-        -- Добавляем дополнительное соединение для проверки AutoAir при каждом кадре
-        local checkAutoAirConnection = RND:Connect(function()
+        -- Добавляем более редкую проверку вместо проверки каждый кадр
+        local checkAutoAirConnection = HRT:Connect(function() -- Используем Heartbeat вместо RenderStepped
             if SilentAim.Options.Enabled and SilentAim.Options.AutoAir and SilentAim.currentTarget then
                 local targetChar = SilentAim.currentTarget.Character
                 if targetChar then
@@ -2532,6 +2720,10 @@ if not getgenv().Loaded_SilentAim then
         -- Проверка AutoAir для текущей цели - ограничиваем частоту вызовов
         if SilentAim.Options.AutoAir and currentTarget and tick() % 0.2 < 0.02 then
             autoAir(currentTarget)
+        end
+        -- Обновляем LastAimbotTarget для Target Strafe
+        if getgenv().TS and getgenv().TS.Config and getgenv().TS.Config.Enabled then
+            getgenv().TS.Runtime.LastAimbotTarget = currentTarget
         end
     end)
     
@@ -2609,31 +2801,45 @@ local CrosshairConfig = {
     StaticAngle = 0,
 }
 
-local crosshairLines, crosshairOutlines = {}, {}
-local crosshairAngle = 0
-local crosshairConn = nil
+-- Используем переменные из таблицы G для crosshair
 
 local function destroyCrosshair()
-    for _, line in ipairs(crosshairLines) do pcall(function() line:Remove() end) end
-    for _, line in ipairs(crosshairOutlines) do pcall(function() line:Remove() end) end
-    crosshairLines, crosshairOutlines = {}, {}
-    if crosshairConn then crosshairConn:Disconnect() crosshairConn = nil end
+    for _, line in ipairs(G.crosshairLines) do pcall(function() line:Remove() end) end
+    for _, line in ipairs(G.crosshairOutlines) do pcall(function() line:Remove() end) end
+    G.crosshairLines, G.crosshairOutlines = {}, {}
+    if G.crosshairConn then G.crosshairConn:Disconnect() G.crosshairConn = nil end
 end
 
 local function createCrosshair()
     destroyCrosshair()
     for i = 1, 4 do
-        crosshairLines[i] = Drawing.new("Line")
+        G.crosshairLines[i] = Drawing.new("Line")
         if CrosshairConfig.Outline then
-            crosshairOutlines[i] = Drawing.new("Line")
+            G.crosshairOutlines[i] = Drawing.new("Line")
         end
     end
-    crosshairConn = S.RS.RenderStepped:Connect(function(dt)
+    
+    -- Кэшируем математические функции для оптимизации
+    local cos, sin, rad = M.cos, M.sin, M.rad
+    local lastMousePos = Vector2.new(0, 0)
+    local lastTargetPos = Vector2.new(0, 0)
+    local lastUpdateTime = 0
+    local updateInterval = 1/60 -- Обновление максимум 60 раз в секунду
+    
+    G.crosshairConn = S.RS.RenderStepped:Connect(function(dt)
         if not CrosshairConfig.Enabled then
-            for _, l in ipairs(crosshairLines) do l.Visible = false end
-            for _, l in ipairs(crosshairOutlines) do l.Visible = false end
+            for _, l in ipairs(G.crosshairLines) do l.Visible = false end
+            for _, l in ipairs(G.crosshairOutlines) do l.Visible = false end
             return
         end
+        
+        -- Ограничиваем частоту обновлений
+        local now = tick()
+        if now - lastUpdateTime < updateInterval then
+            return
+        end
+        lastUpdateTime = now
+        
         local mousePos
         if CrosshairConfig.AttachToTarget and getgenv().SilentAim and getgenv().SilentAim.currentTarget then
             local target = getgenv().SilentAim.currentTarget
@@ -2643,44 +2849,64 @@ local function createCrosshair()
                     local screenPos, onScreen = S.WS.CurrentCamera:WorldToViewportPoint(part.Position)
                     if onScreen then
                         mousePos = V2.new(screenPos.X, screenPos.Y)
+                        -- Проверяем, изменилась ли позиция значительно
+                        if (mousePos - lastTargetPos).Magnitude < 1 then
+                            mousePos = lastTargetPos -- Используем кэшированную позицию
+                        else
+                            lastTargetPos = mousePos
+                        end
                     end
                 end
             end
         end
+        
         if not mousePos then
             mousePos = S.UIS:GetMouseLocation()
+            -- Проверяем, изменилась ли позиция мыши значительно
+            if (mousePos - lastMousePos).Magnitude < 1 then
+                mousePos = lastMousePos -- Используем кэшированную позицию
+            else
+                lastMousePos = mousePos
+            end
         end
+        
         if CrosshairConfig.Rotate then
-            crosshairAngle = crosshairAngle + CrosshairConfig.RotSpeed * dt
+            G.crosshairAngle = G.crosshairAngle + CrosshairConfig.RotSpeed * dt
         else
-            crosshairAngle = CrosshairConfig.StaticAngle
+            G.crosshairAngle = CrosshairConfig.StaticAngle
         end
-        local rad = M.rad(crosshairAngle)
-        local cosA, sinA = M.cos(rad), M.sin(rad)
+        
+        local angle = rad(G.crosshairAngle)
+        local cosA, sinA = cos(angle), sin(angle)
+        
         local function rot(x, y)
             return V2.new(cosA * x - sinA * y, sinA * x + cosA * y)
         end
+        
         local points = {
             {V2.new(0, -CrosshairConfig.Length/2 - CrosshairConfig.Spacing), V2.new(0, -CrosshairConfig.Spacing)},
             {V2.new(0, CrosshairConfig.Spacing), V2.new(0, CrosshairConfig.Length/2 + CrosshairConfig.Spacing)},
             {V2.new(-CrosshairConfig.Length/2 - CrosshairConfig.Spacing, 0), V2.new(-CrosshairConfig.Spacing, 0)},
             {V2.new(CrosshairConfig.Spacing, 0), V2.new(CrosshairConfig.Length/2 + CrosshairConfig.Spacing, 0)}
         }
+        
         for i = 1, 4 do
             local startPoint = rot(points[i][1].X, points[i][1].Y)
             local endPoint = rot(points[i][2].X, points[i][2].Y)
-            if CrosshairConfig.Outline and crosshairOutlines[i] then
-                local ol = crosshairOutlines[i]
+            
+            if CrosshairConfig.Outline and G.crosshairOutlines[i] then
+                local ol = G.crosshairOutlines[i]
                 ol.Visible = true
                 ol.Thickness = CrosshairConfig.OutlineThickness
                 ol.Color = CrosshairConfig.OutlineColor
                 ol.From = mousePos + startPoint
                 ol.To = mousePos + endPoint
                 ol.ZIndex = 0
-            elseif crosshairOutlines[i] then
-                crosshairOutlines[i].Visible = false
+            elseif G.crosshairOutlines[i] then
+                G.crosshairOutlines[i].Visible = false
             end
-            local l = crosshairLines[i]
+            
+            local l = G.crosshairLines[i]
             l.Visible = true
             l.Thickness = CrosshairConfig.Thickness
             l.Color = CrosshairConfig.Color
@@ -2735,7 +2961,7 @@ CrosshairGroup:AddToggle('CrosshairRotate', {
     Callback = function(v)
         CrosshairConfig.Rotate = v
         if not v then
-            crosshairAngle = CrosshairConfig.StaticAngle
+            G.crosshairAngle = CrosshairConfig.StaticAngle
         end
     end
 })
@@ -3036,29 +3262,45 @@ HitChamsGroup:AddToggle('CombatTracerEnabled', {
 })
 
 -- Логика отрисовки трейсеров
-RND:Connect(function()
+-- Используем переменные из таблицы G вместо локальных
+
+HRT:Connect(function() -- Используем Heartbeat вместо RenderStepped
     if not CombatTracerConfig.Enabled then
         if combatTracerLine then
             combatTracerLine.Visible = false
         end
         return
     end
+    
+    -- Ограничиваем частоту обновлений
+    local now = tick()
+    if now - G.lastTracerUpdate < G.tracerUpdateInterval then
+        return
+    end
+    G.lastTracerUpdate = now
+    
     local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget
-    if target and target.Character and target.Character:FindFirstChild('UpperTorso') then
-        local torso = target.Character.UpperTorso
-        local screenPos, onScreen = S.WS.CurrentCamera:WorldToViewportPoint(torso.Position)
-        if onScreen then
-            local mousePos = S.UIS:GetMouseLocation()
-            if not combatTracerLine then
-                combatTracerLine = Drawing.new('Line')
-                combatTracerLine.Thickness = 2
+    if target and target.Character then
+        local torso = target.Character:FindFirstChild('UpperTorso') or target.Character:FindFirstChild('HumanoidRootPart')
+        if torso then
+            local screenPos, onScreen = S.WS.CurrentCamera:WorldToViewportPoint(torso.Position)
+            if onScreen then
+                local mousePos = S.UIS:GetMouseLocation()
+                if not combatTracerLine then
+                    combatTracerLine = Drawing.new('Line')
+                    combatTracerLine.Thickness = 2
+                    combatTracerLine.Color = CombatTracerConfig.Color
+                    combatTracerLine.ZIndex = 10000
+                end
+                combatTracerLine.From = mousePos
+                combatTracerLine.To = Vector2.new(screenPos.X, screenPos.Y)
                 combatTracerLine.Color = CombatTracerConfig.Color
-                combatTracerLine.ZIndex = 10000
+                combatTracerLine.Visible = true
+            else
+                if combatTracerLine then
+                    combatTracerLine.Visible = false
+                end
             end
-            combatTracerLine.From = mousePos
-            combatTracerLine.To = Vector2.new(screenPos.X, screenPos.Y)
-            combatTracerLine.Color = CombatTracerConfig.Color
-            combatTracerLine.Visible = true
         else
             if combatTracerLine then
                 combatTracerLine.Visible = false
@@ -3100,50 +3342,525 @@ HitEffectsSub:SetupDependencies({{Toggles.HitEffectsEnabled, true}})
 
 -- 3. Загрузка библиотеки эффектов (один раз)
 local HitEffectsLib = nil
+local hitEffectsLoading = false
 local function getHitEffectsLib()
-    if not HitEffectsLib then
-        HitEffectsLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/effects'))()
+    if HitEffectsLib then
+        return HitEffectsLib
     end
-    return HitEffectsLib
+    
+    if hitEffectsLoading then
+        return nil
+    end
+    
+    hitEffectsLoading = true
+    -- Загружаем библиотеку асинхронно
+    task.spawn(function()
+        pcall(function()
+            HitEffectsLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/effects'))()
+        end)
+        hitEffectsLoading = false
+    end)
+    
+    return nil
 end
 
 -- 4. Вызов эффекта при уроне цели (в том же месте, где HitChams/HitSounds)
-local lastTarget, lastHP, lastDamageTick = nil, nil, 0
-RND:Connect(function()
-    if not HitChamsConfig.Enabled and not HitSoundsConfig.Enabled and not HitEffectsConfig.Enabled then
-        lastTarget, lastHP, lastDamageTick = nil, nil, 0
+local lastTarget, lastHP = nil, nil
+-- Используем G.lastDamageTick вместо локальной переменной
+
+-- Объединяем все эффекты в одну функцию для оптимизации
+local function processHitEffects(target)
+    if not target or not target.Character or not target.Character:FindFirstChild('Humanoid') then
         return
     end
+    
+    -- Проверяем дебаунс
+    local now = tick()
+    if now - G.lastDamageTick < 0.1 then -- увеличиваем дебаунс до 100 мс
+        return
+    end
+    G.lastDamageTick = now
+    
+    -- Применяем эффекты
+    if HitChamsConfig.Enabled then
+        HitChams(target, HitChamsConfig)
+    end
+    
+    if HitSoundsConfig.Enabled then
+        PlayHitSound(HitSoundsConfig)
+    end
+    
+    if HitEffectsConfig.Enabled and not G.hitEffectDebounce then
+        G.hitEffectDebounce = true
+        
+        -- Используем отложенное выполнение для снижения нагрузки
+        task.delay(0.01, function()
+            local lib = getHitEffectsLib()
+            if lib and lib.Functions and lib.Functions.Effect then
+                lib.Functions.Effect(target.Character, HitEffectsConfig.Type, HitEffectsConfig.Color or Color3.fromRGB(255,255,255))
+            end
+            G.hitEffectDebounce = false
+        end)
+    end
+end
+
+-- Используем Heartbeat вместо RenderStepped для снижения нагрузки
+HRT:Connect(function()
+    if not HitChamsConfig.Enabled and not HitSoundsConfig.Enabled and not HitEffectsConfig.Enabled then
+        lastTarget, lastHP = nil, nil
+        return
+    end
+    
     local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget
     if target and target.Character and target.Character:FindFirstChild('Humanoid') then
         local hum = target.Character.Humanoid
         local hp = hum.Health
+        
         if lastTarget ~= target then
             lastTarget = target
             lastHP = hp
-            lastDamageTick = 0
-        else
-            if hp < lastHP then
-                local now = tick()
-                if now - lastDamageTick > 0.05 then -- debounce: не чаще 1 раза за 0.05 сек
-                    lastDamageTick = now
-                    if HitChamsConfig.Enabled then
-                        HitChams(target, HitChamsConfig)
-                    end
-                    if HitSoundsConfig.Enabled then
-                        PlayHitSound(HitSoundsConfig)
-                    end
-                    if HitEffectsConfig.Enabled then
-                        local lib = getHitEffectsLib()
-                        if lib and lib.Functions and lib.Functions.Effect then
-                            lib.Functions.Effect(target.Character, HitEffectsConfig.Type, HitEffectsConfig.Color or Color3.fromRGB(255,255,255))
-                        end
-                    end
-                end
+        else if hp < lastHP then
+                processHitEffects(target)
             end
             lastHP = hp
         end
     else
-        lastTarget, lastHP, lastDamageTick = nil, nil, 0
+        lastTarget, lastHP = nil, nil
+    end
+end)
+
+-- Поиск корневой части персонажа (оставляем, может пригодиться для других функций)
+local function findRootPart(character)
+    return character:FindFirstChild("HumanoidRootPart") or
+           character:FindFirstChild("Torso") or
+           character:FindFirstChild("UpperTorso") or
+           character:FindFirstChild("LowerTorso")
+end
+
+-- === Target Strafe (Combat tab, новая секция) ===
+local TargetStrafeGroup = Tabs.Combat:AddRightGroupbox('>_<')
+
+-- Объединяем все переменные в одну таблицу
+local TS = {
+    Config = {
+        Enabled = false,
+        Radius = 10,
+        Height = 5,
+        Speed = 2,
+        Visualise = false,
+        VisualiseColor = Color3.fromRGB(255, 255, 255)
+    },
+    Runtime = {
+        Angle = 0,
+        Connection = nil,
+        Target = nil,
+        FollowPart = nil,
+        DesyncPosition = nil,
+        VisualiseDrawing = nil,
+        LastAimbotTarget = nil
+    }
+}
+
+-- Делаем TS доступным глобально
+getgenv().TS = TS
+
+-- Добавляем cleanup при завершении скрипта
+game:GetService("Players").LocalPlayer.Character:GetPropertyChangedSignal("Parent"):Connect(function()
+    if TS.Runtime.VisualiseDrawing then
+        cleanupVisualisation()
+    end
+end)
+
+game:GetService("Players").LocalPlayer.Destroying:Connect(function()
+    if TS.Runtime.VisualiseDrawing then
+        cleanupVisualisation()
+    end
+end)
+
+-- Функция для создания FollowPart для камеры
+local function createFollowPart()
+    if TS.Runtime.FollowPart and TS.Runtime.FollowPart.Parent then
+        TS.Runtime.FollowPart:Destroy()
+    end
+    
+    local part = Instance.new("Part")
+    part.Name = "TargetStrafeFollowPart"
+    part.Anchored = true
+    part.CanCollide = false
+    part.Transparency = 1
+    part.Size = V3.new(0.1, 0.1, 0.1)
+    part.Parent = S.WS
+
+    -- Инициализируем начальную позицию
+    local character = LP.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local hrp = character.HumanoidRootPart
+        part.CFrame = hrp.CFrame + V3.new(0, 3.0, 0) -- Увеличил высоту с 1.5 до 3.0
+    end
+    
+    return part
+end
+
+-- Функция восстановления камеры
+local function resetTargetStrafeCamera()
+    if TS.Runtime.FollowPart and TS.Runtime.FollowPart.Parent then
+        TS.Runtime.FollowPart:Destroy()
+        TS.Runtime.FollowPart = nil
+    end
+    
+    -- Возвращаем камеру на игрока
+    local character = LP.Character
+    if character and character:FindFirstChildOfClass("Humanoid") then
+        S.WS.CurrentCamera.CameraSubject = character:FindFirstChildOfClass("Humanoid")
+    end
+end
+
+-- Функция для визуализации десинка
+local function updateDesyncVisualisation()
+    -- Если визуализация отключена, удаляем трейсер
+    if not TS.Config.Visualise or not TS.Runtime.DesyncPosition then
+        if TS.Runtime.VisualiseDrawing then
+            TS.Runtime.VisualiseDrawing.Visible = false
+        end
+        return
+    end
+    
+    -- Создаем трейсер, если его еще нет
+    if not TS.Runtime.VisualiseDrawing then
+        TS.Runtime.VisualiseDrawing = Drawing.new("Line")
+        TS.Runtime.VisualiseDrawing.Thickness = 2
+        TS.Runtime.VisualiseDrawing.ZIndex = 10000
+    end
+    
+    -- Получаем позицию десинка на экране
+    local desyncPos = TS.Runtime.DesyncPosition
+    local screenPos, onScreen = S.WS.CurrentCamera:WorldToViewportPoint(desyncPos)
+    
+    if onScreen then
+        local mousePos = S.UIS:GetMouseLocation()
+        
+        TS.Runtime.VisualiseDrawing.From = mousePos
+        TS.Runtime.VisualiseDrawing.To = Vector2.new(screenPos.X, screenPos.Y)
+        TS.Runtime.VisualiseDrawing.Color = TS.Config.VisualiseColor
+        TS.Runtime.VisualiseDrawing.Visible = true
+    else
+        TS.Runtime.VisualiseDrawing.Visible = false
+    end
+end
+
+-- Функция для полного удаления визуализации
+local function cleanupVisualisation()
+    if TS.Runtime.VisualiseDrawing then
+        TS.Runtime.VisualiseDrawing:Remove()
+        TS.Runtime.VisualiseDrawing = nil
+    end
+end
+
+-- Основная функция стрейфа
+local function performTargetStrafe()
+    if not TS.Config.Enabled then 
+        TS.Runtime.DesyncPosition = nil
+        
+        -- Убедимся, что визуализация скрыта при отключении
+        if TS.Runtime.VisualiseDrawing and TS.Runtime.VisualiseDrawing.Visible then
+            TS.Runtime.VisualiseDrawing.Visible = false
+        end
+        
+        return 
+    end
+    
+    -- Получаем цель только из аимбота
+    local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget
+    
+    -- Если нет цели, выходим
+    if not target or not target.Character then 
+        TS.Runtime.DesyncPosition = nil
+        return 
+    end
+    
+    local targetHRP = target.Character:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then 
+        TS.Runtime.DesyncPosition = nil
+        return 
+    end
+    
+    local character = LP.Character
+    if not character then 
+        TS.Runtime.DesyncPosition = nil
+        return 
+    end
+    
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then 
+        TS.Runtime.DesyncPosition = nil
+        return 
+    end
+    
+    -- Обновляем угол
+    TS.Runtime.Angle = TS.Runtime.Angle + TS.Config.Speed * HRT:Wait()
+    
+    -- Вычисляем смещение
+    local offset = V3.new(
+        M.cos(TS.Runtime.Angle) * TS.Config.Radius,
+        TS.Config.Height,
+        M.sin(TS.Runtime.Angle) * TS.Config.Radius
+    )
+    
+    -- Сохраняем оригинальный CFrame
+    local originalCFrame = hrp.CFrame
+    
+    -- Новая позиция вокруг цели
+    local targetPos = targetHRP.Position
+    local newPos = targetPos + offset
+    local newCFrame = CFrame.new(newPos, targetPos) -- Смотрим на цель
+    
+    -- Сохраняем позицию десинка для визуализации
+    TS.Runtime.DesyncPosition = newPos
+    
+    -- Обновляем визуализацию
+    if TS.Config.Visualise then
+        updateDesyncVisualisation()
+    end
+    
+    -- Обновляем позицию FollowPart для фиксации камеры
+    if TS.Config.Enabled then  -- Проверяем, что Target Strafe всё ещё активен
+        if TS.Runtime.FollowPart and TS.Runtime.FollowPart.Parent then
+            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 3.0, 0) -- Увеличил высоту с 1.5 до 3.0
+        else
+            TS.Runtime.FollowPart = createFollowPart()
+            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 3.0, 0) -- Увеличил высоту с 1.5 до 3.0
+        end
+        Cam.CameraSubject = TS.Runtime.FollowPart
+    end
+    
+    -- Устанавливаем новую позицию
+    hrp.CFrame = newCFrame
+    
+    -- Возвращаем оригинальную позицию после отрисовки кадра
+    task.spawn(function()
+        RND:Wait() -- Ждем один кадр отрисовки в отдельном потоке
+        if hrp and hrp.Parent then -- Проверяем, что HRP все еще существует
+            hrp.CFrame = originalCFrame
+        end
+    end)
+    
+    -- Возвращаем камеру к игроку после десинка
+    task.spawn(function()
+        RND:Wait() -- Используем RenderStepped для синхронизации с отрисовкой
+        if character and character:FindFirstChildOfClass("Humanoid") then
+            Cam.CameraSubject = character:FindFirstChildOfClass("Humanoid")
+        end
+    end)
+end
+
+-- Функция включения стрейфа
+local function toggleTargetStrafe(state)
+    TS.Config.Enabled = state
+    
+    -- Отключаем предыдущие соединения
+    if TS.Runtime.Connection then
+        TS.Runtime.Connection:Disconnect()
+        TS.Runtime.Connection = nil
+    end
+    
+    -- Очищаем визуализацию при отключении
+    if not state then
+        TS.Runtime.DesyncPosition = nil
+        cleanupVisualisation()
+        resetTargetStrafeCamera()
+    end
+    
+    if state then
+        -- Создаем FollowPart для камеры
+        TS.Runtime.FollowPart = createFollowPart()
+        
+        -- Запускаем стрейф
+        TS.Runtime.Connection = HRT:Connect(performTargetStrafe)
+        Library:Notify('Target Strafe: Включен', 3)
+    else
+        -- Отключаем камеру
+        resetTargetStrafeCamera()
+        Library:Notify('Target Strafe: Выключен', 3)
+    end
+end
+
+-- UI для Target Strafe
+TargetStrafeGroup:AddToggle('TargetStrafe', {
+    Text = 'Target Strafe',
+    Default = false,
+    Callback = function(v) toggleTargetStrafe(v) end,
+    Tooltip = 'Стрейф вокруг цели с десинком'
+})
+
+TargetStrafeGroup:AddSlider('TargetStrafeRadius', {
+    Text = 'Radius',
+    Default = TS.Config.Radius,
+    Min = 2, Max = 50, Rounding = 1,
+    Callback = function(val) TS.Config.Radius = val end
+})
+
+TargetStrafeGroup:AddSlider('TargetStrafeHeight', {
+    Text = 'Height',
+    Default = TS.Config.Height,
+    Min = -50, Max = 50, Rounding = 1,
+    Callback = function(val) TS.Config.Height = val end
+})
+
+TargetStrafeGroup:AddSlider('TargetStrafeSpeed', {
+    Text = 'Speed',
+    Default = TS.Config.Speed,
+    Min = 0.5, Max = 30, Rounding = 1,
+    Callback = function(val) TS.Config.Speed = val end
+})
+
+TargetStrafeGroup:AddToggle('TargetStrafeVisualise', {
+    Text = 'Visualise',
+    Default = false,
+    Callback = function(v)
+        TS.Config.Visualise = v
+        
+        -- Если отключаем визуализацию, удаляем трейсер
+        if not v then
+            cleanupVisualisation()
+        end
+    end,
+    Tooltip = 'Show tracer to desync position'
+}):AddColorPicker('TargetStrafeVisualiseColor', {
+    Default = Color3.fromRGB(255, 255, 255),
+    Title = 'Color',
+    Callback = function(val)
+        TS.Config.VisualiseColor = val
+        
+        -- Обновляем цвет существующего трейсера, если он активен
+        if TS.Runtime.VisualiseDrawing and TS.Runtime.VisualiseDrawing.Visible then
+            TS.Runtime.VisualiseDrawing.Color = val
+        end
+    end
+})
+
+-- Обработка смены персонажа
+LP.CharacterAdded:Connect(function(newCharacter)
+    if TS.Config.Enabled then
+        -- Пересоздаем камеру при смене персонажа
+        task.wait(0.5) -- Ждем загрузки персонажа
+        if TS.Runtime.FollowPart then
+            resetTargetStrafeCamera()
+            TS.Runtime.FollowPart = createFollowPart()
+        end
+    end
+end)
+
+-- Следим за изменениями цели аимбота и обновляем визуализацию
+local aimbotTargetWatcher = nil
+aimbotTargetWatcher = HRT:Connect(function()
+    -- Обновляем визуализацию десинка на каждом кадре
+    if TS.Config.Enabled and TS.Config.Visualise and TS.Runtime.DesyncPosition then
+        updateDesyncVisualisation()
+    else
+        if TS.Runtime.VisualiseDrawing and TS.Runtime.VisualiseDrawing.Visible then
+            TS.Runtime.VisualiseDrawing.Visible = false
+        end
+    end
+end)
+
+-- === Grip (Combat tab, new section) ===
+local GripGroup = Tabs.Combat:AddRightGroupbox('>_<')
+
+-- Create UI components
+GripGroup:AddToggle('GripEnabled', {
+    Text = 'Custom Grip',
+    Default = false,
+    Callback = function(v) G.GripSettings.Enabled = v end,
+    Tooltip = 'Change weapon grip position and rotation'
+})
+
+-- Position sliders
+GripGroup:AddLabel('Position:')
+GripGroup:AddSlider('GripPosX', {
+    Text = 'X Position',
+    Default = 0,
+    Min = -100, Max = 100, Rounding = 1,
+    Callback = function(val) G.GripSettings.Position = Vector3.new(val, G.GripSettings.Position.Y, G.GripSettings.Position.Z) end
+})
+
+GripGroup:AddSlider('GripPosY', {
+    Text = 'Y Position',
+    Default = 0,
+    Min = -100, Max = 100, Rounding = 1,
+    Callback = function(val) G.GripSettings.Position = Vector3.new(G.GripSettings.Position.X, val, G.GripSettings.Position.Z) end
+})
+
+GripGroup:AddSlider('GripPosZ', {
+    Text = 'Z Position',
+    Default = 0,
+    Min = -100, Max = 100, Rounding = 1,
+    Callback = function(val) G.GripSettings.Position = Vector3.new(G.GripSettings.Position.X, G.GripSettings.Position.Y, val) end
+})
+
+-- Rotation sliders
+GripGroup:AddLabel('Rotation:')
+GripGroup:AddSlider('GripRotX', {
+    Text = 'X Rotation',
+    Default = 0,
+    Min = -180, Max = 180, Rounding = 1,
+    Callback = function(val) G.GripSettings.Rotation = Vector3.new(val, G.GripSettings.Rotation.Y, G.GripSettings.Rotation.Z) end
+})
+
+GripGroup:AddSlider('GripRotY', {
+    Text = 'Y Rotation',
+    Default = 0,
+    Min = -180, Max = 180, Rounding = 1,
+    Callback = function(val) G.GripSettings.Rotation = Vector3.new(G.GripSettings.Rotation.X, val, G.GripSettings.Rotation.Z) end
+})
+
+GripGroup:AddSlider('GripRotZ', {
+    Text = 'Z Rotation',
+    Default = 0,
+    Min = -180, Max = 180, Rounding = 1,
+    Callback = function(val) G.GripSettings.Rotation = Vector3.new(G.GripSettings.Rotation.X, G.GripSettings.Rotation.Y, val) end
+})
+
+-- Reset button
+GripGroup:AddLabel('Options:')
+GripGroup:AddButton({
+    Text = 'Reset All',
+    Func = function()
+        G.GripSettings.Position = Vector3.new(0, 0, 0)
+        G.GripSettings.Rotation = Vector3.new(0, 0, 0)
+        -- Update UI sliders to match the reset values
+        Options.GripPosX:SetValue(0)
+        Options.GripPosY:SetValue(0)
+        Options.GripPosZ:SetValue(0)
+        Options.GripRotX:SetValue(0)
+        Options.GripRotY:SetValue(0)
+        Options.GripRotZ:SetValue(0)
+    end,
+    Tooltip = 'Reset all grip settings to default'
+})
+
+
+
+-- Main grip logic
+local gripConnection
+if gripConnection then gripConnection:Disconnect() end
+
+gripConnection = S.RS.Stepped:Connect(function()
+    if G.GripSettings.Enabled then
+        local character = LP.Character
+        local tool = character and character:FindFirstChildOfClass("Tool")
+        if tool then
+            -- Apply position only
+            tool.GripPos = G.GripSettings.Position
+            
+            -- Apply rotation using proper CFrame
+            local angles = CFrame.Angles(
+                M.rad(G.GripSettings.Rotation.X),
+                M.rad(G.GripSettings.Rotation.Y),
+                M.rad(G.GripSettings.Rotation.Z)
+            )
+            
+            -- Применяем правильно
+            tool.Grip = CFrame.new(G.GripSettings.Position) * angles
+        end
     end
 end)
