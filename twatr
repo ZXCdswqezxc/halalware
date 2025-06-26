@@ -2299,6 +2299,7 @@ getgenv().SilentAim = {
         Mode = "Nuker",
         StickyKey = Enum.KeyCode.Q,
         AutoAir = false, -- Добавлена новая опция AutoAir
+        MagicBullet = false, -- Добавлена опция Magic Bullet
     },
     Silent = {
         PredictionXZ = 0.12362,
@@ -2320,6 +2321,14 @@ getgenv().SilentAim = {
                 Type = "Calculate CFrame",
             },
         },
+    },
+    MagicBullet = {
+        LastShot = 0,
+        Cooldown = 0, -- Без задержки между выстрелами
+        Range = 1000, -- Максимальная дистанция для Magic Bullet
+        IgnoreKO = false, -- Не стрелять в KO цели по умолчанию
+        IgnoreGrabbed = false, -- Не стрелять в схваченные цели по умолчанию
+        IgnoreForceField = true, -- Не стрелять в цели с форсфилдом по умолчанию
     },
     currentTarget = nil
 }
@@ -2367,6 +2376,52 @@ SilentAimGroup:AddToggle('SilentAimAutoAir', {
     end,
     Tooltip = 'Автоматически стреляет, когда цель находится в воздухе'
 })
+
+-- Добавляем Magic Bullet
+SilentAimGroup:AddToggle('SilentAimMagicBullet', {
+    Text = 'Magic Bullet',
+    Default = false,
+    Callback = function(v) 
+        getgenv().SilentAim.Options.MagicBullet = v 
+    end,
+    Tooltip = 'Автоматически стреляет в цель аимбота через стены'
+})
+
+-- Настройки Magic Bullet
+local MagicBulletGroup = SilentAimGroup:AddDependencyBox()
+
+MagicBulletGroup:AddSlider('MagicBulletRange', {
+    Text = 'Range',
+    Default = 1000,
+    Min = 100, Max = 1000, Rounding = 0,
+    Callback = function(v) 
+        getgenv().SilentAim.MagicBullet.Range = tonumber(v) or 1000
+    end,
+    Tooltip = 'Максимальная дистанция для Magic Bullet'
+})
+
+MagicBulletGroup:AddToggle('MagicBulletIgnoreKO', {
+    Text = 'Ignore KO Check',
+    Default = false,
+    Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreKO = v end,
+    Tooltip = 'Стрелять в цели в нокауте'
+})
+
+MagicBulletGroup:AddToggle('MagicBulletIgnoreGrabbed', {
+    Text = 'Ignore Grabbed Check',
+    Default = false,
+    Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreGrabbed = v end,
+    Tooltip = 'Стрелять в схваченные цели'
+})
+
+MagicBulletGroup:AddToggle('MagicBulletIgnoreForceField', {
+    Text = 'ForceField Check',
+    Default = true,
+    Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreForceField = v end,
+    Tooltip = 'Не стрелять в цели с форсфилдом'
+})
+
+MagicBulletGroup:SetupDependencies({{Toggles.SilentAimMagicBullet, true}})
 SilentAimGroup:AddInput('SilentAimPredictionXZ', {
     Text = 'Prediction XZ',
     Default = tostring(getgenv().SilentAim.Silent.PredictionXZ),
@@ -2465,6 +2520,8 @@ if not getgenv().Loaded_SilentAim then
     local NewCFrame = CFrame.new
     local stickyTarget = nil
     local lastPositions, lastUpdateTimes = {}, {}
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local MainEvent = ReplicatedStorage:FindFirstChild("MainEvent")
 
     local function isPlayerAlive(player)
         return player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
@@ -2472,6 +2529,11 @@ if not getgenv().Loaded_SilentAim then
     local function isPlayerGrabbed(player)
         if not player or not player.Character then return false end
         return player.Character:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
+    end
+    
+    local function hasForceField(player)
+        if not player or not player.Character then return false end
+        return player.Character:FindFirstChildOfClass("ForceField") ~= nil
     end
     local function isPlayerKO(player)
         if not player or not player.Character then return false end
@@ -2490,6 +2552,8 @@ if not getgenv().Loaded_SilentAim then
     end
     local function wallCheck(character)
         if not SilentAim.Misc.Checks.WallCheck then return true end
+        if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
+        
         local targetPos = character.HumanoidRootPart.Position
         local cameraPos = Camera.CFrame.Position
         local distance = (targetPos - cameraPos).Magnitude
@@ -2505,12 +2569,15 @@ if not getgenv().Loaded_SilentAim then
         local closestPlayer = nil
         local partName = SilentAim.Silent.Part
         for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and isPlayerAlive(player) and
+            -- Проверяем isPlayerAlive только если TargetDeathCheck включен
+            local isAliveCheck = not SilentAim.Misc.Checks.TargetDeathCheck or isPlayerAlive(player)
+            
+            if player ~= LocalPlayer and isAliveCheck and
                (not SilentAim.Misc.Checks.KOCheck or not isPlayerKO(player)) and
                (not SilentAim.Misc.Checks.GrabbedCheck or not isPlayerGrabbed(player)) and
                wallCheck(player.Character) then
                 local character = player.Character
-                local part = character:FindFirstChild(partName)
+                local part = character and character:FindFirstChild(partName)
                 if part then
                     local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
                     local distance = (NewVector2(screenPos.X, screenPos.Y) - mousePos).Magnitude
@@ -2707,7 +2774,10 @@ if not getgenv().Loaded_SilentAim then
         end
         local currentTarget = nil
         if SilentAim.Options.Mode == "Sticky" then
-            if stickyTarget and isPlayerAlive(stickyTarget) and (not SilentAim.Misc.Checks.KOCheck or not isPlayerKO(stickyTarget)) and (not SilentAim.Misc.Checks.GrabbedCheck or not isPlayerGrabbed(stickyTarget)) then
+            -- Проверяем isPlayerAlive только если TargetDeathCheck включен
+            local isAliveCheck = SilentAim.Misc.Checks.TargetDeathCheck and isPlayerAlive(stickyTarget) or stickyTarget ~= nil
+            
+            if stickyTarget and isAliveCheck and (not SilentAim.Misc.Checks.KOCheck or not isPlayerKO(stickyTarget)) and (not SilentAim.Misc.Checks.GrabbedCheck or not isPlayerGrabbed(stickyTarget)) then
                 currentTarget = stickyTarget
             else
                 stickyTarget = nil 
@@ -2717,14 +2787,67 @@ if not getgenv().Loaded_SilentAim then
         end
         SilentAim.currentTarget = currentTarget
         
-        -- Проверка AutoAir для текущей цели - ограничиваем частоту вызовов
-        if SilentAim.Options.AutoAir and currentTarget and tick() % 0.2 < 0.02 then
-            autoAir(currentTarget)
+            -- Проверка AutoAir для текущей цели - ограничиваем частоту вызовов
+    if SilentAim.Options.AutoAir and currentTarget and tick() % 0.2 < 0.02 then
+        autoAir(currentTarget)
+    end
+    
+    -- Magic Bullet логика
+    if SilentAim.Options.MagicBullet and currentTarget and MainEvent then
+        -- Убираем проверку задержки, так как она всегда 0
+        local now = tick()
+        SilentAim.MagicBullet.LastShot = now
+            
+        -- Проверяем, что цель валидна
+        if currentTarget and currentTarget.Character then
+            -- Проверка KO, Grabbed и ForceField с учетом настроек
+            local isKO = isPlayerKO(currentTarget)
+            local isGrabbed = isPlayerGrabbed(currentTarget)
+            local hasFF = hasForceField(currentTarget)
+            
+            -- Если цель в KO, но мы игнорируем KO, или цель не в KO
+            local koCheckPassed = (isKO and SilentAim.MagicBullet.IgnoreKO) or (not isKO)
+            -- Если цель схвачена, но мы игнорируем Grabbed, или цель не схвачена
+            local grabbedCheckPassed = (isGrabbed and SilentAim.MagicBullet.IgnoreGrabbed) or (not isGrabbed)
+            -- Если у цели есть форсфилд и мы проверяем форсфилд, то не стреляем
+            local ffCheckPassed = (SilentAim.MagicBullet.IgnoreForceField and not hasFF) or (not SilentAim.MagicBullet.IgnoreForceField)
+            
+            if koCheckPassed and grabbedCheckPassed and ffCheckPassed then
+                local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                if tool and tool:FindFirstChild("Handle") then
+                    -- Проверяем дистанцию
+                    local targetHead = currentTarget.Character:FindFirstChild("Head")
+                    local targetHRP = currentTarget.Character:FindFirstChild("HumanoidRootPart")
+                    
+                    if targetHead and targetHRP then
+                        local distance = (LocalPlayer.Character.HumanoidRootPart.Position - targetHRP.Position).Magnitude
+                        local range = tonumber(SilentAim.MagicBullet.Range) or 5000
+                        
+                        if distance <= range then
+                            -- Не нужно обновлять время последнего выстрела, так как это сделано выше
+                            
+                            -- Стреляем в цель через MainEvent (без проверки стен)
+                            task.spawn(function()
+                                MainEvent:FireServer(
+                                    "ShootGun",
+                                    tool:FindFirstChild("Handle"),
+                                    tool:FindFirstChild("Handle").CFrame.Position,
+                                    targetHRP.Position,
+                                    targetHead,
+                                    Vector3.new(0, 0, -1)
+                                )
+                            end)
+                        end
+                    end
+                end
+            end
         end
-        -- Обновляем LastAimbotTarget для Target Strafe
-        if getgenv().TS and getgenv().TS.Config and getgenv().TS.Config.Enabled then
-            getgenv().TS.Runtime.LastAimbotTarget = currentTarget
-        end
+    end
+    
+    -- Обновляем LastAimbotTarget для Target Strafe
+    if getgenv().TS and getgenv().TS.Config and getgenv().TS.Config.Enabled then
+        getgenv().TS.Runtime.LastAimbotTarget = currentTarget
+    end
     end)
     
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
