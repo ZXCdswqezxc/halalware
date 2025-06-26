@@ -73,7 +73,21 @@ local G = {
     -- YawLocker
     yawLockerConnection = nil,
     yawJitterState = 1,
-    yawJitterTimer = 0
+    yawJitterTimer = 0,
+    
+    -- Grip
+    GripSettings = {
+        Enabled = false,
+        Position = Vector3.new(0, 0, 0),
+        Rotation = Vector3.new(0, 0, 0)
+    },
+    
+    -- BulletTP
+    bulletTpConns = {},
+    bulletTpCFOffset = function(origin, target)
+        local actualOrigin = origin * CFrame.new(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, -1, 0)
+        return actualOrigin:ToObjectSpace(target):inverse()
+    end
 }
 
 local V3, V2, CF, C3, U2, RP = Vector3, Vector2, CFrame, Color3, UDim2, RaycastParams
@@ -838,11 +852,47 @@ MiscCameraGroup:AddToggle('UnlockCameraDistance', {
     Callback = function(v)
         if v then
             LP.CameraMaxZoomDistance = M.huge
+            LP.CameraMinZoomDistance = 0.5 -- Оставляем минимальное расстояние, чтобы избежать проблем с камерой
         else
             LP.CameraMaxZoomDistance = G.originalPlayerMaxZoom
+            LP.CameraMinZoomDistance = 0.5 -- Стандартное минимальное значение
         end
     end,
     Tooltip = 'Removes camera zoom limit'
+})
+
+-- Сохраняем оригинальные значения при загрузке
+G.originalPlayerMaxZoom = LP.CameraMaxZoomDistance
+G.originalPlayerMinZoom = LP.CameraMinZoomDistance
+
+-- Добавляем опцию режима от первого лица
+MiscCameraGroup:AddToggle('FirstPersonMode', {
+    Text = 'First Person Mode',
+    Default = false,
+    Callback = function(v)
+        if v then
+            -- Сохраняем текущие значения, если еще не сохранены
+            if not G.savedCameraValues then
+                G.savedCameraValues = {
+                    MaxZoom = LP.CameraMaxZoomDistance,
+                    MinZoom = LP.CameraMinZoomDistance
+                }
+            end
+            -- Устанавливаем режим от первого лица
+            LP.CameraMaxZoomDistance = 0.5
+            LP.CameraMinZoomDistance = 0.5
+        else
+            -- Восстанавливаем предыдущие значения
+            if G.savedCameraValues then
+                LP.CameraMaxZoomDistance = G.savedCameraValues.MaxZoom
+                LP.CameraMinZoomDistance = G.savedCameraValues.MinZoom
+            else
+                LP.CameraMaxZoomDistance = G.originalPlayerMaxZoom
+                LP.CameraMinZoomDistance = G.originalPlayerMinZoom
+            end
+        end
+    end,
+    Tooltip = 'Forces first person view'
 })
 
 -- SphereAura UI и логика
@@ -2015,26 +2065,52 @@ local rapidFireGunScriptConn = nil
 
 local function enableRapidFireGunScript()
     if rapidFireGunScriptConn then rapidFireGunScriptConn:Disconnect() end
-    rapidFireGunScriptConn = RND:Connect(function()
+    
+    -- Оптимизируем, добавив дебаунс и уменьшив частоту проверок
+    local lastToolCheck = 0
+    local toolCheckInterval = 0.2 -- Проверяем каждые 200мс вместо каждого кадра
+    local currentTool = nil
+    local isOptimizing = false
+    
+    rapidFireGunScriptConn = HRT:Connect(function()
+        local now = tick()
+        -- Проверяем оружие только через интервал или при смене оружия
+        if now - lastToolCheck < toolCheckInterval and currentTool then return end
+        
+        lastToolCheck = now
         local tool = LP.Character and LP.Character:FindFirstChildOfClass('Tool')
-        if tool and tool:FindFirstChild('GunScript') then
-            for _, connection in ipairs(getconnections(tool.Activated)) do
-                local func = connection.Function
-                if func then
-                    local funcInfo = debug.getinfo(func)
-                    for i = 1, funcInfo.nups do
-                        local c, n = debug.getupvalue(func, i)
-                        if type(c) == 'number' then
-                            if not Orginal[i] then
-                                Orginal[i] = c
+        
+        -- Если оружие не изменилось, не делаем повторную оптимизацию
+        if tool == currentTool then return end
+        currentTool = tool
+        
+        -- Если уже идет процесс оптимизации, не запускаем новый
+        if isOptimizing then return end
+        
+        -- Запускаем оптимизацию в отдельном потоке, чтобы не влиять на FPS
+        task.spawn(function()
+            isOptimizing = true
+            if tool and tool:FindFirstChild('GunScript') then
+                for _, connection in ipairs(getconnections(tool.Activated)) do
+                    local func = connection.Function
+                    if func then
+                        local funcInfo = debug.getinfo(func)
+                        for i = 1, funcInfo.nups do
+                            local c, n = debug.getupvalue(func, i)
+                            if type(c) == 'number' then
+                                if not Orginal[i] then
+                                    Orginal[i] = c
+                                end
+                                debug.setupvalue(func, i, Traced.RapidFire and 0.00000000000000000001 or Orginal[i])
                             end
-                            debug.setupvalue(func, i, Traced.RapidFire and 0.00000000000000000001 or Orginal[i])
                         end
                     end
                 end
             end
-        end
+            isOptimizing = false
+        end)
     end)
+    
     Traced.RapidFire = true
 end
 
@@ -2230,6 +2306,7 @@ getgenv().SilentAim = {
         Mode = "Nuker",
         StickyKey = Enum.KeyCode.Q,
         AutoAir = false, -- Добавлена новая опция AutoAir
+        MagicBullet = false, -- Добавлена опция Magic Bullet
     },
     Silent = {
         PredictionXZ = 0.12362,
@@ -2251,6 +2328,14 @@ getgenv().SilentAim = {
                 Type = "Calculate CFrame",
             },
         },
+    },
+    MagicBullet = {
+        LastShot = 0,
+        Cooldown = 0, -- Без задержки между выстрелами
+        Range = 1000, -- Максимальная дистанция для Magic Bullet
+        IgnoreKO = false, -- Не стрелять в KO цели по умолчанию
+        IgnoreGrabbed = false, -- Не стрелять в схваченные цели по умолчанию
+        IgnoreForceField = true, -- Не стрелять в цели с форсфилдом по умолчанию
     },
     currentTarget = nil
 }
@@ -2298,6 +2383,52 @@ SilentAimGroup:AddToggle('SilentAimAutoAir', {
     end,
     Tooltip = 'Автоматически стреляет, когда цель находится в воздухе'
 })
+
+-- Добавляем Magic Bullet
+SilentAimGroup:AddToggle('SilentAimMagicBullet', {
+    Text = 'Magic Bullet',
+    Default = false,
+    Callback = function(v) 
+        getgenv().SilentAim.Options.MagicBullet = v 
+    end,
+    Tooltip = 'Автоматически стреляет в цель аимбота через стены'
+})
+
+-- Настройки Magic Bullet
+local MagicBulletGroup = SilentAimGroup:AddDependencyBox()
+
+MagicBulletGroup:AddSlider('MagicBulletRange', {
+    Text = 'Range',
+    Default = 1000,
+    Min = 100, Max = 1000, Rounding = 0,
+    Callback = function(v) 
+        getgenv().SilentAim.MagicBullet.Range = tonumber(v) or 1000
+    end,
+    Tooltip = 'Максимальная дистанция для Magic Bullet'
+})
+
+MagicBulletGroup:AddToggle('MagicBulletIgnoreKO', {
+    Text = 'Ignore KO Check',
+    Default = false,
+    Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreKO = v end,
+    Tooltip = 'Стрелять в цели в нокауте'
+})
+
+MagicBulletGroup:AddToggle('MagicBulletIgnoreGrabbed', {
+    Text = 'Ignore Grabbed Check',
+    Default = false,
+    Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreGrabbed = v end,
+    Tooltip = 'Стрелять в схваченные цели'
+})
+
+MagicBulletGroup:AddToggle('MagicBulletIgnoreForceField', {
+    Text = 'ForceField Check',
+    Default = true,
+    Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreForceField = v end,
+    Tooltip = 'Не стрелять в цели с форсфилдом'
+})
+
+MagicBulletGroup:SetupDependencies({{Toggles.SilentAimMagicBullet, true}})
 SilentAimGroup:AddInput('SilentAimPredictionXZ', {
     Text = 'Prediction XZ',
     Default = tostring(getgenv().SilentAim.Silent.PredictionXZ),
@@ -2396,6 +2527,8 @@ if not getgenv().Loaded_SilentAim then
     local NewCFrame = CFrame.new
     local stickyTarget = nil
     local lastPositions, lastUpdateTimes = {}, {}
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local MainEvent = ReplicatedStorage:FindFirstChild("MainEvent")
 
     local function isPlayerAlive(player)
         return player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
@@ -2403,6 +2536,11 @@ if not getgenv().Loaded_SilentAim then
     local function isPlayerGrabbed(player)
         if not player or not player.Character then return false end
         return player.Character:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
+    end
+    
+    local function hasForceField(player)
+        if not player or not player.Character then return false end
+        return player.Character:FindFirstChildOfClass("ForceField") ~= nil
     end
     local function isPlayerKO(player)
         if not player or not player.Character then return false end
@@ -2421,6 +2559,8 @@ if not getgenv().Loaded_SilentAim then
     end
     local function wallCheck(character)
         if not SilentAim.Misc.Checks.WallCheck then return true end
+        if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
+        
         local targetPos = character.HumanoidRootPart.Position
         local cameraPos = Camera.CFrame.Position
         local distance = (targetPos - cameraPos).Magnitude
@@ -2436,12 +2576,15 @@ if not getgenv().Loaded_SilentAim then
         local closestPlayer = nil
         local partName = SilentAim.Silent.Part
         for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and isPlayerAlive(player) and
+            -- Проверяем isPlayerAlive только если TargetDeathCheck включен
+            local isAliveCheck = not SilentAim.Misc.Checks.TargetDeathCheck or isPlayerAlive(player)
+            
+            if player ~= LocalPlayer and isAliveCheck and
                (not SilentAim.Misc.Checks.KOCheck or not isPlayerKO(player)) and
                (not SilentAim.Misc.Checks.GrabbedCheck or not isPlayerGrabbed(player)) and
                wallCheck(player.Character) then
                 local character = player.Character
-                local part = character:FindFirstChild(partName)
+                local part = character and character:FindFirstChild(partName)
                 if part then
                     local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
                     local distance = (NewVector2(screenPos.X, screenPos.Y) - mousePos).Magnitude
@@ -2638,7 +2781,10 @@ if not getgenv().Loaded_SilentAim then
         end
         local currentTarget = nil
         if SilentAim.Options.Mode == "Sticky" then
-            if stickyTarget and isPlayerAlive(stickyTarget) and (not SilentAim.Misc.Checks.KOCheck or not isPlayerKO(stickyTarget)) and (not SilentAim.Misc.Checks.GrabbedCheck or not isPlayerGrabbed(stickyTarget)) then
+            -- Проверяем isPlayerAlive только если TargetDeathCheck включен
+            local isAliveCheck = SilentAim.Misc.Checks.TargetDeathCheck and isPlayerAlive(stickyTarget) or stickyTarget ~= nil
+            
+            if stickyTarget and isAliveCheck and (not SilentAim.Misc.Checks.KOCheck or not isPlayerKO(stickyTarget)) and (not SilentAim.Misc.Checks.GrabbedCheck or not isPlayerGrabbed(stickyTarget)) then
                 currentTarget = stickyTarget
             else
                 stickyTarget = nil 
@@ -2648,14 +2794,67 @@ if not getgenv().Loaded_SilentAim then
         end
         SilentAim.currentTarget = currentTarget
         
-        -- Проверка AutoAir для текущей цели - ограничиваем частоту вызовов
-        if SilentAim.Options.AutoAir and currentTarget and tick() % 0.2 < 0.02 then
-            autoAir(currentTarget)
+            -- Проверка AutoAir для текущей цели - ограничиваем частоту вызовов
+    if SilentAim.Options.AutoAir and currentTarget and tick() % 0.2 < 0.02 then
+        autoAir(currentTarget)
+    end
+    
+    -- Magic Bullet логика
+    if SilentAim.Options.MagicBullet and currentTarget and MainEvent then
+        -- Убираем проверку задержки, так как она всегда 0
+        local now = tick()
+        SilentAim.MagicBullet.LastShot = now
+            
+        -- Проверяем, что цель валидна
+        if currentTarget and currentTarget.Character then
+            -- Проверка KO, Grabbed и ForceField с учетом настроек
+            local isKO = isPlayerKO(currentTarget)
+            local isGrabbed = isPlayerGrabbed(currentTarget)
+            local hasFF = hasForceField(currentTarget)
+            
+            -- Если цель в KO, но мы игнорируем KO, или цель не в KO
+            local koCheckPassed = (isKO and SilentAim.MagicBullet.IgnoreKO) or (not isKO)
+            -- Если цель схвачена, но мы игнорируем Grabbed, или цель не схвачена
+            local grabbedCheckPassed = (isGrabbed and SilentAim.MagicBullet.IgnoreGrabbed) or (not isGrabbed)
+            -- Если у цели есть форсфилд и мы проверяем форсфилд, то не стреляем
+            local ffCheckPassed = (SilentAim.MagicBullet.IgnoreForceField and not hasFF) or (not SilentAim.MagicBullet.IgnoreForceField)
+            
+            if koCheckPassed and grabbedCheckPassed and ffCheckPassed then
+                local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                if tool and tool:FindFirstChild("Handle") then
+                    -- Проверяем дистанцию
+                    local targetHead = currentTarget.Character:FindFirstChild("Head")
+                    local targetHRP = currentTarget.Character:FindFirstChild("HumanoidRootPart")
+                    
+                    if targetHead and targetHRP then
+                        local distance = (LocalPlayer.Character.HumanoidRootPart.Position - targetHRP.Position).Magnitude
+                        local range = tonumber(SilentAim.MagicBullet.Range) or 5000
+                        
+                        if distance <= range then
+                            -- Не нужно обновлять время последнего выстрела, так как это сделано выше
+                            
+                            -- Стреляем в цель через MainEvent (без проверки стен)
+                            task.spawn(function()
+                                MainEvent:FireServer(
+                                    "ShootGun",
+                                    tool:FindFirstChild("Handle"),
+                                    tool:FindFirstChild("Handle").CFrame.Position,
+                                    targetHRP.Position,
+                                    targetHead,
+                                    Vector3.new(0, 0, -1)
+                                )
+                            end)
+                        end
+                    end
+                end
+            end
         end
-        -- Обновляем LastAimbotTarget для Target Strafe
-        if getgenv().TS and getgenv().TS.Config and getgenv().TS.Config.Enabled then
-            getgenv().TS.Runtime.LastAimbotTarget = currentTarget
-        end
+    end
+    
+    -- Обновляем LastAimbotTarget для Target Strafe
+    if getgenv().TS and getgenv().TS.Config and getgenv().TS.Config.Enabled then
+        getgenv().TS.Runtime.LastAimbotTarget = currentTarget
+    end
     end)
     
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -2958,78 +3157,70 @@ local HitChamsConfig = {
     Transparency = 0,
 }
 
+-- Список частей тела для HitChams
+G.HitChamsBodyParts = {
+    "Head", "UpperTorso", "LowerTorso",
+    "LeftUpperArm", "LeftLowerArm", "LeftHand",
+    "RightUpperArm", "RightLowerArm", "RightHand",
+    "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
+    "RightUpperLeg", "RightLowerLeg", "RightFoot"
+}
+
 -- ВОССТАНОВЛЕНИЕ HitChams
 local function HitChams(Player, config)
     config = config or HitChamsConfig
-    if not config.Enabled then return end
-    if Player and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-        Player.Character.Archivable = true
-        local Cloned = Player.Character:Clone()
-        Cloned.Name = "Player Clone"
-        local BodyParts = {
-            "Head", "UpperTorso", "LowerTorso",
-            "LeftUpperArm", "LeftLowerArm", "LeftHand",
-            "RightUpperArm", "RightLowerArm", "RightHand",
-            "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
-            "RightUpperLeg", "RightLowerLeg", "RightFoot"
-        }
-        for _, Part in ipairs(Cloned:GetChildren()) do
-            if Part:IsA("BasePart") then
-                local PartValid = false
-                for _, validPart in ipairs(BodyParts) do
-                    if Part.Name == validPart then
-                        PartValid = true
-                        break
-                    end
-                end
-                if not PartValid then
-                    Part:Destroy()
-                end
-            elseif Part:IsA("Accessory") or Part:IsA("Tool") or Part.Name == "face" or Part:IsA("Shirt") or Part:IsA("Pants") or Part:IsA("Hat") then
-                Part:Destroy()
+    if not config.Enabled or not Player or not Player.Character or not Player.Character:FindFirstChild("HumanoidRootPart") then return end
+    
+    Player.Character.Archivable = true
+    local Cloned = Player.Character:Clone()
+    Cloned.Name = "Player Clone"
+    
+    -- Удаляем ненужные части
+    for _, Part in ipairs(Cloned:GetChildren()) do
+        if Part:IsA("BasePart") then
+            local keep = false
+            for _, validPart in ipairs(G.HitChamsBodyParts) do
+                if Part.Name == validPart then keep = true; break end
             end
+            if not keep then Part:Destroy() end
+        elseif Part:IsA("Accessory") or Part:IsA("Tool") or Part.Name == "face" or Part:IsA("Shirt") or Part:IsA("Pants") or Part:IsA("Hat") then
+            Part:Destroy()
         end
-        if Cloned:FindFirstChild("Humanoid") then
-            Cloned.Humanoid:Destroy()
-        end
-        for _, BodyPart in ipairs(Cloned:GetChildren()) do
-            if BodyPart:IsA("BasePart") then
-                BodyPart.CanCollide = false
-                BodyPart.Anchored = true
-                BodyPart.Transparency = config.Transparency
-                BodyPart.Color = config.Color
-                BodyPart.Material = config.Material
-            end
-        end
-        if Cloned:FindFirstChild("Head") then
-            local Head = Cloned.Head
-            Head.Transparency = config.Transparency
-            Head.Color = config.Color
-            Head.Material = config.Material
-            if Head:FindFirstChild("face") then
-                Head.face:Destroy()
-            end
-        end
-        Cloned.Parent = game.Workspace
-        local tweenInfo = TweenInfo.new(
-            config.Duration,
-            Enum.EasingStyle.Sine,
-            Enum.EasingDirection.InOut,
-            0,
-            true
-        )
-        for _, BodyPart in ipairs(Cloned:GetChildren()) do
-            if BodyPart:IsA("BasePart") then
-                local tween = S.TS:Create(BodyPart, tweenInfo, { Transparency = 1 })
-                tween:Play()
-            end
-        end
-        task.delay(config.Duration, function()
-            if Cloned and Cloned.Parent then
-                Cloned:Destroy()
-            end
-        end)
     end
+    
+    -- Удаляем гуманоида
+    if Cloned:FindFirstChild("Humanoid") then Cloned.Humanoid:Destroy() end
+    
+    -- Настраиваем части тела
+    for _, Part in ipairs(Cloned:GetChildren()) do
+        if Part:IsA("BasePart") then
+            Part.CanCollide = false
+            Part.Anchored = true
+            Part.Transparency = config.Transparency
+            Part.Color = config.Color
+            Part.Material = config.Material
+        end
+    end
+    
+    -- Настраиваем голову отдельно
+    if Cloned:FindFirstChild("Head") then
+        Cloned.Head.Transparency = config.Transparency
+        Cloned.Head.Color = config.Color
+        Cloned.Head.Material = config.Material
+        if Cloned.Head:FindFirstChild("face") then Cloned.Head.face:Destroy() end
+    end
+    
+    -- Добавляем в мир и настраиваем анимацию
+    Cloned.Parent = S.WS
+    local tweenInfo = TweenInfo.new(config.Duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, 0, true)
+    
+    -- Анимируем все части
+    for _, Part in ipairs(Cloned:GetChildren()) do
+        if Part:IsA("BasePart") then S.TS:Create(Part, tweenInfo, {Transparency = 1}):Play() end
+    end
+    
+    -- Удаляем после окончания анимации
+    task.delay(config.Duration, function() if Cloned and Cloned.Parent then Cloned:Destroy() end end)
 end
 
 -- === HitSounds (инлайн-модуль) ===
@@ -3063,16 +3254,13 @@ local hitsounds = {
 local function PlayHitSound(config)
     config = config or HitSoundsConfig
     if not config.Enabled then return end
-    local soundId = hitsounds[config.Sound]
-    if not soundId then return end
+    
     local sound = Instance.new("Sound")
-    sound.SoundId = (STR.sub(soundId, 1, 4) == "http") and soundId or soundId
+    sound.SoundId = hitsounds[config.Sound] or ""
     sound.Volume = config.Volume or 1
     sound.Parent = S.SS
     sound:Play()
-    sound.Ended:Connect(function()
-        sound:Destroy()
-    end)
+    sound.Ended:Connect(function() sound:Destroy() end)
 end
 
 local HitChamsGroup = Tabs.Combat:AddRightGroupbox('>_<')
@@ -3271,25 +3459,53 @@ HitEffectsSub:AddDropdown('HitEffectsType', {
 })
 HitEffectsSub:SetupDependencies({{Toggles.HitEffectsEnabled, true}})
 
+-- Добавляем HitNotifications
+local HitNotificationsConfig = {
+    Enabled = false,
+    Duration = 2,
+    ShowDamage = true,
+    ShowRemaining = true
+}
+
+local HitNotificationsToggle = HitChamsGroup:AddToggle('HitNotificationsEnabled', {
+    Text = 'HitNotifications',
+    Default = false,
+    Callback = function(v) HitNotificationsConfig.Enabled = v end,
+    Tooltip = 'Показывать уведомления о нанесенном уроне цели.'
+})
+
+local HitNotificationsSub = HitChamsGroup:AddDependencyBox()
+HitNotificationsSub:AddSlider('HitNotificationsDuration', {
+    Text = 'Duration',
+    Default = HitNotificationsConfig.Duration,
+    Min = 1, Max = 5, Rounding = 0,
+    Callback = function(val) HitNotificationsConfig.Duration = val end
+})
+HitNotificationsSub:AddToggle('HitNotificationsShowDamage', {
+    Text = 'Show Damage',
+    Default = HitNotificationsConfig.ShowDamage,
+    Callback = function(v) HitNotificationsConfig.ShowDamage = v end
+})
+HitNotificationsSub:AddToggle('HitNotificationsShowRemaining', {
+    Text = 'Show HP',
+    Default = HitNotificationsConfig.ShowRemaining,
+    Callback = function(v) HitNotificationsConfig.ShowRemaining = v end
+})
+HitNotificationsSub:SetupDependencies({{Toggles.HitNotificationsEnabled, true}})
+
 -- 3. Загрузка библиотеки эффектов (один раз)
-local HitEffectsLib = nil
-local hitEffectsLoading = false
+G.HitEffectsLib = nil
+G.hitEffectsLoading = false
 local function getHitEffectsLib()
-    if HitEffectsLib then
-        return HitEffectsLib
-    end
+    if G.HitEffectsLib then return G.HitEffectsLib end
+    if G.hitEffectsLoading then return nil end
     
-    if hitEffectsLoading then
-        return nil
-    end
-    
-    hitEffectsLoading = true
-    -- Загружаем библиотеку асинхронно
+    G.hitEffectsLoading = true
     task.spawn(function()
         pcall(function()
-            HitEffectsLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/effects'))()
+            G.HitEffectsLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/effects'))()
         end)
-        hitEffectsLoading = false
+        G.hitEffectsLoading = false
     end)
     
     return nil
@@ -3300,44 +3516,47 @@ local lastTarget, lastHP = nil, nil
 -- Используем G.lastDamageTick вместо локальной переменной
 
 -- Объединяем все эффекты в одну функцию для оптимизации
-local function processHitEffects(target)
-    if not target or not target.Character or not target.Character:FindFirstChild('Humanoid') then
-        return
-    end
+G.processHitEffects = function(target)
+    if not target or not target.Character or not target.Character:FindFirstChild('Humanoid') then return end
     
     -- Проверяем дебаунс
-    local now = tick()
-    if now - G.lastDamageTick < 0.1 then -- увеличиваем дебаунс до 100 мс
-        return
-    end
-    G.lastDamageTick = now
+    if tick() - G.lastDamageTick < 0.1 then return end
+    G.lastDamageTick = tick()
     
     -- Применяем эффекты
-    if HitChamsConfig.Enabled then
-        HitChams(target, HitChamsConfig)
-    end
-    
-    if HitSoundsConfig.Enabled then
-        PlayHitSound(HitSoundsConfig)
-    end
+    if HitChamsConfig.Enabled then HitChams(target, HitChamsConfig) end
+    if HitSoundsConfig.Enabled then PlayHitSound(HitSoundsConfig) end
     
     if HitEffectsConfig.Enabled and not G.hitEffectDebounce then
         G.hitEffectDebounce = true
-        
-        -- Используем отложенное выполнение для снижения нагрузки
         task.delay(0.01, function()
             local lib = getHitEffectsLib()
             if lib and lib.Functions and lib.Functions.Effect then
-                lib.Functions.Effect(target.Character, HitEffectsConfig.Type, HitEffectsConfig.Color or Color3.fromRGB(255,255,255))
+                lib.Functions.Effect(target.Character, HitEffectsConfig.Type, HitEffectsConfig.Color)
             end
             G.hitEffectDebounce = false
         end)
+    end
+    
+    -- Показываем уведомление о нанесенном уроне
+    if HitNotificationsConfig.Enabled and target.Character:FindFirstChild('Humanoid') then
+        local hum = target.Character.Humanoid
+        local notifText = target.Name
+        
+        if HitNotificationsConfig.ShowDamage and lastHP then
+            notifText = notifText .. " damaged " .. math.floor(lastHP - hum.Health)
+        end
+        if HitNotificationsConfig.ShowRemaining then
+            notifText = notifText .. " (" .. math.floor(hum.Health) .. " HP)"
+        end
+        
+        Library:Notify(notifText, HitNotificationsConfig.Duration)
     end
 end
 
 -- Используем Heartbeat вместо RenderStepped для снижения нагрузки
 HRT:Connect(function()
-    if not HitChamsConfig.Enabled and not HitSoundsConfig.Enabled and not HitEffectsConfig.Enabled then
+    if not HitChamsConfig.Enabled and not HitSoundsConfig.Enabled and not HitEffectsConfig.Enabled and not HitNotificationsConfig.Enabled then
         lastTarget, lastHP = nil, nil
         return
     end
@@ -3351,7 +3570,7 @@ HRT:Connect(function()
             lastTarget = target
             lastHP = hp
         else if hp < lastHP then
-                processHitEffects(target)
+                G.processHitEffects(target)
             end
             lastHP = hp
         end
@@ -3361,7 +3580,7 @@ HRT:Connect(function()
 end)
 
 -- Поиск корневой части персонажа (оставляем, может пригодиться для других функций)
-local function findRootPart(character)
+G.findRootPart = function(character)
     return character:FindFirstChild("HumanoidRootPart") or
            character:FindFirstChild("Torso") or
            character:FindFirstChild("UpperTorso") or
@@ -3409,7 +3628,7 @@ game:GetService("Players").LocalPlayer.Destroying:Connect(function()
 end)
 
 -- Функция для создания FollowPart для камеры
-local function createFollowPart()
+TS.createFollowPart = function()
     if TS.Runtime.FollowPart and TS.Runtime.FollowPart.Parent then
         TS.Runtime.FollowPart:Destroy()
     end
@@ -3423,36 +3642,30 @@ local function createFollowPart()
     part.Parent = S.WS
 
     -- Инициализируем начальную позицию
-    local character = LP.Character
-    if character and character:FindFirstChild("HumanoidRootPart") then
-        local hrp = character.HumanoidRootPart
-        part.CFrame = hrp.CFrame + V3.new(0, 3.0, 0) -- Увеличил высоту с 1.5 до 3.0
+    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+        part.CFrame = LP.Character.HumanoidRootPart.CFrame + V3.new(0, 3.0, 0)
     end
     
     return part
 end
 
 -- Функция восстановления камеры
-local function resetTargetStrafeCamera()
+TS.resetCamera = function()
     if TS.Runtime.FollowPart and TS.Runtime.FollowPart.Parent then
         TS.Runtime.FollowPart:Destroy()
         TS.Runtime.FollowPart = nil
     end
     
-    -- Возвращаем камеру на игрока
-    local character = LP.Character
-    if character and character:FindFirstChildOfClass("Humanoid") then
-        S.WS.CurrentCamera.CameraSubject = character:FindFirstChildOfClass("Humanoid")
+    if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") then
+        S.WS.CurrentCamera.CameraSubject = LP.Character:FindFirstChildOfClass("Humanoid")
     end
 end
 
 -- Функция для визуализации десинка
-local function updateDesyncVisualisation()
+TS.updateVisual = function()
     -- Если визуализация отключена, удаляем трейсер
     if not TS.Config.Visualise or not TS.Runtime.DesyncPosition then
-        if TS.Runtime.VisualiseDrawing then
-            TS.Runtime.VisualiseDrawing.Visible = false
-        end
+        if TS.Runtime.VisualiseDrawing then TS.Runtime.VisualiseDrawing.Visible = false end
         return
     end
     
@@ -3464,13 +3677,10 @@ local function updateDesyncVisualisation()
     end
     
     -- Получаем позицию десинка на экране
-    local desyncPos = TS.Runtime.DesyncPosition
-    local screenPos, onScreen = S.WS.CurrentCamera:WorldToViewportPoint(desyncPos)
+    local screenPos, onScreen = S.WS.CurrentCamera:WorldToViewportPoint(TS.Runtime.DesyncPosition)
     
     if onScreen then
-        local mousePos = S.UIS:GetMouseLocation()
-        
-        TS.Runtime.VisualiseDrawing.From = mousePos
+        TS.Runtime.VisualiseDrawing.From = S.UIS:GetMouseLocation()
         TS.Runtime.VisualiseDrawing.To = Vector2.new(screenPos.X, screenPos.Y)
         TS.Runtime.VisualiseDrawing.Color = TS.Config.VisualiseColor
         TS.Runtime.VisualiseDrawing.Visible = true
@@ -3480,7 +3690,7 @@ local function updateDesyncVisualisation()
 end
 
 -- Функция для полного удаления визуализации
-local function cleanupVisualisation()
+TS.cleanupVisual = function()
     if TS.Runtime.VisualiseDrawing then
         TS.Runtime.VisualiseDrawing:Remove()
         TS.Runtime.VisualiseDrawing = nil
@@ -3550,16 +3760,16 @@ local function performTargetStrafe()
     
     -- Обновляем визуализацию
     if TS.Config.Visualise then
-        updateDesyncVisualisation()
+        TS.updateVisual()
     end
     
     -- Обновляем позицию FollowPart для фиксации камеры
     if TS.Config.Enabled then  -- Проверяем, что Target Strafe всё ещё активен
         if TS.Runtime.FollowPart and TS.Runtime.FollowPart.Parent then
-            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 2.0, 0) -- Увеличил высоту с 1.5 до 3.0
+            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 3.0, 0) -- Увеличил высоту с 1.5 до 3.0
         else
-            TS.Runtime.FollowPart = createFollowPart()
-            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 2.0, 0) -- Увеличил высоту с 1.5 до 3.0
+            TS.Runtime.FollowPart = TS.createFollowPart()
+            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 3.0, 0) -- Увеличил высоту с 1.5 до 3.0
         end
         Cam.CameraSubject = TS.Runtime.FollowPart
     end
@@ -3597,20 +3807,20 @@ local function toggleTargetStrafe(state)
     -- Очищаем визуализацию при отключении
     if not state then
         TS.Runtime.DesyncPosition = nil
-        cleanupVisualisation()
-        resetTargetStrafeCamera()
+        TS.cleanupVisual()
+        TS.resetCamera()
     end
     
     if state then
         -- Создаем FollowPart для камеры
-        TS.Runtime.FollowPart = createFollowPart()
+        TS.Runtime.FollowPart = TS.createFollowPart()
         
         -- Запускаем стрейф
         TS.Runtime.Connection = HRT:Connect(performTargetStrafe)
         Library:Notify('Target Strafe: Включен', 3)
     else
         -- Отключаем камеру
-        resetTargetStrafeCamera()
+        TS.resetCamera()
         Library:Notify('Target Strafe: Выключен', 3)
     end
 end
@@ -3652,7 +3862,7 @@ TargetStrafeGroup:AddToggle('TargetStrafeVisualise', {
         
         -- Если отключаем визуализацию, удаляем трейсер
         if not v then
-            cleanupVisualisation()
+            TS.cleanupVisual()
         end
     end,
     Tooltip = 'Show tracer to desync position'
@@ -3675,8 +3885,8 @@ LP.CharacterAdded:Connect(function(newCharacter)
         -- Пересоздаем камеру при смене персонажа
         task.wait(0.5) -- Ждем загрузки персонажа
         if TS.Runtime.FollowPart then
-            resetTargetStrafeCamera()
-            TS.Runtime.FollowPart = createFollowPart()
+            TS.resetCamera()
+            TS.Runtime.FollowPart = TS.createFollowPart()
         end
     end
 end)
@@ -3686,10 +3896,278 @@ local aimbotTargetWatcher = nil
 aimbotTargetWatcher = HRT:Connect(function()
     -- Обновляем визуализацию десинка на каждом кадре
     if TS.Config.Enabled and TS.Config.Visualise and TS.Runtime.DesyncPosition then
-        updateDesyncVisualisation()
+        TS.updateVisual()
     else
         if TS.Runtime.VisualiseDrawing and TS.Runtime.VisualiseDrawing.Visible then
             TS.Runtime.VisualiseDrawing.Visible = false
         end
+    end
+end)
+
+-- === Grip (Combat tab, new section) ===
+local GripGroup = Tabs.Combat:AddRightGroupbox('>_<')
+
+-- Create UI components
+GripGroup:AddToggle('GripEnabled', {
+    Text = 'Custom Grip',
+    Default = false,
+    Callback = function(v) G.GripSettings.Enabled = v end,
+    Tooltip = 'Change weapon grip position and rotation'
+})
+
+-- Position sliders
+GripGroup:AddLabel('Position:')
+GripGroup:AddSlider('GripPosX', {
+    Text = 'X Position',
+    Default = 0,
+    Min = -100, Max = 100, Rounding = 1,
+    Callback = function(val) G.GripSettings.Position = Vector3.new(val, G.GripSettings.Position.Y, G.GripSettings.Position.Z) end
+})
+
+GripGroup:AddSlider('GripPosY', {
+    Text = 'Y Position',
+    Default = 0,
+    Min = -100, Max = 100, Rounding = 1,
+    Callback = function(val) G.GripSettings.Position = Vector3.new(G.GripSettings.Position.X, val, G.GripSettings.Position.Z) end
+})
+
+GripGroup:AddSlider('GripPosZ', {
+    Text = 'Z Position',
+    Default = 0,
+    Min = -100, Max = 100, Rounding = 1,
+    Callback = function(val) G.GripSettings.Position = Vector3.new(G.GripSettings.Position.X, G.GripSettings.Position.Y, val) end
+})
+
+-- Rotation sliders
+GripGroup:AddLabel('Rotation:')
+GripGroup:AddSlider('GripRotX', {
+    Text = 'X Rotation',
+    Default = 0,
+    Min = -180, Max = 180, Rounding = 1,
+    Callback = function(val) G.GripSettings.Rotation = Vector3.new(val, G.GripSettings.Rotation.Y, G.GripSettings.Rotation.Z) end
+})
+
+GripGroup:AddSlider('GripRotY', {
+    Text = 'Y Rotation',
+    Default = 0,
+    Min = -180, Max = 180, Rounding = 1,
+    Callback = function(val) G.GripSettings.Rotation = Vector3.new(G.GripSettings.Rotation.X, val, G.GripSettings.Rotation.Z) end
+})
+
+GripGroup:AddSlider('GripRotZ', {
+    Text = 'Z Rotation',
+    Default = 0,
+    Min = -180, Max = 180, Rounding = 1,
+    Callback = function(val) G.GripSettings.Rotation = Vector3.new(G.GripSettings.Rotation.X, G.GripSettings.Rotation.Y, val) end
+})
+
+-- Reset button
+GripGroup:AddLabel('Options:')
+GripGroup:AddButton({
+    Text = 'Reset All',
+    Func = function()
+        G.GripSettings.Position = Vector3.new(0, 0, 0)
+        G.GripSettings.Rotation = Vector3.new(0, 0, 0)
+        -- Update UI sliders to match the reset values
+        Options.GripPosX:SetValue(0)
+        Options.GripPosY:SetValue(0)
+        Options.GripPosZ:SetValue(0)
+        Options.GripRotX:SetValue(0)
+        Options.GripRotY:SetValue(0)
+        Options.GripRotZ:SetValue(0)
+    end,
+    Tooltip = 'Reset all grip settings to default'
+})
+
+
+
+-- Main grip logic
+local gripConnection
+if gripConnection then gripConnection:Disconnect() end
+
+gripConnection = S.RS.Stepped:Connect(function()
+    if G.GripSettings.Enabled then
+        local character = LP.Character
+        local tool = character and character:FindFirstChildOfClass("Tool")
+        if tool then
+            -- Apply position only
+            tool.GripPos = G.GripSettings.Position
+            
+            -- Apply rotation using proper CFrame
+            local angles = CFrame.Angles(
+                M.rad(G.GripSettings.Rotation.X),
+                M.rad(G.GripSettings.Rotation.Y),
+                M.rad(G.GripSettings.Rotation.Z)
+            )
+            
+            -- Применяем правильно
+            tool.Grip = CFrame.new(G.GripSettings.Position) * angles
+        end
+    end
+end)
+
+-- === BulletTP (Combat tab, новая секция) ===
+local BulletTpGroup = Tabs.Combat:AddLeftGroupbox('>_<')
+
+-- Инициализация настроек BulletTP
+getgenv().BulletTp = {
+    Enabled = false,
+    Toggle = true,
+    Keybind = Enum.KeyCode.C,
+    Part = "Head",
+    Selected = nil,
+    UseAimbotTarget = true
+}
+
+-- UI для BulletTP
+BulletTpGroup:AddToggle('BulletTpToggle', {
+    Text = 'BulletTP',
+    Default = false,
+    Callback = function(v) 
+        getgenv().BulletTp.Toggle = v 
+    end,
+    Tooltip = 'Телепортирует пули в выбранную часть тела цели'
+})
+
+BulletTpGroup:AddLabel('BulletTP Key'):AddKeyPicker('BulletTpKey', {
+    Default = 'C',
+    Text = 'BulletTP Key',
+    NoUI = false,
+    Callback = function(key)
+        if typeof(key) == "EnumItem" then
+            getgenv().BulletTp.Keybind = key
+        elseif type(key) == "string" then
+            getgenv().BulletTp.Keybind = Enum.KeyCode[key] or Enum.KeyCode.C
+        end
+    end
+})
+
+BulletTpGroup:AddDropdown('BulletTpPart', {
+    Text = 'Target Part',
+    Values = {'Head', 'HumanoidRootPart', 'Torso', 'UpperTorso', 'LowerTorso'},
+    Default = 'Head',
+    Callback = function(v) getgenv().BulletTp.Part = v end,
+    Tooltip = 'Часть тела, в которую будут телепортироваться пули'
+})
+
+BulletTpGroup:AddToggle('BulletTpUseAimbotTarget', {
+    Text = 'Use Aimbot Target',
+    Default = true,
+    Callback = function(v) 
+        getgenv().BulletTp.UseAimbotTarget = v 
+    end,
+    Tooltip = 'Использовать цель аимбота для BulletTP'
+})
+
+-- Функции BulletTP
+G.TeleportBullet = function(tool)
+    local BTP = getgenv().BulletTp
+    if not BTP.Toggle or not BTP.Enabled then return end
+
+    local target = BTP.UseAimbotTarget and getgenv().SilentAim.currentTarget or BTP.Selected
+    if not target or not target.Character then return end
+
+    local originPart = LP.Character and LP.Character:FindFirstChild("RightHand")
+    local targetPart = target.Character:FindFirstChild(BTP.Part)
+
+    if originPart and targetPart then
+        local grip = tool.Grip
+        tool.Parent = LP.Backpack
+        tool.Grip = G.bulletTpCFOffset(LP.Character.RightHand.CFrame, targetPart.CFrame)
+        tool.Parent = LP.Character
+        S.RS.RenderStepped:Wait()
+        tool.Parent = LP.Backpack
+        tool.Grip = grip
+        tool.Parent = LP.Character
+    end
+end
+
+local function HandleCharacter(character)
+    for k, conn in pairs(G.bulletTpConns) do
+        if typeof(conn) == "RBXScriptConnection" then conn:Disconnect() end
+    end
+    G.bulletTpConns = {}
+
+    G.bulletTpConns.CharacterChildAdded = character.ChildAdded:Connect(function(tool)
+        if tool:IsA("Tool") then
+            for _, conn in ipairs(getconnections(tool:GetPropertyChangedSignal("Grip"))) do conn:Disable() end
+            G.bulletTpConns.ToolActivated = tool.Activated:Connect(function() G.TeleportBullet(tool) end)
+        end
+    end)
+
+    G.bulletTpConns.ChildRemovingCharacter = character.ChildRemoved:Connect(function(child)
+        if child:IsA("Tool") and G.bulletTpConns.ToolActivated then
+            G.bulletTpConns.ToolActivated:Disconnect()
+            G.bulletTpConns.ToolActivated = nil
+        end
+    end)
+end
+
+-- Функция для выбора ближайшего игрока как цели BulletTP
+G.getClosestPlayer = function()
+    local closest, dist = nil, math.huge
+    local myPos = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character.HumanoidRootPart.Position
+    if not myPos then return nil end
+    
+    for _, p in ipairs(S.PS:GetPlayers()) do
+        if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local d = (p.Character.HumanoidRootPart.Position - myPos).Magnitude
+            if d < dist then closest, dist = p, d end
+        end
+    end
+    return closest
+end
+
+local function SetupBulletTp()
+    local currentCharacter = LP.Character or LP.CharacterAdded:Wait()
+    HandleCharacter(currentCharacter)
+
+    G.bulletTpConns.CharacterAdded = LP.CharacterAdded:Connect(HandleCharacter)
+
+    G.bulletTpConns.CharacterRemoving = LP.CharacterRemoving:Connect(function()
+        for k, conn in pairs(G.bulletTpConns) do
+            if typeof(conn) == "RBXScriptConnection" then
+                conn:Disconnect()
+            end
+        end
+        G.bulletTpConns = {}
+    end)
+    
+    G.bulletTpConns.InputBegan = S.UIS.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        
+        if input.KeyCode == getgenv().BulletTp.Keybind then
+            getgenv().BulletTp.Enabled = not getgenv().BulletTp.Enabled
+            
+            local targetName = "Нет цели"
+            if getgenv().BulletTp.UseAimbotTarget and getgenv().SilentAim and getgenv().SilentAim.currentTarget then
+                targetName = getgenv().SilentAim.currentTarget.Name
+            elseif getgenv().BulletTp.Selected then
+                targetName = getgenv().BulletTp.Selected.Name
+            end
+            
+            Library:Notify("BulletTP: " .. (getgenv().BulletTp.Enabled and "Включен" or "Выключен") .. 
+                " | Цель: " .. targetName .. " | Часть: " .. getgenv().BulletTp.Part, 2)
+        end
+    end)
+    
+    -- Синхронизация с целью аимбота или выбор ближайшего игрока
+    G.bulletTpConns.TargetUpdate = HRT:Connect(function()
+        if not getgenv().BulletTp.UseAimbotTarget then
+            getgenv().BulletTp.Selected = G.getClosestPlayer()
+        end
+    end)
+end
+
+-- Запускаем BulletTP
+task.spawn(SetupBulletTp)
+
+-- Очистка соединений BulletTP при выходе из игры
+S.PS.PlayerRemoving:Connect(function(player)
+    if player == LP then
+        for k, conn in pairs(G.bulletTpConns) do
+            if typeof(conn) == "RBXScriptConnection" then conn:Disconnect() end
+        end
+        G.bulletTpConns = {}
     end
 end)
