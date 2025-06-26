@@ -2259,7 +2259,9 @@ getgenv().SilentAim = {
 SilentAimGroup:AddToggle('SilentAimEnabled', {
     Text = 'Silent Aim',
     Default = false,
-    Callback = function(v) getgenv().SilentAim.Options.Enabled = v end
+    Callback = function(v) 
+        getgenv().SilentAim.Options.Enabled = v 
+    end
 })
 SilentAimGroup:AddDropdown('SilentAimMode', {
     Text = 'Mode',
@@ -2649,6 +2651,10 @@ if not getgenv().Loaded_SilentAim then
         -- Проверка AutoAir для текущей цели - ограничиваем частоту вызовов
         if SilentAim.Options.AutoAir and currentTarget and tick() % 0.2 < 0.02 then
             autoAir(currentTarget)
+        end
+        -- Обновляем LastAimbotTarget для Target Strafe
+        if getgenv().TS and getgenv().TS.Config and getgenv().TS.Config.Enabled then
+            getgenv().TS.Runtime.LastAimbotTarget = currentTarget
         end
     end)
     
@@ -3361,3 +3367,329 @@ local function findRootPart(character)
            character:FindFirstChild("UpperTorso") or
            character:FindFirstChild("LowerTorso")
 end
+
+-- === Target Strafe (Combat tab, новая секция) ===
+local TargetStrafeGroup = Tabs.Combat:AddRightGroupbox('>_<')
+
+-- Объединяем все переменные в одну таблицу
+local TS = {
+    Config = {
+        Enabled = false,
+        Radius = 10,
+        Height = 5,
+        Speed = 2,
+        Visualise = false,
+        VisualiseColor = Color3.fromRGB(255, 255, 255)
+    },
+    Runtime = {
+        Angle = 0,
+        Connection = nil,
+        Target = nil,
+        FollowPart = nil,
+        DesyncPosition = nil,
+        VisualiseDrawing = nil,
+        LastAimbotTarget = nil
+    }
+}
+
+-- Делаем TS доступным глобально
+getgenv().TS = TS
+
+-- Добавляем cleanup при завершении скрипта
+game:GetService("Players").LocalPlayer.Character:GetPropertyChangedSignal("Parent"):Connect(function()
+    if TS.Runtime.VisualiseDrawing then
+        cleanupVisualisation()
+    end
+end)
+
+game:GetService("Players").LocalPlayer.Destroying:Connect(function()
+    if TS.Runtime.VisualiseDrawing then
+        cleanupVisualisation()
+    end
+end)
+
+-- Функция для создания FollowPart для камеры
+local function createFollowPart()
+    if TS.Runtime.FollowPart and TS.Runtime.FollowPart.Parent then
+        TS.Runtime.FollowPart:Destroy()
+    end
+    
+    local part = Instance.new("Part")
+    part.Name = "TargetStrafeFollowPart"
+    part.Anchored = true
+    part.CanCollide = false
+    part.Transparency = 1
+    part.Size = V3.new(0.1, 0.1, 0.1)
+    part.Parent = S.WS
+
+    -- Инициализируем начальную позицию
+    local character = LP.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local hrp = character.HumanoidRootPart
+        part.CFrame = hrp.CFrame + V3.new(0, 3.0, 0) -- Увеличил высоту с 1.5 до 3.0
+    end
+    
+    return part
+end
+
+-- Функция восстановления камеры
+local function resetTargetStrafeCamera()
+    if TS.Runtime.FollowPart and TS.Runtime.FollowPart.Parent then
+        TS.Runtime.FollowPart:Destroy()
+        TS.Runtime.FollowPart = nil
+    end
+    
+    -- Возвращаем камеру на игрока
+    local character = LP.Character
+    if character and character:FindFirstChildOfClass("Humanoid") then
+        S.WS.CurrentCamera.CameraSubject = character:FindFirstChildOfClass("Humanoid")
+    end
+end
+
+-- Функция для визуализации десинка
+local function updateDesyncVisualisation()
+    -- Если визуализация отключена, удаляем трейсер
+    if not TS.Config.Visualise or not TS.Runtime.DesyncPosition then
+        if TS.Runtime.VisualiseDrawing then
+            TS.Runtime.VisualiseDrawing.Visible = false
+        end
+        return
+    end
+    
+    -- Создаем трейсер, если его еще нет
+    if not TS.Runtime.VisualiseDrawing then
+        TS.Runtime.VisualiseDrawing = Drawing.new("Line")
+        TS.Runtime.VisualiseDrawing.Thickness = 2
+        TS.Runtime.VisualiseDrawing.ZIndex = 10000
+    end
+    
+    -- Получаем позицию десинка на экране
+    local desyncPos = TS.Runtime.DesyncPosition
+    local screenPos, onScreen = S.WS.CurrentCamera:WorldToViewportPoint(desyncPos)
+    
+    if onScreen then
+        local mousePos = S.UIS:GetMouseLocation()
+        
+        TS.Runtime.VisualiseDrawing.From = mousePos
+        TS.Runtime.VisualiseDrawing.To = Vector2.new(screenPos.X, screenPos.Y)
+        TS.Runtime.VisualiseDrawing.Color = TS.Config.VisualiseColor
+        TS.Runtime.VisualiseDrawing.Visible = true
+    else
+        TS.Runtime.VisualiseDrawing.Visible = false
+    end
+end
+
+-- Функция для полного удаления визуализации
+local function cleanupVisualisation()
+    if TS.Runtime.VisualiseDrawing then
+        TS.Runtime.VisualiseDrawing:Remove()
+        TS.Runtime.VisualiseDrawing = nil
+    end
+end
+
+-- Основная функция стрейфа
+local function performTargetStrafe()
+    if not TS.Config.Enabled then 
+        TS.Runtime.DesyncPosition = nil
+        
+        -- Убедимся, что визуализация скрыта при отключении
+        if TS.Runtime.VisualiseDrawing and TS.Runtime.VisualiseDrawing.Visible then
+            TS.Runtime.VisualiseDrawing.Visible = false
+        end
+        
+        return 
+    end
+    
+    -- Получаем цель только из аимбота
+    local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget
+    
+    -- Если нет цели, выходим
+    if not target or not target.Character then 
+        TS.Runtime.DesyncPosition = nil
+        return 
+    end
+    
+    local targetHRP = target.Character:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then 
+        TS.Runtime.DesyncPosition = nil
+        return 
+    end
+    
+    local character = LP.Character
+    if not character then 
+        TS.Runtime.DesyncPosition = nil
+        return 
+    end
+    
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then 
+        TS.Runtime.DesyncPosition = nil
+        return 
+    end
+    
+    -- Обновляем угол
+    TS.Runtime.Angle = TS.Runtime.Angle + TS.Config.Speed * HRT:Wait()
+    
+    -- Вычисляем смещение
+    local offset = V3.new(
+        M.cos(TS.Runtime.Angle) * TS.Config.Radius,
+        TS.Config.Height,
+        M.sin(TS.Runtime.Angle) * TS.Config.Radius
+    )
+    
+    -- Сохраняем оригинальный CFrame
+    local originalCFrame = hrp.CFrame
+    
+    -- Новая позиция вокруг цели
+    local targetPos = targetHRP.Position
+    local newPos = targetPos + offset
+    local newCFrame = CFrame.new(newPos, targetPos) -- Смотрим на цель
+    
+    -- Сохраняем позицию десинка для визуализации
+    TS.Runtime.DesyncPosition = newPos
+    
+    -- Обновляем визуализацию
+    if TS.Config.Visualise then
+        updateDesyncVisualisation()
+    end
+    
+    -- Обновляем позицию FollowPart для фиксации камеры
+    if TS.Config.Enabled then  -- Проверяем, что Target Strafe всё ещё активен
+        if TS.Runtime.FollowPart and TS.Runtime.FollowPart.Parent then
+            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 2.0, 0) -- Увеличил высоту с 1.5 до 3.0
+        else
+            TS.Runtime.FollowPart = createFollowPart()
+            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 2.0, 0) -- Увеличил высоту с 1.5 до 3.0
+        end
+        Cam.CameraSubject = TS.Runtime.FollowPart
+    end
+    
+    -- Устанавливаем новую позицию
+    hrp.CFrame = newCFrame
+    
+    -- Возвращаем оригинальную позицию после отрисовки кадра
+    task.spawn(function()
+        RND:Wait() -- Ждем один кадр отрисовки в отдельном потоке
+        if hrp and hrp.Parent then -- Проверяем, что HRP все еще существует
+            hrp.CFrame = originalCFrame
+        end
+    end)
+    
+    -- Возвращаем камеру к игроку после десинка
+    task.spawn(function()
+        RND:Wait() -- Используем RenderStepped для синхронизации с отрисовкой
+        if character and character:FindFirstChildOfClass("Humanoid") then
+            Cam.CameraSubject = character:FindFirstChildOfClass("Humanoid")
+        end
+    end)
+end
+
+-- Функция включения стрейфа
+local function toggleTargetStrafe(state)
+    TS.Config.Enabled = state
+    
+    -- Отключаем предыдущие соединения
+    if TS.Runtime.Connection then
+        TS.Runtime.Connection:Disconnect()
+        TS.Runtime.Connection = nil
+    end
+    
+    -- Очищаем визуализацию при отключении
+    if not state then
+        TS.Runtime.DesyncPosition = nil
+        cleanupVisualisation()
+        resetTargetStrafeCamera()
+    end
+    
+    if state then
+        -- Создаем FollowPart для камеры
+        TS.Runtime.FollowPart = createFollowPart()
+        
+        -- Запускаем стрейф
+        TS.Runtime.Connection = HRT:Connect(performTargetStrafe)
+        Library:Notify('Target Strafe: Включен', 3)
+    else
+        -- Отключаем камеру
+        resetTargetStrafeCamera()
+        Library:Notify('Target Strafe: Выключен', 3)
+    end
+end
+
+-- UI для Target Strafe
+TargetStrafeGroup:AddToggle('TargetStrafe', {
+    Text = 'Target Strafe',
+    Default = false,
+    Callback = function(v) toggleTargetStrafe(v) end,
+    Tooltip = 'Стрейф вокруг цели с десинком'
+})
+
+TargetStrafeGroup:AddSlider('TargetStrafeRadius', {
+    Text = 'Radius',
+    Default = TS.Config.Radius,
+    Min = 2, Max = 50, Rounding = 1,
+    Callback = function(val) TS.Config.Radius = val end
+})
+
+TargetStrafeGroup:AddSlider('TargetStrafeHeight', {
+    Text = 'Height',
+    Default = TS.Config.Height,
+    Min = -50, Max = 50, Rounding = 1,
+    Callback = function(val) TS.Config.Height = val end
+})
+
+TargetStrafeGroup:AddSlider('TargetStrafeSpeed', {
+    Text = 'Speed',
+    Default = TS.Config.Speed,
+    Min = 0.5, Max = 30, Rounding = 1,
+    Callback = function(val) TS.Config.Speed = val end
+})
+
+TargetStrafeGroup:AddToggle('TargetStrafeVisualise', {
+    Text = 'Visualise',
+    Default = false,
+    Callback = function(v)
+        TS.Config.Visualise = v
+        
+        -- Если отключаем визуализацию, удаляем трейсер
+        if not v then
+            cleanupVisualisation()
+        end
+    end,
+    Tooltip = 'Show tracer to desync position'
+}):AddColorPicker('TargetStrafeVisualiseColor', {
+    Default = Color3.fromRGB(255, 255, 255),
+    Title = 'Color',
+    Callback = function(val)
+        TS.Config.VisualiseColor = val
+        
+        -- Обновляем цвет существующего трейсера, если он активен
+        if TS.Runtime.VisualiseDrawing and TS.Runtime.VisualiseDrawing.Visible then
+            TS.Runtime.VisualiseDrawing.Color = val
+        end
+    end
+})
+
+-- Обработка смены персонажа
+LP.CharacterAdded:Connect(function(newCharacter)
+    if TS.Config.Enabled then
+        -- Пересоздаем камеру при смене персонажа
+        task.wait(0.5) -- Ждем загрузки персонажа
+        if TS.Runtime.FollowPart then
+            resetTargetStrafeCamera()
+            TS.Runtime.FollowPart = createFollowPart()
+        end
+    end
+end)
+
+-- Следим за изменениями цели аимбота и обновляем визуализацию
+local aimbotTargetWatcher = nil
+aimbotTargetWatcher = HRT:Connect(function()
+    -- Обновляем визуализацию десинка на каждом кадре
+    if TS.Config.Enabled and TS.Config.Visualise and TS.Runtime.DesyncPosition then
+        updateDesyncVisualisation()
+    else
+        if TS.Runtime.VisualiseDrawing and TS.Runtime.VisualiseDrawing.Visible then
+            TS.Runtime.VisualiseDrawing.Visible = false
+        end
+    end
+end)
