@@ -3519,22 +3519,19 @@ local lastTarget, lastHP = nil, nil
 G.processHitEffects = function(target)
     if not target or not target.Character or not target.Character:FindFirstChild('Humanoid') then return end
     
-    -- Проверяем дебаунс
-    if tick() - G.lastDamageTick < 0.1 then return end
+    -- Обновляем время последнего урона (без проверки дебаунса)
     G.lastDamageTick = tick()
     
     -- Применяем эффекты
     if HitChamsConfig.Enabled then HitChams(target, HitChamsConfig) end
     if HitSoundsConfig.Enabled then PlayHitSound(HitSoundsConfig) end
     
-    if HitEffectsConfig.Enabled and not G.hitEffectDebounce then
-        G.hitEffectDebounce = true
-        task.delay(0.01, function()
+    if HitEffectsConfig.Enabled then
+        task.spawn(function()
             local lib = getHitEffectsLib()
             if lib and lib.Functions and lib.Functions.Effect then
                 lib.Functions.Effect(target.Character, HitEffectsConfig.Type, HitEffectsConfig.Color)
             end
-            G.hitEffectDebounce = false
         end)
     end
     
