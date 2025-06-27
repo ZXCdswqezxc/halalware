@@ -40,8 +40,6 @@ local G = {
     tracerUpdateInterval = 1/60,
     ActiveTracers = {},
     TracerCount = 0,
-    tracerDebounce = false,
-    tracerDebounceTime = 0.005, -- 5 мс между трейсерами
     
     -- AutoAir
     autoAirDebounce = false,
@@ -378,24 +376,13 @@ local function dG()
     return d
 end
 local function cB(f, t, c1, c2, thickness, texture)
-    -- Ограничиваем количество одновременно отображаемых трейсеров
-    local maxTracers = 15 -- Увеличиваем максимальное количество трейсеров
-    local tracerLifetime = 0.4 -- Немного уменьшаем время жизни трейсера
+    -- Убираем ограничения на количество трейсеров
+    local tracerLifetime = 0.4 -- Время жизни трейсера
     
     -- Используем глобальную таблицу для отслеживания активных трейсеров
     if not G.ActiveTracers then
         G.ActiveTracers = {}
         G.TracerCount = 0
-    end
-    
-    -- Если достигнут лимит, удаляем самый старый трейсер
-    if G.TracerCount >= maxTracers and #G.ActiveTracers > 0 then
-        local oldestTracer = G.ActiveTracers[1]
-        if oldestTracer and oldestTracer.Parent then
-            oldestTracer:Destroy()
-        end
-        table.remove(G.ActiveTracers, 1)
-        G.TracerCount = G.TracerCount - 1
     end
     
     -- Увеличиваем счетчик трейсеров
@@ -515,25 +502,16 @@ local function sE()
     g.BP.ChildAdded:Connect(function(o)
         if not gS.s then return end
         if BulletTracersConfig.Enabled and o.Name == g.BN then
-            -- Проверяем дебаунс
-            if G.tracerDebounce then return end
-            G.tracerDebounce = true
-            
+            -- Убираем дебаунс для неограниченного количества трейсеров
             task.spawn(function()
                 local b = o:WaitForChild(g.BBN, 0.2) -- Уменьшаем время ожидания
-                if not b then 
-                    tracerDebounce = false
-                    return 
-                end
+                if not b then return end
                 
                 local sp, ep = o.Position, b.Attachment1.WorldPosition
                 
                 -- Проверяем расстояние трейсера, чтобы избежать слишком длинных трейсеров
                 local distance = (sp - ep).Magnitude
-                if distance > 2000 then -- Увеличиваем максимальную длину трейсера
-                    tracerDebounce = false
-                    return
-                end
+                if distance > 2000 then return end
                 
                 b:Destroy()
                 
@@ -544,11 +522,6 @@ local function sE()
                     BulletTracersConfig.Thickness,
                     BulletTracersConfig.Texture
                 )
-                
-                -- Сбрасываем дебаунс через небольшую задержку
-                task.delay(G.tracerDebounceTime, function()
-                    G.tracerDebounce = false
-                end)
             end)
         end
     end)
@@ -843,57 +816,12 @@ end
 HRT:Connect(UpdateAllShowNameMethod)
 
 -- Unlock Camera Distance (Misc)
-G.originalPlayerMaxZoom = LP.CameraMaxZoomDistance
 
-local MiscCameraGroup = Tabs.Misc:AddLeftGroupbox('>_<')
-MiscCameraGroup:AddToggle('UnlockCameraDistance', {
-    Text = 'Unlock Camera Distance',
-    Default = false,
-    Callback = function(v)
-        if v then
-            LP.CameraMaxZoomDistance = M.huge
-            LP.CameraMinZoomDistance = 0.5 -- Оставляем минимальное расстояние, чтобы избежать проблем с камерой
-        else
-            LP.CameraMaxZoomDistance = G.originalPlayerMaxZoom
-            LP.CameraMinZoomDistance = 0.5 -- Стандартное минимальное значение
-        end
-    end,
-    Tooltip = 'Removes camera zoom limit'
-})
 
 -- Сохраняем оригинальные значения при загрузке
 G.originalPlayerMaxZoom = LP.CameraMaxZoomDistance
 G.originalPlayerMinZoom = LP.CameraMinZoomDistance
 
--- Добавляем опцию режима от первого лица
-MiscCameraGroup:AddToggle('FirstPersonMode', {
-    Text = 'First Person Mode',
-    Default = false,
-    Callback = function(v)
-        if v then
-            -- Сохраняем текущие значения, если еще не сохранены
-            if not G.savedCameraValues then
-                G.savedCameraValues = {
-                    MaxZoom = LP.CameraMaxZoomDistance,
-                    MinZoom = LP.CameraMinZoomDistance
-                }
-            end
-            -- Устанавливаем режим от первого лица
-            LP.CameraMaxZoomDistance = 0.5
-            LP.CameraMinZoomDistance = 0.5
-        else
-            -- Восстанавливаем предыдущие значения
-            if G.savedCameraValues then
-                LP.CameraMaxZoomDistance = G.savedCameraValues.MaxZoom
-                LP.CameraMinZoomDistance = G.savedCameraValues.MinZoom
-            else
-                LP.CameraMaxZoomDistance = G.originalPlayerMaxZoom
-                LP.CameraMinZoomDistance = G.originalPlayerMinZoom
-            end
-        end
-    end,
-    Tooltip = 'Forces first person view'
-})
 
 -- SphereAura UI и логика
 local SphereAuraSettings = {
@@ -2381,7 +2309,7 @@ SilentAimGroup:AddToggle('SilentAimAutoAir', {
             end
         end
     end,
-    Tooltip = 'Автоматически стреляет, когда цель находится в воздухе'
+    Tooltip = 'Automatically shoots when target is in the air'
 })
 
 -- Добавляем Magic Bullet
@@ -2391,7 +2319,7 @@ SilentAimGroup:AddToggle('SilentAimMagicBullet', {
     Callback = function(v) 
         getgenv().SilentAim.Options.MagicBullet = v 
     end,
-    Tooltip = 'Автоматически стреляет в цель аимбота через стены'
+    Tooltip = 'Automatically shoots at aimbot target through walls'
 })
 
 -- Настройки Magic Bullet
@@ -2404,28 +2332,28 @@ MagicBulletGroup:AddSlider('MagicBulletRange', {
     Callback = function(v) 
         getgenv().SilentAim.MagicBullet.Range = tonumber(v) or 1000
     end,
-    Tooltip = 'Максимальная дистанция для Magic Bullet'
+    Tooltip = 'Maximum distance for Magic Bullet'
 })
 
 MagicBulletGroup:AddToggle('MagicBulletIgnoreKO', {
     Text = 'Ignore KO Check',
     Default = false,
     Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreKO = v end,
-    Tooltip = 'Стрелять в цели в нокауте'
+    Tooltip = 'Shoot at knocked out targets'
 })
 
 MagicBulletGroup:AddToggle('MagicBulletIgnoreGrabbed', {
     Text = 'Ignore Grabbed Check',
     Default = false,
     Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreGrabbed = v end,
-    Tooltip = 'Стрелять в схваченные цели'
+    Tooltip = 'Shoot at grabbed targets'
 })
 
 MagicBulletGroup:AddToggle('MagicBulletIgnoreForceField', {
     Text = 'ForceField Check',
     Default = true,
     Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreForceField = v end,
-    Tooltip = 'Не стрелять в цели с форсфилдом'
+    Tooltip = 'Do not shoot at targets with forcefield'
 })
 
 MagicBulletGroup:SetupDependencies({{Toggles.SilentAimMagicBullet, true}})
@@ -3119,14 +3047,14 @@ CrosshairGroup:AddToggle('CrosshairAttachToTarget', {
     Text = 'Attach to Target',
     Default = false,
     Callback = function(v) CrosshairConfig.AttachToTarget = v end,
-    Tooltip = 'Прицел крепится к цели (SilentAim)' 
+    Tooltip = 'Crosshair attaches to target (SilentAim)' 
 })
 CrosshairGroup:AddDropdown('CrosshairAttachPart', {
     Text = 'Attach Part',
     Values = {'UpperTorso', 'HumanoidRootPart', 'Head', 'LowerTorso'},
     Default = 'UpperTorso',
     Callback = function(val) CrosshairConfig.AttachPart = val end,
-    Tooltip = 'К какой части цели крепить прицел'
+    Tooltip = 'Which part of the target to attach the crosshair to'
 })
 
 CrosshairGroup:AddSlider('CrosshairAngle', {
@@ -3443,7 +3371,7 @@ local HitEffectsToggle = HitChamsGroup:AddToggle('HitEffectsEnabled', {
     Text = 'HitEffects',
     Default = false,
     Callback = function(v) HitEffectsConfig.Enabled = v end,
-    Tooltip = 'Включить визуальные эффекты на цели при уроне.'
+    Tooltip = 'Enable visual effects on target when damaged.'
 })
 :AddColorPicker('HitEffectsColor', {
     Default = Color3.fromRGB(255,255,255), -- белый по умолчанию
@@ -3471,7 +3399,7 @@ local HitNotificationsToggle = HitChamsGroup:AddToggle('HitNotificationsEnabled'
     Text = 'HitNotifications',
     Default = false,
     Callback = function(v) HitNotificationsConfig.Enabled = v end,
-    Tooltip = 'Показывать уведомления о нанесенном уроне цели.'
+    Tooltip = 'Show notifications about damage dealt to target.'
 })
 
 local HitNotificationsSub = HitChamsGroup:AddDependencyBox()
@@ -3640,7 +3568,7 @@ TS.createFollowPart = function()
 
     -- Инициализируем начальную позицию
     if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-        part.CFrame = LP.Character.HumanoidRootPart.CFrame + V3.new(0, 3.0, 0)
+        part.CFrame = LP.Character.HumanoidRootPart.CFrame + V3.new(0, 2.0, 0)
     end
     
     return part
@@ -3763,10 +3691,10 @@ local function performTargetStrafe()
     -- Обновляем позицию FollowPart для фиксации камеры
     if TS.Config.Enabled then  -- Проверяем, что Target Strafe всё ещё активен
         if TS.Runtime.FollowPart and TS.Runtime.FollowPart.Parent then
-            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 3.0, 0) -- Увеличил высоту с 1.5 до 3.0
+            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 2.0, 0) -- Увеличил высоту с 1.5 до 3.0
         else
             TS.Runtime.FollowPart = TS.createFollowPart()
-            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 3.0, 0) -- Увеличил высоту с 1.5 до 3.0
+            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 2.0, 0) -- Увеличил высоту с 1.5 до 3.0
         end
         Cam.CameraSubject = TS.Runtime.FollowPart
     end
@@ -3827,7 +3755,7 @@ TargetStrafeGroup:AddToggle('TargetStrafe', {
     Text = 'Target Strafe',
     Default = false,
     Callback = function(v) toggleTargetStrafe(v) end,
-    Tooltip = 'Стрейф вокруг цели с десинком'
+    Tooltip = 'Strafe around target with desync'
 })
 
 TargetStrafeGroup:AddSlider('TargetStrafeRadius', {
@@ -3898,6 +3826,230 @@ aimbotTargetWatcher = HRT:Connect(function()
         if TS.Runtime.VisualiseDrawing and TS.Runtime.VisualiseDrawing.Visible then
             TS.Runtime.VisualiseDrawing.Visible = false
         end
+    end
+end)
+
+-- === Camera Unlock (Player tab) ===
+local CameraGroup = Tabs.Player:AddRightGroupbox('>_<')
+
+CameraGroup:AddToggle('UnlockCameraDistance', {
+    Text = 'Unlock Camera',
+    Default = false,
+    Callback = function(v) 
+        if v then
+            game.Players.LocalPlayer.CameraMaxZoomDistance = math.huge
+        else
+            game.Players.LocalPlayer.CameraMaxZoomDistance = 128 -- Стандартное значение
+        end
+    end,
+    Tooltip = 'Unlock maximum camera distance'
+})
+
+-- === AutoStomp (Combat tab, new section) ===
+local AutoStompGroup = Tabs.Combat:AddRightGroupbox('>_<')
+
+-- Настройки AutoStomp
+getgenv().AutoStomp = {
+    Enabled = false,
+    StompCount = 100,
+    StompInterval = 0.099,
+    YOffset = 2,
+    isActive = false,
+    stompCounter = 0,
+    lastStompTime = nil,
+    followPart = nil
+}
+
+-- UI для AutoStomp
+AutoStompGroup:AddToggle('AutoStompEnabled', {
+    Text = 'AutoStomp',
+    Default = false,
+    Callback = function(v) 
+        getgenv().AutoStomp.Enabled = v 
+        if not v and getgenv().AutoStomp.isActive then
+            -- Очистка при отключении
+            getgenv().AutoStomp.isActive = false
+            getgenv().AutoStomp.stompCounter = 0
+            getgenv().AutoStomp.lastStompTime = nil
+            resetAutoStompCamera()
+        end
+    end,
+    Tooltip = 'Automatically stomp knocked out players'
+})
+
+AutoStompGroup:AddSlider('AutoStompInterval', {
+    Text = 'Stomp Interval',
+    Default = getgenv().AutoStomp.StompInterval,
+    Min = 0.01, Max = 1, Rounding = 3,
+    Callback = function(v) getgenv().AutoStomp.StompInterval = v end,
+    Tooltip = 'Interval between stomps (in seconds)'
+})
+
+-- Функции AutoStomp
+local function isPlayerKO(player)
+    if not player or not player.Character then return false end
+    
+    local bodyEffects = player.Character:FindFirstChild("BodyEffects")
+    if not bodyEffects then return false end
+    
+    local ko = bodyEffects:FindFirstChild("K.O")
+    local grabbed = bodyEffects:FindFirstChild("Grabbed")
+    
+    -- Проверяем, что игрок в нокауте и не схвачен
+    return ko and ko.Value and (not grabbed or not grabbed.Value)
+end
+
+local function getRagdollPart(character)
+    if not character then return nil end
+    
+    -- Приоритет частей тела для стомпа
+    for _, partName in ipairs({"UpperTorso", "LowerTorso"}) do
+        local part = character:FindFirstChild(partName)
+        if part then return part end
+    end
+    
+    return nil
+end
+
+-- Создаем FollowPart для камеры
+local function createAutoStompFollowPart()
+    if getgenv().AutoStomp.followPart and getgenv().AutoStomp.followPart.Parent then
+        getgenv().AutoStomp.followPart:Destroy()
+    end
+    
+    local part = Instance.new("Part")
+    part.Name = "AutoStompFollowPart"
+    part.Anchored = true
+    part.CanCollide = false
+    part.Transparency = 1
+    part.Size = V3.new(0.1, 0.1, 0.1)
+    part.Parent = S.WS
+    
+    return part
+end
+
+-- Восстановление камеры
+local function resetAutoStompCamera()
+    if getgenv().AutoStomp.followPart and getgenv().AutoStomp.followPart.Parent then
+        getgenv().AutoStomp.followPart:Destroy()
+        getgenv().AutoStomp.followPart = nil
+    end
+    
+    -- Проверяем, не активен ли Target Strafe
+    local isTargetStrafeActive = getgenv().TS and getgenv().TS.Config and getgenv().TS.Config.Enabled
+    
+    -- Восстанавливаем камеру только если Target Strafe не активен
+    if not isTargetStrafeActive then
+        if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") then
+            S.WS.CurrentCamera.CameraSubject = LP.Character:FindFirstChildOfClass("Humanoid")
+        end
+    end
+end
+
+local function performStomp()
+    game:GetService("ReplicatedStorage").MainEvent:FireServer("Stomp")
+    
+    -- Для некоторых игр может потребоваться дополнительный вызов
+    local assets = game:GetService("ReplicatedStorage"):FindFirstChild("assets")
+    if assets and assets:FindFirstChild("dh") then
+        assets.dh.MainEvent:FireServer("Stomp")
+    end
+    
+    getgenv().AutoStomp.stompCounter = getgenv().AutoStomp.stompCounter - 1
+    getgenv().AutoStomp.lastStompTime = tick()
+    
+    if getgenv().AutoStomp.stompCounter <= 0 then
+        getgenv().AutoStomp.isActive = false
+        resetAutoStompCamera()
+    end
+end
+
+-- Основная функция AutoStomp
+G.applyAutoStomp = function()
+    if not getgenv().AutoStomp.Enabled then
+        if getgenv().AutoStomp.isActive then
+            getgenv().AutoStomp.isActive = false
+            getgenv().AutoStomp.stompCounter = 0
+            getgenv().AutoStomp.lastStompTime = nil
+            resetAutoStompCamera()
+        end
+        return
+    end
+    
+    local targetPlayer = getgenv().SilentAim and getgenv().SilentAim.currentTarget
+    if not targetPlayer or not targetPlayer.Character then return end
+    
+    -- Проверяем, находится ли игрок в нокауте и не схвачен
+    if not isPlayerKO(targetPlayer) then 
+        if getgenv().AutoStomp.isActive then
+            getgenv().AutoStomp.isActive = false
+            resetAutoStompCamera()
+        end
+        return 
+    end
+    
+    -- Получаем часть тела для телепорта
+    local ragdollPart = getRagdollPart(targetPlayer.Character)
+    if not ragdollPart then return end
+    
+    -- Инициализируем стомп, если ещё не активен
+    if not getgenv().AutoStomp.isActive then
+        getgenv().AutoStomp.isActive = true
+        getgenv().AutoStomp.stompCounter = getgenv().AutoStomp.StompCount
+        getgenv().AutoStomp.lastStompTime = tick()
+        getgenv().AutoStomp.followPart = createAutoStompFollowPart()
+    end
+    
+    if getgenv().AutoStomp.isActive then
+        -- Сохраняем оригинальную позицию
+        local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        
+        local originalCFrame = hrp.CFrame
+        local targetPosition = ragdollPart.Position
+        
+        -- Обновляем позицию FollowPart для фиксации камеры
+        -- Проверяем, не активен ли Target Strafe
+        local isTargetStrafeActive = getgenv().TS and getgenv().TS.Config and getgenv().TS.Config.Enabled
+        
+        if getgenv().AutoStomp.followPart and not isTargetStrafeActive then
+            getgenv().AutoStomp.followPart.CFrame = originalCFrame + V3.new(0, 2.0, 0)
+            Cam.CameraSubject = getgenv().AutoStomp.followPart
+        end
+        
+        -- Телепортируемся к цели для стомпа
+        hrp.CFrame = CFrame.new(targetPosition + Vector3.new(0, getgenv().AutoStomp.YOffset, 0))
+        S.RS.RenderStepped:Wait()
+        hrp.CFrame = originalCFrame
+        
+        -- Возвращаем камеру к игроку после десинка только если Target Strafe не активен
+        task.spawn(function()
+            S.RS.RenderStepped:Wait() -- Используем RenderStepped для синхронизации с отрисовкой
+            
+            -- Проверяем, не активен ли Target Strafe
+            local isTargetStrafeActive = getgenv().TS and getgenv().TS.Config and getgenv().TS.Config.Enabled
+            
+            -- Возвращаем камеру только если Target Strafe не активен
+            if not isTargetStrafeActive then
+                if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") then
+                    Cam.CameraSubject = LP.Character:FindFirstChildOfClass("Humanoid")
+                end
+            end
+        end)
+        
+        -- Выполняем стомп с заданным интервалом
+        if getgenv().AutoStomp.lastStompTime and 
+           (tick() - getgenv().AutoStomp.lastStompTime) >= getgenv().AutoStomp.StompInterval and 
+           getgenv().AutoStomp.stompCounter > 0 then
+            performStomp()
+        end
+    end
+end
+
+-- Добавляем AutoStomp в основной цикл
+HRT:Connect(function()
+    if getgenv().AutoStomp.Enabled then
+        G.applyAutoStomp()
     end
 end)
 
@@ -4023,7 +4175,7 @@ BulletTpGroup:AddToggle('BulletTpToggle', {
     Callback = function(v) 
         getgenv().BulletTp.Toggle = v 
     end,
-    Tooltip = 'Телепортирует пули в выбранную часть тела цели'
+    Tooltip = 'Teleports bullets to the selected body part of the target'
 })
 
 BulletTpGroup:AddLabel('BulletTP Key'):AddKeyPicker('BulletTpKey', {
@@ -4041,10 +4193,10 @@ BulletTpGroup:AddLabel('BulletTP Key'):AddKeyPicker('BulletTpKey', {
 
 BulletTpGroup:AddDropdown('BulletTpPart', {
     Text = 'Target Part',
-    Values = {'Head', 'HumanoidRootPart', 'Torso', 'UpperTorso', 'LowerTorso'},
+    Values = {'Head', 'HumanoidRootPart', 'Torso', 'UpperTorso', 'LowerTorso', 'Left Arm', 'Right Arm', 'Left Leg', 'Right Leg', 'LeftUpperArm', 'RightUpperArm', 'LeftUpperLeg', 'RightUpperLeg'},
     Default = 'Head',
     Callback = function(v) getgenv().BulletTp.Part = v end,
-    Tooltip = 'Часть тела, в которую будут телепортироваться пули'
+    Tooltip = 'Body part to which bullets will be teleported'
 })
 
 BulletTpGroup:AddToggle('BulletTpUseAimbotTarget', {
@@ -4053,118 +4205,240 @@ BulletTpGroup:AddToggle('BulletTpUseAimbotTarget', {
     Callback = function(v) 
         getgenv().BulletTp.UseAimbotTarget = v 
     end,
-    Tooltip = 'Использовать цель аимбота для BulletTP'
+    Tooltip = 'Use aimbot target for BulletTP'
 })
 
--- Функции BulletTP
+-- Улучшенная функция поиска части тела
+G.findBodyPart = function(character, partName)
+    if not character then return nil end
+    
+    -- Прямой поиск по имени
+    local part = character:FindFirstChild(partName)
+    if part and part:IsA("BasePart") then return part end
+    
+    -- Мапинг альтернативных имен частей тела
+    local partMap = {
+        ["Torso"] = {"UpperTorso", "LowerTorso"},
+        ["UpperTorso"] = {"Torso"},
+        ["LowerTorso"] = {"Torso"},
+        ["Left Arm"] = {"LeftUpperArm", "LeftLowerArm", "LeftHand"},
+        ["Right Arm"] = {"RightUpperArm", "RightLowerArm", "RightHand"},
+        ["Left Leg"] = {"LeftUpperLeg", "LeftLowerLeg", "LeftFoot"},
+        ["Right Leg"] = {"RightUpperLeg", "RightLowerLeg", "RightFoot"},
+        ["LeftUpperArm"] = {"Left Arm"},
+        ["RightUpperArm"] = {"Right Arm"},
+        ["LeftUpperLeg"] = {"Left Leg"},
+        ["RightUpperLeg"] = {"Right Leg"}
+    }
+    
+    -- Проверяем альтернативные названия
+    if partMap[partName] then
+        for _, altName in ipairs(partMap[partName]) do
+            part = character:FindFirstChild(altName)
+            if part and part:IsA("BasePart") then return part end
+        end
+    end
+    
+    -- Если не нашли, возвращаем HumanoidRootPart или Head как запасной вариант
+    return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Head")
+end
+
+-- Функции BulletTP с защитой от ошибок
 G.TeleportBullet = function(tool)
-    local BTP = getgenv().BulletTp
-    if not BTP.Toggle or not BTP.Enabled then return end
+    local success, err = pcall(function()
+        local BTP = getgenv().BulletTp
+        if not BTP.Toggle or not BTP.Enabled then return end
 
-    local target = BTP.UseAimbotTarget and getgenv().SilentAim.currentTarget or BTP.Selected
-    if not target or not target.Character then return end
+        local target = BTP.UseAimbotTarget and getgenv().SilentAim and getgenv().SilentAim.currentTarget or BTP.Selected
+        if not target or not target.Character then return end
 
-    local originPart = LP.Character and LP.Character:FindFirstChild("RightHand")
-    local targetPart = target.Character:FindFirstChild(BTP.Part)
-
-    if originPart and targetPart then
-        local grip = tool.Grip
-        tool.Parent = LP.Backpack
-        tool.Grip = G.bulletTpCFOffset(LP.Character.RightHand.CFrame, targetPart.CFrame)
-        tool.Parent = LP.Character
-        S.RS.RenderStepped:Wait()
-        tool.Parent = LP.Backpack
-        tool.Grip = grip
-        tool.Parent = LP.Character
-    end
-end
-
-local function HandleCharacter(character)
-    for k, conn in pairs(G.bulletTpConns) do
-        if typeof(conn) == "RBXScriptConnection" then conn:Disconnect() end
-    end
-    G.bulletTpConns = {}
-
-    G.bulletTpConns.CharacterChildAdded = character.ChildAdded:Connect(function(tool)
-        if tool:IsA("Tool") then
-            for _, conn in ipairs(getconnections(tool:GetPropertyChangedSignal("Grip"))) do conn:Disable() end
-            G.bulletTpConns.ToolActivated = tool.Activated:Connect(function() G.TeleportBullet(tool) end)
+        local originPart = LP.Character and LP.Character:FindFirstChild("RightHand")
+        if not originPart then
+            originPart = LP.Character and LP.Character:FindFirstChild("Right Arm")
         end
-    end)
-
-    G.bulletTpConns.ChildRemovingCharacter = character.ChildRemoved:Connect(function(child)
-        if child:IsA("Tool") and G.bulletTpConns.ToolActivated then
-            G.bulletTpConns.ToolActivated:Disconnect()
-            G.bulletTpConns.ToolActivated = nil
-        end
-    end)
-end
-
--- Функция для выбора ближайшего игрока как цели BulletTP
-G.getClosestPlayer = function()
-    local closest, dist = nil, math.huge
-    local myPos = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character.HumanoidRootPart.Position
-    if not myPos then return nil end
-    
-    for _, p in ipairs(S.PS:GetPlayers()) do
-        if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            local d = (p.Character.HumanoidRootPart.Position - myPos).Magnitude
-            if d < dist then closest, dist = p, d end
-        end
-    end
-    return closest
-end
-
-local function SetupBulletTp()
-    local currentCharacter = LP.Character or LP.CharacterAdded:Wait()
-    HandleCharacter(currentCharacter)
-
-    G.bulletTpConns.CharacterAdded = LP.CharacterAdded:Connect(HandleCharacter)
-
-    G.bulletTpConns.CharacterRemoving = LP.CharacterRemoving:Connect(function()
-        for k, conn in pairs(G.bulletTpConns) do
-            if typeof(conn) == "RBXScriptConnection" then
-                conn:Disconnect()
-            end
-        end
-        G.bulletTpConns = {}
-    end)
-    
-    G.bulletTpConns.InputBegan = S.UIS.InputBegan:Connect(function(input, gpe)
-        if gpe then return end
+        if not originPart then return end
         
-        if input.KeyCode == getgenv().BulletTp.Keybind then
-            getgenv().BulletTp.Enabled = not getgenv().BulletTp.Enabled
-            
-            local targetName = "Нет цели"
-            if getgenv().BulletTp.UseAimbotTarget and getgenv().SilentAim and getgenv().SilentAim.currentTarget then
-                targetName = getgenv().SilentAim.currentTarget.Name
-            elseif getgenv().BulletTp.Selected then
-                targetName = getgenv().BulletTp.Selected.Name
-            end
-            
-            Library:Notify("BulletTP: " .. (getgenv().BulletTp.Enabled and "Включен" or "Выключен") .. 
-                " | Цель: " .. targetName .. " | Часть: " .. getgenv().BulletTp.Part, 2)
+        local targetPart = G.findBodyPart(target.Character, BTP.Part)
+        if not targetPart then return end
+
+        if originPart and targetPart then
+            local grip = tool.Grip
+            tool.Parent = LP.Backpack
+            tool.Grip = G.bulletTpCFOffset(originPart.CFrame, targetPart.CFrame)
+            tool.Parent = LP.Character
+            S.RS.RenderStepped:Wait()
+            tool.Parent = LP.Backpack
+            tool.Grip = grip
+            tool.Parent = LP.Character
         end
     end)
     
-    -- Синхронизация с целью аимбота или выбор ближайшего игрока
-    G.bulletTpConns.TargetUpdate = HRT:Connect(function()
-        if not getgenv().BulletTp.UseAimbotTarget then
-            getgenv().BulletTp.Selected = G.getClosestPlayer()
-        end
-    end)
+    if not success and err then
+        -- В режиме отладки можно логировать ошибки
+        -- print("BulletTP error:", err)
+    end
 end
 
--- Запускаем BulletTP
-task.spawn(SetupBulletTp)
+-- Переносим функцию в глобальную таблицу G с защитой от ошибок
+G.HandleCharacter = function(character)
+    local success, err = pcall(function()
+        -- Очищаем предыдущие соединения
+        for k, conn in pairs(G.bulletTpConns) do
+            if k ~= "InputBegan" and k ~= "CharacterAdded" and k ~= "CharacterRemoving" and k ~= "TargetUpdate" then
+                if typeof(conn) == "RBXScriptConnection" then conn:Disconnect() end
+                G.bulletTpConns[k] = nil
+            end
+        end
 
--- Очистка соединений BulletTP при выходе из игры
-S.PS.PlayerRemoving:Connect(function(player)
-    if player == LP then
+        -- Обрабатываем инструменты при их добавлении
+        G.bulletTpConns.CharacterChildAdded = character.ChildAdded:Connect(function(tool)
+            if tool:IsA("Tool") then
+                -- Отключаем стандартные обработчики изменения Grip
+                for _, conn in ipairs(getconnections(tool:GetPropertyChangedSignal("Grip"))) do conn:Disable() end
+                
+                -- Создаем соединение с активацией инструмента
+                if G.bulletTpConns.ToolActivated then
+                    G.bulletTpConns.ToolActivated:Disconnect()
+                end
+                G.bulletTpConns.ToolActivated = tool.Activated:Connect(function() G.TeleportBullet(tool) end)
+            end
+        end)
+
+        -- Обрабатываем удаление инструментов
+        G.bulletTpConns.ChildRemovingCharacter = character.ChildRemoved:Connect(function(child)
+            if child:IsA("Tool") and G.bulletTpConns.ToolActivated then
+                G.bulletTpConns.ToolActivated:Disconnect()
+                G.bulletTpConns.ToolActivated = nil
+            end
+        end)
+        
+        -- Проверяем, есть ли уже инструмент в руках
+        local existingTool = character:FindFirstChildOfClass("Tool")
+        if existingTool then
+            for _, conn in ipairs(getconnections(existingTool:GetPropertyChangedSignal("Grip"))) do conn:Disable() end
+            if G.bulletTpConns.ToolActivated then
+                G.bulletTpConns.ToolActivated:Disconnect()
+            end
+            G.bulletTpConns.ToolActivated = existingTool.Activated:Connect(function() G.TeleportBullet(existingTool) end)
+        end
+    end)
+    
+    if not success and err then
+        -- В режиме отладки можно логировать ошибки
+        -- print("BulletTP HandleCharacter error:", err)
+    end
+end
+
+-- Функция для выбора ближайшего игрока как цели BulletTP с защитой от ошибок
+G.getClosestPlayer = function()
+    local success, result = pcall(function()
+        local closest, dist = nil, math.huge
+        local myPos = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character.HumanoidRootPart.Position
+        if not myPos then return nil end
+        
+        for _, p in ipairs(S.PS:GetPlayers()) do
+            if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and 
+               p.Character:FindFirstChildOfClass("Humanoid") and p.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+                local d = (p.Character.HumanoidRootPart.Position - myPos).Magnitude
+                if d < dist then closest, dist = p, d end
+            end
+        end
+        return closest
+    end)
+    
+    if success then
+        return result
+    else
+        return nil
+    end
+end
+
+-- Заменяем на глобальную функцию с защитой от ошибок
+G.SetupBulletTp = function()
+    local success, err = pcall(function()
+        -- Очищаем все соединения
         for k, conn in pairs(G.bulletTpConns) do
             if typeof(conn) == "RBXScriptConnection" then conn:Disconnect() end
         end
         G.bulletTpConns = {}
+        
+        -- Настраиваем для текущего персонажа
+        if LP.Character then
+            G.HandleCharacter(LP.Character)
+        end
+
+        -- Соединение с событием добавления персонажа
+        G.bulletTpConns.CharacterAdded = LP.CharacterAdded:Connect(function(newCharacter)
+            task.wait(0.5) -- Ждем, чтобы персонаж полностью загрузился
+            G.HandleCharacter(newCharacter)
+        end)
+
+        -- Соединение с событием удаления персонажа
+        G.bulletTpConns.CharacterRemoving = LP.CharacterRemoving:Connect(function()
+            -- Очищаем соединения, связанные с конкретным персонажем
+            for k, conn in pairs(G.bulletTpConns) do
+                if k ~= "InputBegan" and k ~= "CharacterAdded" and k ~= "CharacterRemoving" and k ~= "TargetUpdate" then
+                    if typeof(conn) == "RBXScriptConnection" then conn:Disconnect() end
+                    G.bulletTpConns[k] = nil
+                end
+            end
+        end)
+        
+        -- Соединение с нажатием клавиш
+        if not G.bulletTpConns.InputBegan then
+            G.bulletTpConns.InputBegan = S.UIS.InputBegan:Connect(function(input, gpe)
+                if gpe then return end
+                
+                if input.KeyCode == getgenv().BulletTp.Keybind then
+                    pcall(function()
+                        getgenv().BulletTp.Enabled = not getgenv().BulletTp.Enabled
+                    end)
+                    
+                    G.targetName = "Нет цели"
+                    if getgenv().BulletTp.UseAimbotTarget and getgenv().SilentAim and getgenv().SilentAim.currentTarget then
+                        G.targetName = getgenv().SilentAim.currentTarget.Name
+                    elseif getgenv().BulletTp.Selected then
+                        G.targetName = getgenv().BulletTp.Selected.Name
+                    end
+                    
+                    Library:Notify("BulletTP: " .. (getgenv().BulletTp.Enabled and "Enabled" or "Disabled") .. 
+                        " | Target: " .. G.targetName .. " | Part: " .. getgenv().BulletTp.Part, 2)
+                end
+            end)
+        end
+        
+        -- Соединение с обновлением цели
+        if not G.bulletTpConns.TargetUpdate then
+            G.bulletTpConns.TargetUpdate = HRT:Connect(function()
+                if not getgenv().BulletTp.UseAimbotTarget then
+                    getgenv().BulletTp.Selected = G.getClosestPlayer()
+                end
+            end)
+        end
+    end)
+    
+    if not success and err then
+        -- В режиме отладки можно логировать ошибки
+        -- print("BulletTP Setup error:", err)
+        
+        -- Пробуем повторить установку через 5 секунд
+        task.delay(5, G.SetupBulletTp)
+    end
+end
+
+-- Запускаем BulletTP с защитой от ошибок
+task.spawn(function()
+    pcall(G.SetupBulletTp)
+end)
+
+-- Очистка соединений BulletTP при выходе из игры
+S.PS.PlayerRemoving:Connect(function(player)
+    if player == LP then
+        pcall(function()
+            for k, conn in pairs(G.bulletTpConns) do
+                if typeof(conn) == "RBXScriptConnection" then conn:Disconnect() end
+            end
+            G.bulletTpConns = {}
+        end)
     end
 end)
