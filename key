@@ -1,406 +1,305 @@
 {
-    "N": {
-        "expression": "(57+22)*29-11",
-        "value": 2280
-    },
-    "~": {
-        "expression": "(23*18)%18+17",
-        "value": 17
-    },
-    "R": {
-        "expression": "4086+70",
-        "value": 4156
-    },
-    "\u0430": {
-        "expression": "1%16+16*2",
-        "value": 33
-    },
-    "_": {
-        "expression": "8386+79",
-        "value": 8465
-    },
-    "\u0437": {
-        "expression": "21*2+1",
-        "value": 43
-    },
-    "\u0434": {
-        "expression": "bit.bxor(75,11)+22",
-        "value": 86
-    },
-    "e": {
-        "expression": "5901+81",
-        "value": 5982
-    },
-    "G": {
-        "expression": "36+10*22",
-        "value": 256
-    },
-    "m": {
-        "expression": "math.ceil(44/29)*25-1",
-        "value": 49
-    },
-    "\u044b": {
-        "expression": "bit.bor(26,40)-15*3",
-        "value": 13
-    },
-    "]": {
-        "expression": "26*(27+18)/14",
-        "value": 83
-    },
-    "H": {
-        "expression": "math.floor(68*18/26)+13",
-        "value": 60
-    },
-    ",": {
-        "expression": "bit.bxor(38,36)+10",
-        "value": 12
-    },
-    "B": {
-        "expression": "6454+98",
-        "value": 6552
-    },
-    "%": {
-        "expression": "math.ceil(18/43)*28-13",
-        "value": 15
-    },
-    "M": {
-        "expression": "bit.bxor(92,1)+13",
-        "value": 106
-    },
-    "2": {
-        "expression": "(7+5)^12",
-        "value": 0
-    },
-    "f": {
-        "expression": "71-16*29",
-        "value": -393
-    },
-    "F": {
-        "expression": "75*13+3",
-        "value": 978
-    },
-    "3": {
-        "expression": "bit.bor(90,41)-10*10",
-        "value": 23
-    },
-    "{": {
-        "expression": "bit.band(74,6)*27+14",
-        "value": 68
-    },
-    "|": {
-        "expression": "(88*46)%17+5",
-        "value": 7
-    },
-    "<": {
-        "expression": "7849+92",
-        "value": 7941
-    },
-    "x": {
-        "expression": "61+23*21",
-        "value": 544
-    },
-    "P": {
-        "expression": "(23+13)*16-1",
-        "value": 575
-    },
-    "Q": {
-        "expression": "math.ceil(27/15)*4-10",
-        "value": -2
-    },
-    "h": {
-        "expression": "bit.bxor(90,37)+23",
-        "value": 150
-    },
-    "w": {
-        "expression": "(76+18)^27",
-        "value": 69
-    },
-    "z": {
-        "expression": "80*(31+29)/11",
-        "value": 436
-    },
-    "\u0435": {
-        "expression": "56*15+25",
-        "value": 865
-    },
-    "p": {
-        "expression": "8522+95",
-        "value": 8617
-    },
-    "a": {
-        "expression": "(98*21)%11+11",
-        "value": 12
-    },
-    "r": {
-        "expression": "math.floor(56*18/14)+1",
-        "value": 73
-    },
-    "\u043e": {
-        "expression": "24*39-21",
-        "value": 915
-    },
-    "u": {
-        "expression": "33*(14+26)/12",
-        "value": 110
-    },
-    "$": {
-        "expression": "math.ceil(61/23)*2-11",
-        "value": -5
-    },
-    "0": {
-        "expression": "98*41+4",
-        "value": 4022
-    },
-    "\u0431": {
-        "expression": "math.floor(59*16/19)+6",
-        "value": 55
-    },
-    "s": {
-        "expression": "math.floor(80*3/19)+3",
-        "value": 15
-    },
-    "A": {
-        "expression": "math.ceil(71/35)*7-18",
-        "value": 3
-    },
-    ";": {
-        "expression": "8-18*25",
-        "value": -442
-    },
-    "n": {
-        "expression": "42*(4+8)/11",
-        "value": 45
-    },
-    "j": {
-        "expression": "math.ceil(43/49)*16-5",
-        "value": 11
-    },
-    "S": {
-        "expression": "bit.bxor(36,8)+22",
-        "value": 66
-    },
-    "t": {
-        "expression": "bit.band(88,22)*4+13",
-        "value": 77
-    },
-    "7": {
-        "expression": "(83*30)%17+9",
-        "value": 17
-    },
-    "C": {
-        "expression": "44*4-10",
-        "value": 166
-    },
-    ".": {
-        "expression": "79*(43+3)/7",
-        "value": 519
-    },
-    "\u043d": {
-        "expression": "(96+2)*24-9",
-        "value": 2343
-    },
-    "(": {
-        "expression": "86*7-4",
-        "value": 598
-    },
-    ":": {
-        "expression": "4132+52",
-        "value": 4184
-    },
-    "I": {
-        "expression": "3744+72",
-        "value": 3816
-    },
-    "\u0442": {
-        "expression": "22-10*28",
-        "value": -258
-    },
-    "J": {
-        "expression": "bit.bor(57,28)-27*2",
-        "value": 7
-    },
-    "O": {
-        "expression": "bit.bor(29,2)-18*1",
-        "value": 13
-    },
-    "K": {
-        "expression": "100-6*25",
-        "value": -50
-    },
-    "b": {
-        "expression": "67^21+29",
-        "value": 113
-    },
-    "#": {
-        "expression": "(25*34)%28+3",
-        "value": 13
-    },
-    "+": {
-        "expression": "math.ceil(39/5)*7-8",
-        "value": 48
-    },
-    "/": {
-        "expression": "21*28+3",
-        "value": 591
-    },
-    "X": {
-        "expression": "2460+51",
-        "value": 2511
-    },
-    "9": {
-        "expression": "(33+24)*16-10",
-        "value": 902
-    },
-    "W": {
-        "expression": "(20+19)^18",
-        "value": 53
-    },
-    "Z": {
-        "expression": "70*(14+21)/8",
-        "value": 306
-    },
-    "g": {
-        "expression": "bit.bor(73,25)-26*4",
-        "value": -15
-    },
-    "d": {
-        "expression": "bit.band(7,31)*11+4",
-        "value": 81
-    },
-    "\u0441": {
-        "expression": "33*(3+28)/14",
-        "value": 73
-    },
-    "8": {
-        "expression": "bit.band(76,45)*4+7",
-        "value": 55
-    },
-    "'": {
-        "expression": "(85*40)%7+1",
-        "value": 6
-    },
-    "-": {
-        "expression": "math.ceil(67/37)*27-13",
-        "value": 41
-    },
-    "l": {
-        "expression": "math.ceil(89/20)*4-5",
-        "value": 15
-    },
-    "U": {
-        "expression": "91^26+15",
-        "value": 114
-    },
-    "\"": {
-        "expression": "(57*11)%5+17",
-        "value": 19
-    },
-    "q": {
-        "expression": "74^3+6",
-        "value": 67
-    },
-    "y": {
-        "expression": "bit.bor(8,28)-29*17",
-        "value": -465
-    },
-    "?": {
-        "expression": "(16+7)*4-15",
-        "value": 77
-    },
-    "L": {
-        "expression": "15+46*20",
-        "value": 935
-    },
-    "\u0439": {
-        "expression": "8857+92",
-        "value": 8949
-    },
-    "T": {
-        "expression": "bit.bxor(74,12)+4",
-        "value": 74
-    },
-    " ": {
-        "expression": "42*3-30",
-        "value": 96
-    },
-    "1": {
-        "expression": "98+19*27",
-        "value": 611
-    },
-    "D": {
-        "expression": "28^8+4",
-        "value": 16
-    },
-    "}": {
-        "expression": "1050+45",
-        "value": 1095
-    },
-    "k": {
-        "expression": "(52+24)*20-14",
-        "value": 1506
-    },
-    "6": {
-        "expression": "math.floor(68*5/7)+6",
-        "value": 54
-    },
-    ">": {
-        "expression": "(41*15)%6+11",
-        "value": 14
-    },
-    "=": {
-        "expression": "65+42*29",
-        "value": 1283
-    },
-    "o": {
-        "expression": "bit.band(85,50)*22+12",
-        "value": 364
-    },
-    "i": {
-        "expression": "bit.bor(30,22)-17*2",
-        "value": -4
-    },
-    "Y": {
-        "expression": "(5+9)*4-8",
-        "value": 48
-    },
-    "5": {
-        "expression": "(36+23)^24",
-        "value": 35
-    },
-    "4": {
-        "expression": "bit.bxor(49,25)+25",
-        "value": 65
-    },
-    "[": {
-        "expression": "62-38*20",
-        "value": -698
-    },
-    "\u0440": {
-        "expression": "bit.bxor(66,14)+12",
-        "value": 88
-    },
-    "c": {
-        "expression": "bit.bor(3,14)-26*16",
-        "value": -401
-    },
-    "E": {
-        "expression": "19*20+29",
-        "value": 409
-    },
-    "v": {
-        "expression": "8151+61",
-        "value": 8212
-    },
-    "V": {
-        "expression": "bit.band(96,34)*4+12",
-        "value": 140
-    },
-    ")": {
-        "expression": "4337+88",
-        "value": 4425
-    },
-    "*": {
-        "expression": "7*(36+8)/8",
-        "value": 38
-    }
+  "p": {
+    "key": 1
+  },
+  "G": {
+    "key": 2
+  },
+  "k": {
+    "key": 3
+  },
+  "i": {
+    "key": 4
+  },
+  "1": {
+    "key": 5
+  },
+  ";": {
+    "key": 6
+  },
+  "7": {
+    "key": 7
+  },
+  "й": {
+    "key": 8
+  },
+  ">": {
+    "key": 9
+  },
+  "O": {
+    "key": 10
+  },
+  "'": {
+    "key": 11
+  },
+  "e": {
+    "key": 12
+  },
+  "(": {
+    "key": 13
+  },
+  "o": {
+    "key": 14
+  },
+  "5": {
+    "key": 15
+  },
+  "f": {
+    "key": 16
+  },
+  "S": {
+    "key": 17
+  },
+  "t": {
+    "key": 18
+  },
+  "%": {
+    "key": 19
+  },
+  "\"": {
+    "key": 20
+  },
+  "s": {
+    "key": 21
+  },
+  "U": {
+    "key": 22
+  },
+  "4": {
+    "key": 23
+  },
+  "L": {
+    "key": 24
+  },
+  "с": {
+    "key": 25
+  },
+  "Z": {
+    "key": 26
+  },
+  "ы": {
+    "key": 27
+  },
+  "C": {
+    "key": 28
+  },
+  "I": {
+    "key": 29
+  },
+  "x": {
+    "key": 30
+  },
+  "=": {
+    "key": 31
+  },
+  "[": {
+    "key": 32
+  },
+  "T": {
+    "key": 33
+  },
+  "M": {
+    "key": 34
+  },
+  "R": {
+    "key": 35
+  },
+  ":": {
+    "key": 36
+  },
+  "B": {
+    "key": 37
+  },
+  "X": {
+    "key": 38
+  },
+  "2": {
+    "key": 39
+  },
+  "h": {
+    "key": 40
+  },
+  "w": {
+    "key": 41
+  },
+  "A": {
+    "key": 42
+  },
+  "/": {
+    "key": 43
+  },
+  "$": {
+    "key": 44
+  },
+  "Y": {
+    "key": 45
+  },
+  "r": {
+    "key": 46
+  },
+  "u": {
+    "key": 47
+  },
+  "F": {
+    "key": 48
+  },
+  "б": {
+    "key": 49
+  },
+  "?": {
+    "key": 50
+  },
+  "l": {
+    "key": 51
+  },
+  "6": {
+    "key": 52
+  },
+  "d": {
+    "key": 53
+  },
+  "а": {
+    "key": 54
+  },
+  "m": {
+    "key": 55
+  },
+  "V": {
+    "key": 56
+  },
+  "-": {
+    "key": 57
+  },
+  "т": {
+    "key": 58
+  },
+  "P": {
+    "key": 59
+  },
+  "о": {
+    "key": 60
+  },
+  "+": {
+    "key": 61
+  },
+  "д": {
+    "key": 62
+  },
+  "#": {
+    "key": 63
+  },
+  "0": {
+    "key": 64
+  },
+  "]": {
+    "key": 65
+  },
+  "<": {
+    "key": 66
+  },
+  "c": {
+    "key": 67
+  },
+  "е": {
+    "key": 68
+  },
+  "j": {
+    "key": 69
+  },
+  "K": {
+    "key": 70
+  },
+  "z": {
+    "key": 71
+  },
+  "b": {
+    "key": 72
+  },
+  ")": {
+    "key": 73
+  },
+  "a": {
+    "key": 74
+  },
+  ".": {
+    "key": 75
+  },
+  "9": {
+    "key": 76
+  },
+  "v": {
+    "key": 77
+  },
+  "{": {
+    "key": 78
+  },
+  "E": {
+    "key": 79
+  },
+  "J": {
+    "key": 80
+  },
+  "g": {
+    "key": 81
+  },
+  "y": {
+    "key": 82
+  },
+  "8": {
+    "key": 83
+  },
+  "W": {
+    "key": 84
+  },
+  "H": {
+    "key": 85
+  },
+  "N": {
+    "key": 86
+  },
+  "|": {
+    "key": 87
+  },
+  "~": {
+    "key": 88
+  },
+  "з": {
+    "key": 89
+  },
+  "q": {
+    "key": 90
+  },
+  "р": {
+    "key": 91
+  },
+  "}": {
+    "key": 92
+  },
+  "*": {
+    "key": 93
+  },
+  "Q": {
+    "key": 94
+  },
+  "_": {
+    "key": 95
+  },
+  "3": {
+    "key": 96
+  },
+  " ": {
+    "key": 97
+  },
+  ",": {
+    "key": 98
+  },
+  "н": {
+    "key": 99
+  },
+  "D": {
+    "key": 100
+  },
+  "n": {
+    "key": 101
+  }
 }
