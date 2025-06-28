@@ -1950,26 +1950,34 @@ LP.CharacterAdded:Connect(function(char)
 end)
 
 -- === AnimBreaker (Player tab, новая секция) ===
-local AnimBreakerGroup = Tabs.Player:AddRightGroupbox('AnimBreaker')
+local AnimBreakerGroup = Tabs.Player:AddRightGroupbox('>_<')
 
-local AnimBreakerSettings = {
+-- Глобальные переменные и настройки для AnimBreaker
+getgenv().AnimBreakerSettings = {
     enabled = false,
     delayTime = 0.4,
-    stepSize = 0.4
+    stepSize = 0.4,
+    customAnimEnabled = false,
+    customAnimId = "10714340543",
+    persistAfterDeath = true -- Продолжать работу после смерти
 }
 
-local animBreakerTracks = {}
-local animBreakerAnimatorConn = nil
-local animBreakerHeartbeatConn = nil
-local animBreakerCoroutine = nil
+getgenv().animBreakerTracks = {}
+getgenv().animBreakerAnimatorConn = nil
+getgenv().animBreakerHeartbeatConn = nil
+getgenv().animBreakerCoroutine = nil
+getgenv().customAnimCoroutine = nil
+getgenv().deathConnection = nil
+getgenv().respawnConnection = nil
 
-local function freezeAnimBreakerTrack(track)
+-- Глобальные функции для AnimBreaker
+function freezeAnimBreakerTrack(track)
     if not track or not track.IsPlaying then return end
     track:AdjustSpeed(0)
-    animBreakerTracks[track] = true
+    getgenv().animBreakerTracks[track] = true
 end
 
-local function restoreAnimations(character)
+function restoreAnimations(character)
     local humanoid = character and character:FindFirstChildOfClass('Humanoid')
     if not humanoid then return end
     
@@ -1977,83 +1985,303 @@ local function restoreAnimations(character)
     if not animator then return end
     
     for _, track in pairs(animator:GetPlayingAnimationTracks()) do
-        if animBreakerTracks[track] then
+        if getgenv().animBreakerTracks[track] then
             track:AdjustSpeed(1) -- Восстанавливаем нормальную скорость
-            animBreakerTracks[track] = nil
+            getgenv().animBreakerTracks[track] = nil
         end
     end
     
-    if animBreakerAnimatorConn then 
-        animBreakerAnimatorConn:Disconnect()
-        animBreakerAnimatorConn = nil
+    if getgenv().animBreakerAnimatorConn then 
+        getgenv().animBreakerAnimatorConn:Disconnect()
+        getgenv().animBreakerAnimatorConn = nil
+    end
+    
+    -- Восстанавливаем анимацию персонажа
+    if humanoid:FindFirstChild("Animate") then
+        humanoid.Animate.Disabled = false
     end
 end
 
-local function setupAnimBreakerCharacter(character)
-    if not AnimBreakerSettings.enabled then return end -- Не устанавливаем, если функция отключена
+function playCustomAnimation(character, withLags)
+    if not character then return end
+    
+    -- Проверяем, существует ли персонаж
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+    
+    -- Добавляем обработчик события смерти для перезапуска анимации
+    if not getgenv().deathConnection and humanoid then
+        getgenv().deathConnection = humanoid.Died:Connect(function()
+            -- Сохраняем труп для проигрывания анимации на нем
+            local deadCharacter = character
+            
+            -- Продолжаем проигрывать анимацию на трупе
+            task.spawn(function()
+                if getgenv().AnimBreakerSettings.customAnimEnabled and deadCharacter then
+                    -- Пытаемся проиграть анимацию на трупе
+                    local animator = deadCharacter:FindFirstChildOfClass("Humanoid") and 
+                                    deadCharacter:FindFirstChildOfClass("Humanoid"):FindFirstChildOfClass("Animator")
+                    
+                    if animator then
+                        local animation = Instance.new("Animation")
+                        animation.AnimationId = "rbxassetid://" .. getgenv().AnimBreakerSettings.customAnimId
+                        
+                        pcall(function()
+                            local track = animator:LoadAnimation(animation)
+                            if track then
+                                track:Play()
+                                track.Looped = true
+                            end
+                        end)
+                    end
+                end
+            end)
+            
+            -- Также настраиваем анимацию для нового персонажа после респавна
+            task.spawn(function()
+                task.wait(1) -- Даем время на респавн
+                if getgenv().AnimBreakerSettings.customAnimEnabled then
+                    local newCharacter = LP.Character or LP.CharacterAdded:Wait()
+                    if newCharacter and newCharacter ~= deadCharacter then
+                        playCustomAnimation(newCharacter, getgenv().AnimBreakerSettings.enabled)
+                    end
+                end
+            end)
+        end)
+    end
+    
+    local animator = humanoid:FindFirstChildOfClass("Animator")
+    if not animator then return end
+    
+    -- Отменяем предыдущую корутину
+    if getgenv().customAnimCoroutine then
+        task.cancel(getgenv().customAnimCoroutine)
+        getgenv().customAnimCoroutine = nil
+    end
+    
+    -- Создаем новую корутину для проигрывания анимации
+    getgenv().customAnimCoroutine = task.spawn(function()
+        -- Создаем анимацию
+        local animation = Instance.new("Animation")
+        animation.AnimationId = "rbxassetid://" .. getgenv().AnimBreakerSettings.customAnimId
+        
+        -- Загружаем анимацию
+        local animTrack = nil
+        pcall(function()
+            animTrack = animator:LoadAnimation(animation)
+        end)
+        
+        -- Если не удалось загрузить, пробуем еще раз
+        if not animTrack then
+            task.wait(0.1)
+            pcall(function()
+                animTrack = animator:LoadAnimation(animation)
+            end)
+        end
+        
+        -- Проигрываем анимацию, если удалось загрузить
+        if animTrack then
+            animTrack:Play()
+            
+            -- Если включен режим с лагами (AnimBreaker + CustomAnim)
+            if withLags then
+                -- Создаем эффект лагов, меняя скорость воспроизведения
+                task.spawn(function()
+                    while animTrack.IsPlaying and getgenv().AnimBreakerSettings.customAnimEnabled do
+                        pcall(function()
+                            -- Случайно меняем скорость для эффекта лагов
+                            animTrack:AdjustSpeed(math.random(5, 20) / 10)
+                            
+                            -- Иногда перемещаем позицию воспроизведения
+                            if math.random() > 0.5 then
+                                animTrack.TimePosition = math.random() * animTrack.Length
+                            end
+                        end)
+                        task.wait(math.random(5, 15) / 100)
+                    end
+                end)
+            else
+                -- Обычное воспроизведение без лагов
+                animTrack:AdjustSpeed(1)
+                animTrack.Looped = true
+            end
+        else
+            -- Запасной метод через RemoteEvent
+            pcall(function()
+                if game:GetService("ReplicatedStorage"):FindFirstChild("MainEvent") then
+                    local args = {
+                        [1] = "PlayAnimation",
+                        [2] = "rbxassetid://" .. getgenv().AnimBreakerSettings.customAnimId
+                    }
+                    game:GetService("ReplicatedStorage").MainEvent:FireServer(unpack(args))
+                end
+            end)
+        end
+    end)
+end
+
+function setupAnimBreakerCharacter(character)
+    if not getgenv().AnimBreakerSettings.enabled then return end
     
     local humanoid = character:WaitForChild("Humanoid")
     local animator = humanoid:WaitForChild("Animator")
-    T.clear(animBreakerTracks)
+    
+    table.clear(getgenv().animBreakerTracks)
+    
     for _, track in pairs(animator:GetPlayingAnimationTracks()) do
         freezeAnimBreakerTrack(track)
     end
-    if animBreakerAnimatorConn then animBreakerAnimatorConn:Disconnect() end
-    animBreakerAnimatorConn = animator.AnimationPlayed:Connect(freezeAnimBreakerTrack)
+    
+    if getgenv().animBreakerAnimatorConn then 
+        getgenv().animBreakerAnimatorConn:Disconnect() 
+    end
+    
+    getgenv().animBreakerAnimatorConn = animator.AnimationPlayed:Connect(freezeAnimBreakerTrack)
 end
 
-local function toggleAnimBreaker(state)
-    AnimBreakerSettings.enabled = state
-    if animBreakerHeartbeatConn then animBreakerHeartbeatConn:Disconnect() animBreakerHeartbeatConn = nil end
-    if animBreakerCoroutine then coroutine.close(animBreakerCoroutine) animBreakerCoroutine = nil end
+function toggleAnimBreaker(state)
+    getgenv().AnimBreakerSettings.enabled = state
+    
+    if getgenv().animBreakerHeartbeatConn then 
+        getgenv().animBreakerHeartbeatConn:Disconnect() 
+        getgenv().animBreakerHeartbeatConn = nil 
+    end
     
     if state then
         if LP.Character then
             setupAnimBreakerCharacter(LP.Character)
         end
         
-        animBreakerHeartbeatConn = HRT:Connect(function()
-            for track in pairs(animBreakerTracks) do
+        getgenv().animBreakerHeartbeatConn = HRT:Connect(function()
+            for track in pairs(getgenv().animBreakerTracks) do
                 if track and track.IsPlaying then
                     track:AdjustSpeed(0)
                 else
-                    animBreakerTracks[track] = nil
+                    getgenv().animBreakerTracks[track] = nil
                 end
             end
         end)
-        animBreakerCoroutine = coroutine.create(function()
-            while AnimBreakerSettings.enabled do
-                for track in pairs(animBreakerTracks) do
+        
+        -- Запускаем отдельную корутину для обновления позиции анимации
+        task.spawn(function()
+            while getgenv().AnimBreakerSettings.enabled do
+                for track in pairs(getgenv().animBreakerTracks) do
                     if track and track.IsPlaying then
-                        track.TimePosition = track.TimePosition + AnimBreakerSettings.stepSize
+                        pcall(function()
+                            track.TimePosition = track.TimePosition + getgenv().AnimBreakerSettings.stepSize
+                        end)
                     end
                 end
-                task.wait(AnimBreakerSettings.delayTime)
+                task.wait(getgenv().AnimBreakerSettings.delayTime)
             end
         end)
-        coroutine.resume(animBreakerCoroutine)
     else
         -- Восстанавливаем нормальные анимации при отключении
         if LP.Character then
             restoreAnimations(LP.Character)
         end
     end
+    
+    -- Обновляем состояние кастомной анимации при изменении AnimBreaker
+    updateCustomAnimationState()
 end
 
-LP.CharacterAdded:Connect(function(character)
-    if AnimBreakerSettings.enabled then
+function toggleCustomAnimation(state)
+    getgenv().AnimBreakerSettings.customAnimEnabled = state
+    
+    -- Очищаем предыдущие соединения смерти
+    if getgenv().deathConnection then
+        getgenv().deathConnection:Disconnect()
+        getgenv().deathConnection = nil
+    end
+    
+    if state and LP.Character then
+        -- Запускаем анимацию с лагами или без в зависимости от состояния AnimBreaker
+        local withLags = getgenv().AnimBreakerSettings.enabled
+        playCustomAnimation(LP.Character, withLags)
+    else
+        -- Останавливаем корутину кастомной анимации
+        if getgenv().customAnimCoroutine then
+            task.cancel(getgenv().customAnimCoroutine)
+            getgenv().customAnimCoroutine = nil
+        end
+        
+        -- Останавливаем все анимации с нашим ID на всех персонажах в игре
+        -- Это нужно, чтобы очистить анимации, которые могли остаться после смерти
+        for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+            if player.Character then
+                local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    local animator = humanoid:FindFirstChildOfClass("Animator")
+                    if animator then
+                        for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                            if track.Animation and track.Animation.AnimationId and 
+                               track.Animation.AnimationId:find(getgenv().AnimBreakerSettings.customAnimId) then
+                                track:Stop()
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Обновляем состояние кастомной анимации при изменении AnimBreaker
+function updateCustomAnimationState()
+    if getgenv().AnimBreakerSettings.customAnimEnabled and LP.Character then
+        -- Перезапускаем анимацию с новыми параметрами
+        local withLags = getgenv().AnimBreakerSettings.enabled
+        
+        -- Останавливаем все текущие анимации
+        local humanoid = LP.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            local animator = humanoid:FindFirstChildOfClass("Animator")
+            if animator then
+                for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                    if track.Animation and track.Animation.AnimationId and 
+                       track.Animation.AnimationId:find(getgenv().AnimBreakerSettings.customAnimId) then
+                        track:Stop()
+                    end
+                end
+            end
+        end
+        
+        -- Запускаем с новыми параметрами
+        playCustomAnimation(LP.Character, withLags)
+    end
+end
+
+-- Глобальный обработчик появления персонажа
+getgenv().respawnConnection = LP.CharacterAdded:Connect(function(character)
+    -- Для AnimBreaker
+    if getgenv().AnimBreakerSettings.enabled then
         setupAnimBreakerCharacter(character)
     end
+    
+    -- Для CustomAnim - запускаем анимацию после респавна
+    if getgenv().AnimBreakerSettings.customAnimEnabled then
+        -- Даем персонажу немного времени загрузиться
+        task.wait(0.5)
+        playCustomAnimation(character, getgenv().AnimBreakerSettings.enabled)
+    end
 end)
-
--- Удаляем безусловный вызов setupAnimBreakerCharacter
--- if LP.Character then setupAnimBreakerCharacter(LP.Character) end
 
 addToggleWithNotify(AnimBreakerGroup, 'AnimBreaker', {
     Text = 'AnimBreaker',
     Default = false,
     Callback = function(v)
         toggleAnimBreaker(v)
+    end,
+    Tooltip = '>_<'
+})
+
+-- Добавляем тогл для кастомной анимации
+addToggleWithNotify(AnimBreakerGroup, 'CustomAnimation', {
+    Text = 'CustomAnim',
+    Default = false,
+    Callback = function(v)
+        toggleCustomAnimation(v)
     end,
     Tooltip = '>_<'
 })
@@ -3890,14 +4118,14 @@ end
 
 -- UI для Target Strafe
 addToggleWithNotify(TargetStrafeGroup, 'TargetStrafeEnabled', {
-    Text = 'Target Strafe',
+    Text = 'TargetStrafe',
     Default = false,
     Callback = function(v) toggleTargetStrafe(v) end,
     Tooltip = '>_<'
 })
 
 addToggleWithNotify(TargetStrafeGroup, 'TargetStrafeDesync', {
-    Text = 'Use Desync (со старой версии)',
+    Text = 'UseDesync',
     Default = false,
     Callback = function(v)
         TS.Config.UseDesync = v
@@ -4316,7 +4544,7 @@ getgenv().BulletTp = {
     Keybind = Enum.KeyCode.C,
     Part = "Head",
     Selected = nil,
-    UseAimbotTarget = true
+    UseAimbotTarget = true -- Всегда используем цель аимбота
 }
 
 -- UI для BulletTP
@@ -4350,14 +4578,7 @@ BulletTpGroup:AddDropdown('BulletTpPart', {
     Tooltip = '>_<'
 })
 
-addToggleWithNotify(BulletTpGroup, 'BulletTpUseAimbotTarget', {
-    Text = 'UseAimbot',
-    Default = true,
-    Callback = function(v) 
-        getgenv().BulletTp.UseAimbotTarget = v 
-    end,
-    Tooltip = '>_<'
-})
+-- Убрали тогл UseAimbot, т.к. BulletTP всегда работает с аимботом
 
 -- Улучшенная функция поиска части тела
 G.findBodyPart = function(character, partName)
@@ -4400,7 +4621,8 @@ G.TeleportBullet = function(tool)
         local BTP = getgenv().BulletTp
         if not BTP.Toggle or not BTP.Enabled then return end
 
-        local target = BTP.UseAimbotTarget and getgenv().SilentAim and getgenv().SilentAim.currentTarget or BTP.Selected
+        -- Всегда используем цель аимбота
+        local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget or BTP.Selected
         if not target or not target.Character then return end
 
         local originPart = LP.Character and LP.Character:FindFirstChild("RightHand")
@@ -4541,26 +4763,30 @@ G.SetupBulletTp = function()
                 if gpe then return end
                 
                 if input.KeyCode == getgenv().BulletTp.Keybind then
+                    -- Предотвращаем двойное срабатывание уведомлений
+                    local wasEnabled = getgenv().BulletTp.Enabled
                     pcall(function()
-                        getgenv().BulletTp.Enabled = not getgenv().BulletTp.Enabled
+                        getgenv().BulletTp.Enabled = not wasEnabled
                     end)
                     
                     G.targetName = "Нет цели"
-                    if getgenv().BulletTp.UseAimbotTarget and getgenv().SilentAim and getgenv().SilentAim.currentTarget then
+                    if getgenv().SilentAim and getgenv().SilentAim.currentTarget then
                         G.targetName = getgenv().SilentAim.currentTarget.Name
                     elseif getgenv().BulletTp.Selected then
                         G.targetName = getgenv().BulletTp.Selected.Name
                     end
                     
+                    -- Отправляем только одно уведомление
                     Library:Notify(">_< " .. (getgenv().BulletTp.Enabled and "on" or "off"), 2)
                 end
             end)
         end
         
-        -- Соединение с обновлением цели
+        -- Соединение с обновлением цели для запасного варианта
         if not G.bulletTpConns.TargetUpdate then
             G.bulletTpConns.TargetUpdate = HRT:Connect(function()
-                if not getgenv().BulletTp.UseAimbotTarget then
+                -- Если нет цели аимбота, используем ближайшего игрока
+                if not getgenv().SilentAim or not getgenv().SilentAim.currentTarget then
                     getgenv().BulletTp.Selected = G.getClosestPlayer()
                 end
             end)
@@ -5161,6 +5387,3 @@ G.AutoArmorGroup:AddDropdown('AutoArmorType', {
     end,
     Tooltip = '>_<'
 })
-
--- Конец скрипта
-
