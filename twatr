@@ -2454,11 +2454,16 @@ local destroyCheatersConn = nil
 local function setDestroyCheatersActive(state)
     destroyCheatersActive = state
     getgenv().Finobe1 = state
-    if not state and LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') and destroyCheatersLastCFrame then
-        LP.Character.HumanoidRootPart.CFrame = destroyCheatersLastCFrame
+    if not state and LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') then
+        if destroyCheatersLastCFrame then
+            LP.Character.HumanoidRootPart.CFrame = destroyCheatersLastCFrame
+            destroyCheatersLastCFrame = nil -- Очищаем сохраненную позицию после использования
+        end
         Library:Notify('>_< off', 3)
     elseif state then
-        destroyCheatersLastCFrame = nil
+        if LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') then
+            destroyCheatersLastCFrame = LP.Character.HumanoidRootPart.CFrame
+        end
         Library:Notify('>_< on', 3)
     end
 end
@@ -2467,22 +2472,39 @@ if destroyCheatersConn then destroyCheatersConn:Disconnect() end
 
 destroyCheatersConn = HRT:Connect(function()
     if not destroyCheatersEnabled or not destroyCheatersActive then return end
-    if LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') then
-        local hrp = LP.Character.HumanoidRootPart
-        local offset = hrp.CFrame * CFrame.new(9e9, 0/0, M.huge)
-        destroyCheatersLastCFrame = hrp.CFrame
-        hrp.CFrame = offset
-        RND:Wait()
-        hrp.CFrame = destroyCheatersLastCFrame
-    end
+    pcall(function()
+        if LP and LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') then
+            local hrp = LP.Character.HumanoidRootPart
+            if not destroyCheatersLastCFrame then
+                destroyCheatersLastCFrame = hrp.CFrame
+            end
+            local offset = hrp.CFrame * CFrame.new(9e9, 0/0, M.huge)
+            hrp.CFrame = offset
+            task.wait()
+            if destroyCheatersActive and destroyCheatersLastCFrame then -- Проверяем активно ли еще
+                hrp.CFrame = destroyCheatersLastCFrame
+            end
+        end
+    end)
 end)
 
 if destroyCheatersHook == nil then
     destroyCheatersHook = hookmetamethod(game, "__index", newcclosure(function(self, key)
         if not checkcaller() then
-            if key == "CFrame" and getgenv().Finobe1 and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character:FindFirstChild("Humanoid") and LP.Character:FindFirstChild("Humanoid").Health > 0 then
-                if self == LP.Character.HumanoidRootPart and destroyCheatersLastCFrame ~= nil then
-                    return destroyCheatersLastCFrame
+            if key == "CFrame" and getgenv().Finobe1 and destroyCheatersActive then
+                local success, result = pcall(function()
+                    if LP and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and 
+                       LP.Character:FindFirstChild("Humanoid") and 
+                       LP.Character:FindFirstChild("Humanoid").Health > 0 then
+                        if self == LP.Character.HumanoidRootPart and destroyCheatersLastCFrame ~= nil then
+                            return destroyCheatersLastCFrame
+                        end
+                    end
+                    return nil
+                end)
+                
+                if success and result then
+                    return result
                 end
             end
         end
@@ -2490,14 +2512,7 @@ if destroyCheatersHook == nil then
     end))
 end
 
-local destroyCheatersKeyConn
-if destroyCheatersKeyConn then destroyCheatersKeyConn:Disconnect() end
-
-destroyCheatersKeyConn = S.UIS.InputBegan:Connect(function(input, gp)
-    if not gp and input.KeyCode == destroyCheatersKey and destroyCheatersEnabled then
-        setDestroyCheatersActive(not destroyCheatersActive)
-    end
-end)
+-- Удаляем старый обработчик InputBegan для DestroyCheatersKey, так как теперь используем KeyPicker
 
 addToggleWithNotify(DestroyCheatersGroup, 'DestroyCheaters', {
     Text = 'DestroyCheaters',
@@ -2510,11 +2525,13 @@ addToggleWithNotify(DestroyCheatersGroup, 'DestroyCheaters', {
     end,
     Tooltip = '>_<'
 }):AddKeyPicker('DestroyCheatersKey', {
-    Default = 'X',
+    Default = 'None',
     Text = 'DestroyCheatersKey',
     NoUI = false,
-    Callback = function(key)
-        destroyCheatersKey = Enum.KeyCode[key] or Enum.KeyCode.X
+    Callback = function()
+        if destroyCheatersEnabled and type(setDestroyCheatersActive) == "function" then
+            setDestroyCheatersActive(not destroyCheatersActive)
+        end
     end
 })
 
@@ -2705,16 +2722,38 @@ SilentAimGroup:AddInput('SilentAimFallOffset', {
     Callback = function(val) local n = tonumber(val); if n then getgenv().SilentAim.Silent.Offsets.Fall.Amount = n end end
 })
 SilentAimGroup:AddLabel('Sticky Key'):AddKeyPicker('SilentAimStickyKey', {
-    Default = 'Q',
+    Default = 'None',
     Text = 'StickyKey',
     NoUI = false,
-    Callback = function(key)
-        if typeof(key) == "EnumItem" then
-            getgenv().SilentAim.Options.StickyKey = key
-        elseif type(key) == "string" then
-            getgenv().SilentAim.Options.StickyKey = Enum.KeyCode[key] or Enum.KeyCode.Q
-        else
-            -- Игнорируем boolean и прочее
+    Callback = function()
+        -- Проверяем, что SilentAim включен и режим установлен на Sticky
+        if Toggles.SilentAimEnabled and Toggles.SilentAimEnabled.Value and getgenv().SilentAim and getgenv().SilentAim.Options and getgenv().SilentAim.Options.Mode == "Sticky" then
+            -- Если цель уже выбрана, сбрасываем её
+            if _G.stickyTarget then
+                stickyTarget = nil
+                _G.stickyTarget = nil
+                Library:Notify(">_< Target released", 2)
+                return
+            end
+            
+            -- Получаем новую цель
+            local target = nil
+            
+            -- Пробуем использовать глобальную функцию
+            pcall(function()
+                if type(_G.getClosestPlayer) == "function" then
+                    target = _G.getClosestPlayer()
+                end
+            end)
+            
+            if target then
+                -- Сохраняем цель как в локальной, так и в глобальной переменной
+                stickyTarget = target
+                _G.stickyTarget = target
+                Library:Notify(">_< Target locked: " .. target.Name, 2)
+            else
+                Library:Notify(">_< No target found", 2)
+            end
         end
     end
 })
@@ -2772,7 +2811,9 @@ if not getgenv().Loaded_SilentAim then
     local Inf = math.huge
     local NewVector2 = Vector2.new
     local NewCFrame = CFrame.new
-    local stickyTarget = nil
+    -- Делаем stickyTarget глобальной переменной для доступа из разных частей скрипта
+    stickyTarget = nil
+    _G.stickyTarget = nil
     local lastPositions, lastUpdateTimes = {}, {}
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local MainEvent = ReplicatedStorage:FindFirstChild("MainEvent")
@@ -2817,7 +2858,9 @@ if not getgenv().Loaded_SilentAim then
         )
         return hitPart == nil
     end
-    local function getClosestPlayer()
+    
+    -- Делаем функцию getClosestPlayer доступной глобально
+    getClosestPlayer = function()
         local mousePos = UserInputService:GetMouseLocation()
         local shortestDistance = Inf
         local closestPlayer = nil
@@ -2844,6 +2887,10 @@ if not getgenv().Loaded_SilentAim then
         end
         return closestPlayer
     end
+    
+    -- Сохраняем функцию в глобальной области видимости для доступа из других частей скрипта
+    _G.getClosestPlayer = getClosestPlayer
+    
     local function predictPosition(player)
         if not player.Character or not player.Character:FindFirstChild(SilentAim.Silent.Part) then return nil end
         local aimPart = player.Character[SilentAim.Silent.Part]
@@ -3034,13 +3081,20 @@ if not getgenv().Loaded_SilentAim then
         end
         local currentTarget = nil
         if SilentAim.Options.Mode == "Sticky" then
-            -- Проверяем isPlayerAlive только если TargetDeathCheck включен
-            local isAliveCheck = SilentAim.Misc.Checks.TargetDeathCheck and isPlayerAlive(stickyTarget) or stickyTarget ~= nil
+            -- Используем глобальную переменную, если она доступна
+            local currentStickyTarget = _G.stickyTarget or stickyTarget
             
-            if stickyTarget and isAliveCheck and (not SilentAim.Misc.Checks.KOCheck or not isPlayerKO(stickyTarget)) and (not SilentAim.Misc.Checks.GrabbedCheck or not isPlayerGrabbed(stickyTarget)) then
-                currentTarget = stickyTarget
+            -- Проверяем isPlayerAlive только если TargetDeathCheck включен
+            local isAliveCheck = currentStickyTarget ~= nil and (not SilentAim.Misc.Checks.TargetDeathCheck or isPlayerAlive(currentStickyTarget))
+            
+            if currentStickyTarget and isAliveCheck and 
+               (not SilentAim.Misc.Checks.KOCheck or not isPlayerKO(currentStickyTarget)) and 
+               (not SilentAim.Misc.Checks.GrabbedCheck or not isPlayerGrabbed(currentStickyTarget)) then
+                currentTarget = currentStickyTarget
             else
-                stickyTarget = nil 
+                -- Сбрасываем цель в обеих переменных
+                stickyTarget = nil
+                _G.stickyTarget = nil
             end
         else 
             currentTarget = getClosestPlayer()
@@ -3126,11 +3180,7 @@ if not getgenv().Loaded_SilentAim then
     end
     end)
     
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if not gameProcessed and input.KeyCode == SilentAim.Options.StickyKey and SilentAim.Options.Mode == "Sticky" then
-            stickyTarget = getClosestPlayer()
-        end
-    end)
+    -- Удаляем старый обработчик InputBegan для StickyKey, так как теперь используем KeyPicker
     local mt = getrawmetatable(game)
     local oldIndex = mt.__index
     setreadonly(mt, false)
@@ -3708,6 +3758,16 @@ local HitEffectsConfig = {
     Color = Color3.fromRGB(255,255,255), -- белый по умолчанию
 }
 local hitEffectsTypes = {'Nova', 'Crescent Slash', 'Coom', 'Cosmic Explosion', 'Slash', 'Atomic Slash'}
+
+-- Настройки для Highlight
+local HighlightConfig = {
+    Enabled = false,
+    OutlineColor = Color3.fromRGB(255, 0, 0), -- красный контур по умолчанию
+    FillColor = Color3.fromRGB(255, 0, 0), -- красная заливка
+    OutlineTransparency = 0, -- непрозрачный контур
+    FillTransparency = 0.5, -- полупрозрачная заливка
+    CurrentHighlight = nil
+}
 local HitEffectsToggle = addToggleWithNotify(HitChamsGroup, 'HitEffectsEnabled', {
     Text = 'HitEffects',
     Default = false,
@@ -3762,6 +3822,80 @@ HitNotificationsSub:AddToggle('HitNotificationsShowRemaining', {
 })
 HitNotificationsSub:SetupDependencies({{Toggles.HitNotificationsEnabled, true}})
 
+-- Добавляем Highlight
+local HighlightToggle = addToggleWithNotify(HitChamsGroup, 'HighlightEnabled', {
+    Text = 'Highlight',
+    Default = false,
+    Callback = function(v) 
+        HighlightConfig.Enabled = v 
+        
+        -- Удаляем существующий хайлайт при выключении
+        if not v and HighlightConfig.CurrentHighlight then
+            pcall(function()
+                HighlightConfig.CurrentHighlight:Destroy()
+                HighlightConfig.CurrentHighlight = nil
+            end)
+        end
+    end,
+    Tooltip = '>_<'
+})
+
+local HighlightSub = HitChamsGroup:AddDependencyBox()
+
+-- Добавляем колорпикеры для цветов контура и заливки
+HighlightSub:AddLabel('Outline Color'):AddColorPicker('HighlightOutlineColor', {
+    Default = HighlightConfig.OutlineColor,
+    Title = 'Outline',
+    Callback = function(val) 
+        HighlightConfig.OutlineColor = val 
+        -- Обновляем цвет, если хайлайт активен
+        if HighlightConfig.CurrentHighlight then
+            HighlightConfig.CurrentHighlight.OutlineColor = val
+        end
+    end
+})
+
+HighlightSub:AddLabel('Fill Color'):AddColorPicker('HighlightFillColor', {
+    Default = HighlightConfig.FillColor,
+    Title = 'Fill',
+    Callback = function(val) 
+        HighlightConfig.FillColor = val 
+        -- Обновляем цвет, если хайлайт активен
+        if HighlightConfig.CurrentHighlight then
+            HighlightConfig.CurrentHighlight.FillColor = val
+        end
+    end
+})
+
+-- Добавляем слайдеры для прозрачности
+HighlightSub:AddSlider('HighlightOutlineTransparency', {
+    Text = 'Outline Transparency',
+    Default = HighlightConfig.OutlineTransparency,
+    Min = 0, Max = 1, Rounding = 2,
+    Callback = function(val) 
+        HighlightConfig.OutlineTransparency = val 
+        -- Обновляем прозрачность, если хайлайт активен
+        if HighlightConfig.CurrentHighlight then
+            HighlightConfig.CurrentHighlight.OutlineTransparency = val
+        end
+    end
+})
+
+HighlightSub:AddSlider('HighlightFillTransparency', {
+    Text = 'Fill Transparency',
+    Default = HighlightConfig.FillTransparency,
+    Min = 0, Max = 1, Rounding = 2,
+    Callback = function(val) 
+        HighlightConfig.FillTransparency = val 
+        -- Обновляем прозрачность, если хайлайт активен
+        if HighlightConfig.CurrentHighlight then
+            HighlightConfig.CurrentHighlight.FillTransparency = val
+        end
+    end
+})
+
+HighlightSub:SetupDependencies({{Toggles.HighlightEnabled, true}})
+
 -- 3. Загрузка библиотеки эффектов (один раз)
 G.HitEffectsLib = nil
 G.hitEffectsLoading = false
@@ -3783,6 +3917,57 @@ end
 -- 4. Вызов эффекта при уроне цели (в том же месте, где HitChams/HitSounds)
 local lastTarget, lastHP = nil, nil
 -- Используем G.lastDamageTick вместо локальной переменной
+
+-- Функция для управления хайлайтом цели
+G.updateHighlight = function(target)
+    -- Если хайлайт выключен, удаляем существующий и выходим
+    if not HighlightConfig.Enabled then
+        if HighlightConfig.CurrentHighlight then
+            pcall(function()
+                HighlightConfig.CurrentHighlight:Destroy()
+                HighlightConfig.CurrentHighlight = nil
+            end)
+        end
+        return
+    end
+    
+    -- Если нет цели или её персонажа, удаляем хайлайт
+    if not target or not target.Character then
+        if HighlightConfig.CurrentHighlight then
+            pcall(function()
+                HighlightConfig.CurrentHighlight:Destroy()
+                HighlightConfig.CurrentHighlight = nil
+            end)
+        end
+        return
+    end
+    
+    -- Если хайлайт уже существует, проверяем, нужно ли его переместить на новую цель
+    if HighlightConfig.CurrentHighlight then
+        if HighlightConfig.CurrentHighlight.Parent ~= target.Character then
+            -- Если цель изменилась, удаляем старый хайлайт
+            pcall(function()
+                HighlightConfig.CurrentHighlight:Destroy()
+                HighlightConfig.CurrentHighlight = nil
+            end)
+        end
+    end
+    
+    -- Если хайлайта нет, создаем новый
+    if not HighlightConfig.CurrentHighlight then
+        pcall(function()
+            local highlight = Instance.new("Highlight")
+            highlight.OutlineColor = HighlightConfig.OutlineColor
+            highlight.FillColor = HighlightConfig.FillColor
+            highlight.OutlineTransparency = HighlightConfig.OutlineTransparency
+            highlight.FillTransparency = HighlightConfig.FillTransparency
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Parent = target.Character
+            
+            HighlightConfig.CurrentHighlight = highlight
+        end)
+    end
+end
 
 -- Объединяем все эффекты в одну функцию для оптимизации
 G.processHitEffects = function(target)
@@ -3815,12 +4000,19 @@ end
 
 -- Используем Heartbeat вместо RenderStepped для снижения нагрузки
 HRT:Connect(function()
+    local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget
+    
+    -- Обновляем хайлайт для текущей цели аимбота
+    if HighlightConfig.Enabled then
+        G.updateHighlight(target)
+    end
+    
+    -- Если никакие эффекты при попадании не включены, выходим
     if not HitChamsConfig.Enabled and not HitSoundsConfig.Enabled and not HitEffectsConfig.Enabled and not HitNotificationsConfig.Enabled then
         lastTarget, lastHP = nil, nil
         return
     end
     
-    local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget
     if target and target.Character and target.Character:FindFirstChild('Humanoid') then
         local hum = target.Character.Humanoid
         local hp = hum.Health
@@ -4558,14 +4750,17 @@ addToggleWithNotify(BulletTpGroup, 'BulletTpToggle', {
 })
 
 BulletTpGroup:AddLabel('BulletTP Key'):AddKeyPicker('BulletTpKey', {
-    Default = 'C',
+    Default = 'None',
     Text = 'Key',
     NoUI = false,
-    Callback = function(key)
-        if typeof(key) == "EnumItem" then
-            getgenv().BulletTp.Keybind = key
-        elseif type(key) == "string" then
-            getgenv().BulletTp.Keybind = Enum.KeyCode[key] or Enum.KeyCode.C
+    Callback = function()
+        -- Переключаем состояние BulletTP при нажатии клавиши, если функция включена
+        if getgenv().BulletTp and getgenv().BulletTp.Toggle then
+            local wasEnabled = getgenv().BulletTp.Enabled
+            getgenv().BulletTp.Enabled = not wasEnabled
+            
+            -- Отправляем уведомление
+            Library:Notify(">_< " .. (getgenv().BulletTp.Enabled and "on" or "off"), 2)
         end
     end
 })
@@ -4757,30 +4952,7 @@ G.SetupBulletTp = function()
             end
         end)
         
-        -- Соединение с нажатием клавиш
-        if not G.bulletTpConns.InputBegan then
-            G.bulletTpConns.InputBegan = S.UIS.InputBegan:Connect(function(input, gpe)
-                if gpe then return end
-                
-                if input.KeyCode == getgenv().BulletTp.Keybind then
-                    -- Предотвращаем двойное срабатывание уведомлений
-                    local wasEnabled = getgenv().BulletTp.Enabled
-                    pcall(function()
-                        getgenv().BulletTp.Enabled = not wasEnabled
-                    end)
-                    
-                    G.targetName = "Нет цели"
-                    if getgenv().SilentAim and getgenv().SilentAim.currentTarget then
-                        G.targetName = getgenv().SilentAim.currentTarget.Name
-                    elseif getgenv().BulletTp.Selected then
-                        G.targetName = getgenv().BulletTp.Selected.Name
-                    end
-                    
-                    -- Отправляем только одно уведомление
-                    Library:Notify(">_< " .. (getgenv().BulletTp.Enabled and "on" or "off"), 2)
-                end
-            end)
-        end
+        -- Удаляем старый обработчик InputBegan для BulletTP, так как теперь используем KeyPicker
         
         -- Соединение с обновлением цели для запасного варианта
         if not G.bulletTpConns.TargetUpdate then
@@ -5387,3 +5559,6 @@ G.AutoArmorGroup:AddDropdown('AutoArmorType', {
     end,
     Tooltip = '>_<'
 })
+
+-- Конец скрипта
+
