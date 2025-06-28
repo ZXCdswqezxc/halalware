@@ -33,7 +33,21 @@ local STR = {
     rep = string.rep, split = string.split, fmt = string.format
 }
 
--- Глобальная таблица для хранения переменных
+local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+local Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/library'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+
+-- Функция-обертка для тоглов с уведомлениями
+local function addToggleWithNotify(group, id, options)
+    local originalCallback = options.Callback
+    options.Callback = function(v)
+        originalCallback(v)
+        Library:Notify(">_< " .. (v and "on" or "off"), 3)
+    end
+    return group:AddToggle(id, options)
+end
+
 local G = {
     -- Трейсеры
     lastTracerUpdate = 0,
@@ -104,11 +118,6 @@ local Body = {
 }
 
 local Cam, Mse, Bp, Tm, UID, PGui = S.WS.CurrentCamera, LP:GetMouse(), LP:FindFirstChildOfClass('Backpack'), LP.Team, LP.UserId, LP:FindFirstChildOfClass('PlayerGui')
-
-local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
-local Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/library'))()
-local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
-local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 
 local Window = Library:CreateWindow({
     Title = 'Halalware',
@@ -216,7 +225,7 @@ local ESPConfig = {
 }
 
 local ESPGroup = Tabs.Visuals:AddLeftGroupbox('>_<')
-ESPGroup:AddToggle('ESPEnabled', {
+addToggleWithNotify(ESPGroup, 'ESPEnabled', {
     Text = 'ESP',
     Default = false,
     Callback = function(v) ESPConfig.Enabled = v end
@@ -311,7 +320,7 @@ local BulletTextures = {
     ["Beam"] = "rbxassetid://1263079249"
 }
 
-local BulletToggle = BulletTracersGroup:AddToggle('BulletTracersEnabled', {
+local BulletToggle = addToggleWithNotify(BulletTracersGroup, 'BulletTracersEnabled', {
     Text = 'Tracer',
     Default = false,
     Callback = function(v) BulletTracersConfig.Enabled = v end
@@ -340,195 +349,260 @@ BulletTracersGroup:AddDropdown('BulletTracersTexture', {
 })
 
 -- === Bullet Tracers Logic (ONLY) ===
-local gS = { t = nil, a = 0, s = false, c = {} }
-local gM = {
-    [2788229376] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
-    [71189885129233] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
-    [5602055394] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
-    [17403265390] = { BN = "Part", BBN = "gb", BP = "" },
-    [17403166075] = { BN = "Part", BBN = "gb", BP = "" },
-    [18111448661] = { BN = "Part", BBN = "gb", BP = "" },
-    [15186202290] = { BN = "Part", BBN = "gb", BP = "" },
-    [11143225577] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
-    [15763494605] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
-    [15166543806] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
-    [17897702920] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
-    [16033173781] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
-    [7213786345] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
-    [9825515356] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
-    [16859411452] = { BN = "bulletray", BBN = "beam", BP = "Ignored" },
-    [14277620939] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
-    [0] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" }
+-- Состояние оружия
+local gunState = {
+    current_tool = nil,
+    previous_ammo = 0,
+    recently_shot = false,
+    connections = {}
 }
-local function gP(r, p)
-    if p == "" then return r end
-    local ps = STR.split(p, ".")
-    local c = r
-    for _, pt in ipairs(ps) do
-        c = c:FindFirstChild(pt)
-        if not c then return nil end
-    end
-    return c
+
+-- Определение игры и путей к пулям
+local function detectGame()
+    local placeId = game.PlaceId
+    
+    local gameData = {
+        -- Da Hood
+        [2788229376] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
+        [71189885129233] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
+        [5602055394] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
+        [17403265390] = { BN = "Part", BBN = "gb", BP = "" },
+        [17403166075] = { BN = "Part", BBN = "gb", BP = "" },
+        [18111448661] = { BN = "Part", BBN = "gb", BP = "" },
+        [15186202290] = { BN = "Part", BBN = "gb", BP = "" },
+        [11143225577] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
+        [15763494605] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
+        [15166543806] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
+        [17897702920] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
+        [16033173781] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
+        [7213786345] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
+        [9825515356] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
+        [16859411452] = { BN = "bulletray", BBN = "beam", BP = "Ignored" },
+        [14277620939] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
+        [0] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" }
+    }
+    
+    local data = gameData[placeId] or gameData[0]
+    return data
 end
-local function dG()
-    local d = gM[game.PlaceId] or gM[0]
-    d.BP = gP(S.WS, d.BP) or S.WS
-    return d
+
+-- Получение пути к пулям
+local function getPath(root, path)
+    if path == "" then return root end
+    local parts = STR.split(path, ".")
+    local current = root
+    for _, part in ipairs(parts) do
+        current = current:FindFirstChild(part)
+        if not current then return nil end
+    end
+    return current
 end
-local function cB(f, t, c1, c2, thickness, texture)
-    -- Убираем ограничения на количество трейсеров
-    local tracerLifetime = 0.4 -- Время жизни трейсера
+
+-- Создание луча (beam)
+local function createBeam(from, to, color1, color2, thickness, texture)
+    -- Создаем невидимую основную часть
+    local mainPart = Instance.new("Part")
+    mainPart.Name = "BulletTracer"
+    mainPart.Parent = S.WS
+    mainPart.Size = V3.new(0, 0, 0)
+    mainPart.Massless = true
+    mainPart.Transparency = 1
+    mainPart.CanCollide = false
+    mainPart.Position = from
+    mainPart.Anchored = true
     
-    -- Используем глобальную таблицу для отслеживания активных трейсеров
-    if not G.ActiveTracers then
-        G.ActiveTracers = {}
-        G.TracerCount = 0
-    end
+    -- Создаем две точки для луча
+    local part0 = Instance.new("Part")
+    part0.Parent = mainPart
+    part0.Size = V3.new(0, 0, 0)
+    part0.Massless = true
+    part0.Transparency = 1
+    part0.CanCollide = false
+    part0.Position = from
+    part0.Anchored = true
     
-    -- Увеличиваем счетчик трейсеров
-    G.TracerCount = G.TracerCount + 1
+    local part1 = Instance.new("Part")
+    part1.Parent = mainPart
+    part1.Size = V3.new(0, 0, 0)
+    part1.Massless = true
+    part1.Transparency = 1
+    part1.CanCollide = false
+    part1.Position = to
+    part1.Anchored = true
     
-    -- Создаем трейсер с оптимизированными параметрами
-    local p = Instance.new("Part")
-    p.Name = "BT"
-    p.Parent = S.WS
-    p.Size = V3.zero
-    p.Massless = true
-    p.Transparency = 1
-    p.CanCollide = false
-    p.Position = f
-    p.Anchored = true
+    -- Создаем точки крепления для луча
+    local attachment0 = Instance.new("Attachment")
+    attachment0.Parent = part0
     
-    -- Оптимизируем создание частей - используем только необходимые объекты
-    local p0, p1 = Instance.new("Part"), Instance.new("Part")
-    for _, pt in ipairs({p0, p1}) do
-        pt.Parent = p
-        pt.Size = V3.zero
-        pt.Massless = true
-        pt.Transparency = 1
-        pt.CanCollide = false
-        pt.Anchored = true
-    end
-    p0.Position = f
-    p1.Position = t
+    local attachment1 = Instance.new("Attachment")
+    attachment1.Parent = part1
     
-    local a0, a1 = Instance.new("Attachment", p0), Instance.new("Attachment", p1)
-    local b = Instance.new("Beam")
-    b.Texture = texture
-    b.TextureMode = Enum.TextureMode.Wrap
-    b.TextureLength = 10
-    b.LightEmission = 1
-    b.LightInfluence = 1
-    b.FaceCamera = true
-    b.ZOffset = -1
-    b.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1)})
-    b.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, c1), ColorSequenceKeypoint.new(1, c2)})
-    b.Attachment0 = a0
-    b.Attachment1 = a1
-    b.Enabled = true
-    b.Width0 = thickness
-    b.Width1 = thickness
-    b.Parent = p
+    -- Создаем сам луч с градиентом цвета
+    local beam = Instance.new("Beam")
+    beam.Texture = texture
+    beam.TextureMode = Enum.TextureMode.Wrap
+    beam.TextureLength = 10
+    beam.LightEmission = 1
+    beam.LightInfluence = 1
+    beam.FaceCamera = true
+    beam.ZOffset = -1
+    beam.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0),
+        NumberSequenceKeypoint.new(1, 1),
+    })
+    beam.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, color1),
+        ColorSequenceKeypoint.new(1, color2),
+    })
+    beam.Attachment0 = attachment0
+    beam.Attachment1 = attachment1
+    beam.Width0 = thickness
+    beam.Width1 = thickness
+    beam.Enabled = true
+    beam.Parent = mainPart
     
-    -- Сохраняем трейсер в таблице активных трейсеров
-    table.insert(G.ActiveTracers, p)
-    
-    -- Удаляем трейсер через указанное время и уменьшаем счетчик
-    task.delay(tracerLifetime, function()
-        if p and p.Parent then
-            p:Destroy()
-        end
-        G.TracerCount = G.TracerCount - 1
-        
-        -- Удаляем трейсер из таблицы активных трейсеров
-        for i, tracer in ipairs(G.ActiveTracers) do
-            if tracer == p then
-                table.remove(G.ActiveTracers, i)
-                break
-            end
-        end
+    -- Уничтожаем луч через указанное время
+    task.delay(0.4, function()
+        mainPart:Destroy()
     end)
 end
-local function gG(p)
-    if not p or not p.Character then return end
-    local t = p.Character:FindFirstChildWhichIsA("Tool")
-    if not t then return end
-    for _, o in ipairs(t:GetDescendants()) do
-        if o and o.Name and STR.lower(o.Name):find("ammo") and not STR.lower(o.Name):find("max") and o.ClassName:match("Value$") then
-            return { a = o, t = t }
+
+-- Функция для получения оружия локального игрока
+local function getGun(player)
+    if not player or not player.Character then return nil end
+    
+    local tool = player.Character:FindFirstChildWhichIsA("Tool")
+    if not tool then return nil end
+    
+    local gunInfo = {}
+    
+    -- Ищем значение патронов в оружии
+    local descendants = tool:GetDescendants()
+    for _, obj in ipairs(descendants) do
+        if (STR.lower(obj.Name):find("ammo") and not STR.lower(obj.Name):find("max") and
+            (obj.ClassName == "IntValue" or obj.ClassName == "NumberValue")) then
+            gunInfo.ammo = obj
+            gunInfo.tool = tool
+            return gunInfo
         end
     end
+    
+    return nil
 end
-local function sGT(p)
-    for _, cn in ipairs(gS.c) do cn:Disconnect() end
-    gS.c = {}
-    if not p.Character then
-        T.insert(gS.c, p.CharacterAdded:Connect(function() sGT(p) end))
+
+-- Функция для настройки отслеживания оружия
+local function setupGunTracking(player)
+    -- Очищаем текущие соединения
+    for _, connection in ipairs(gunState.connections) do
+        if connection then connection:Disconnect() end
+    end
+    gunState.connections = {}
+    
+    -- Если персонаж игрока не существует, создаем соединение на его появление
+    if not player.Character then
+        table.insert(gunState.connections, player.CharacterAdded:Connect(function(character)
+            setupGunTracking(player)
+        end))
         return
     end
-    local function oG(c, ia)
-        if not c:IsA("Tool") then return end
-        if ia then
-            local g = gG(p)
-            if g then
-                gS.t = g.t
-                gS.a = g.a.Value
-                T.insert(gS.c, g.a.Changed:Connect(function(na)
-                    if na < gS.a then
-                        gS.s = true
-                        task.wait()
-                        gS.s = false
+    
+    -- Отслеживаем добавление/удаление оружия
+    table.insert(gunState.connections, player.Character.ChildAdded:Connect(function(child)
+        if child:IsA("Tool") then
+            local gun = getGun(player)
+            if gun then
+                gunState.current_tool = gun.tool
+                gunState.previous_ammo = gun.ammo.Value
+                
+                -- Отслеживаем изменение количества патронов
+                table.insert(gunState.connections, gun.ammo.Changed:Connect(function()
+                    local new_ammo = gun.ammo.Value
+                    if new_ammo < gunState.previous_ammo then
+                        gunState.recently_shot = true
+                        task.wait() -- Короткая пауза для обнаружения пули
+                        gunState.recently_shot = false
                     end
-                    gS.a = na
+                    gunState.previous_ammo = new_ammo
                 end))
             end
-        else
-            if c == gS.t then gS.t, gS.a = nil, 0 end
         end
+    end))
+    
+    table.insert(gunState.connections, player.Character.ChildRemoved:Connect(function(child)
+        if child == gunState.current_tool then
+            gunState.current_tool = nil
+            gunState.previous_ammo = 0
+        end
+    end))
+    
+    -- Проверяем наличие оружия сразу
+    local gun = getGun(player)
+    if gun then
+        gunState.current_tool = gun.tool
+        gunState.previous_ammo = gun.ammo.Value
+        
+        -- Отслеживаем изменение количества патронов
+        table.insert(gunState.connections, gun.ammo.Changed:Connect(function()
+            local new_ammo = gun.ammo.Value
+            if new_ammo < gunState.previous_ammo then
+                gunState.recently_shot = true
+                task.wait() -- Короткая пауза для обнаружения пули
+                gunState.recently_shot = false
+            end
+            gunState.previous_ammo = new_ammo
+        end))
     end
-    T.insert(gS.c, p.Character.ChildAdded:Connect(function(c) oG(c, true) end))
-    T.insert(gS.c, p.Character.ChildRemoved:Connect(function(c) oG(c, false) end))
-    local g = gG(p)
-    if g then oG(g.t, true) end
 end
-local function sE()
-    local g = dG()
-    if not g.BP then return end
-    sGT(LP)
-    if not LP.Character then LP.CharacterAdded:Connect(function() sGT(LP) end) end
+
+-- Основная функция для настройки эффектов пуль
+local function setupBulletEffects()
+    local gameData = detectGame()
+    local bulletPath = getPath(S.WS, gameData.BP) or S.WS
     
-    -- Используем дебаунс из таблицы G для обработки трейсеров
+    -- Настраиваем отслеживание оружия локального игрока
+    setupGunTracking(LP)
     
-    g.BP.ChildAdded:Connect(function(o)
-        if not gS.s then return end
-        if BulletTracersConfig.Enabled and o.Name == g.BBN then
-            -- Убираем дебаунс для неограниченного количества трейсеров
+    -- Отслеживаем добавление персонажа, если он еще не существует
+    if not LP.Character then
+        LP.CharacterAdded:Connect(function(character)
+            setupGunTracking(LP)
+        end)
+    end
+    
+    -- Следим за созданием новых пуль
+    bulletPath.ChildAdded:Connect(function(object)
+        if not BulletTracersConfig.Enabled then return end
+        
+        -- Проверяем, чтобы это была пуля с правильным именем и недавно выстрелил локальный игрок
+        if object.Name == gameData.BN and gunState.recently_shot then
             task.spawn(function()
-                local b = o:WaitForChild(g.BBN, 0.2) -- Уменьшаем время ожидания
-                if not b then return end
+                local gunBeam = object:WaitForChild(gameData.BBN, 0.2)
+                if not gunBeam then return end
                 
-                local sp, ep = o.Position, b.Attachment1.WorldPosition
+                local startPos = object.Position
+                local endPos = gunBeam.Attachment1.WorldPosition
                 
-                -- Проверяем расстояние трейсера, чтобы избежать слишком длинных трейсеров
-                local distance = (sp - ep).Magnitude
-                if distance > 2000 then return end
+                -- Удаляем оригинальный луч
+                gunBeam:Destroy()
                 
-                b:Destroy()
-                
-                cB(
-                    sp, ep,
-                    BulletTracersConfig.Color1,
-                    BulletTracersConfig.Color2,
+                -- Создаем трейсер
+                createBeam(
+                    startPos, 
+                    endPos, 
+                    BulletTracersConfig.Color1, 
+                    BulletTracersConfig.Color2, 
                     BulletTracersConfig.Thickness,
                     BulletTracersConfig.Texture
                 )
             end)
         end
     end)
-    
-    -- Удаляем кнопку Clear All
 end
-sE()
+
+-- Запускаем скрипт
+setupBulletEffects()
+
+-- Старый код bullet tracers удален для избежания конфликтов с новой реализацией
 
 local ESPCache, ESPConnections = {}, {}
 local gui_inset = S.GU:GetGuiInset()
@@ -892,7 +966,7 @@ end
 getgenv().GetSphereAuraSettings = function() return SphereAuraSettings end
 
 local SphereAuraGroup = Tabs.Visuals:AddRightGroupbox('>_<')
-SphereAuraGroup:AddToggle('SphereAura', {
+addToggleWithNotify(SphereAuraGroup, 'SphereAura', {
     Text = 'SphereAura',
     Default = false,
     Callback = function(v)
@@ -1043,7 +1117,7 @@ end
 getgenv().GetCircleAuraSettings = function() return CircleAuraSettings end
 
 -- UI
-SphereAuraGroup:AddToggle('CircleAura', {
+addToggleWithNotify(SphereAuraGroup, 'CircleAura', {
     Text = 'Aura',
     Default = false,
     Callback = function(v)
@@ -1115,7 +1189,7 @@ local ChinaHatSettings = {
 }
 
 local ChinaHatGroup = Tabs.Visuals:AddLeftGroupbox('>_<')
-ChinaHatGroup:AddToggle('ChinaHatEnabled', {
+addToggleWithNotify(ChinaHatGroup, 'ChinaHatEnabled', {
     Text = 'ChinaHat',
     Default = ChinaHatSettings.enabled,
     Callback = function(v)
@@ -1244,7 +1318,7 @@ local function applyWorld()
     cc.Brightness = WorldConfig.Brightness
 end
 
-local FogToggle = WorldGroup:AddToggle('FogEnabled', {
+local FogToggle = addToggleWithNotify(WorldGroup, 'FogEnabled', {
     Text = 'Fog',
     Default = false,
     Callback = function(v) WorldConfig.FogEnabled = v; applyWorld() end
@@ -1334,7 +1408,7 @@ local function updateSpeedHack(character)
         end
     end)
 end
-SpeedhackGroup:AddToggle('SpeedhackEnabled', {
+addToggleWithNotify(SpeedhackGroup, 'SpeedhackEnabled', {
     Text = 'Speedhack',
     Default = false,
     Callback = function(v)
@@ -1467,7 +1541,7 @@ local function setFlyActive(state)
         stopFly()
     end
 end
-FlyGroup:AddToggle('FlyEnabled', {
+addToggleWithNotify(FlyGroup, 'FlyEnabled', {
     Text = 'Fly',
     Default = false,
     Callback = function(v)
@@ -1543,7 +1617,7 @@ local function disableNoRecoil()
     noRecoilHook = nil
 end
 
-NoRecoilGroup:AddToggle('No Recoil', {
+addToggleWithNotify(NoRecoilGroup, 'No Recoil', {
     Text = 'NoRecoil',
     Default = false,
     Callback = function(v)
@@ -1554,7 +1628,7 @@ NoRecoilGroup:AddToggle('No Recoil', {
             disableNoRecoil()
         end
     end,
-    Tooltip = 'Removes camera recoil (Framework)'
+    Tooltip = '>_<'
 })
 
 -- === NoJumpCD (Misc tab, правая секция) ===
@@ -1591,7 +1665,7 @@ local function disableNoJumpCD()
     currentNoJumpCDHook = nil
 end
 
-NoJumpCDGroup:AddToggle('No Jump CD', {
+addToggleWithNotify(NoJumpCDGroup, 'No Jump CD', {
     Text = 'NoJumpCD',
     Default = false,
     Callback = function(v)
@@ -1602,7 +1676,7 @@ NoJumpCDGroup:AddToggle('No Jump CD', {
             disableNoJumpCD()
         end
     end,
-    Tooltip = 'Removes jump cooldown (blocks JumpPower set)'
+    Tooltip = '>_<'
 })
 
 NoJumpCDGroup:AddButton({
@@ -1615,9 +1689,9 @@ NoJumpCDGroup:AddButton({
                 count = count + 1
             end
         end
-        Library:Notify('Destroyed seats: ' .. count, 3)
+        Library:Notify('>_<', 3)
     end,
-    Tooltip = 'Remove all seats (Seat/VehicleSeat) in the game'
+    Tooltip = '>_<'
 })
 
 -- === AntiInertia (Misc tab, отдельная правая секция) ===
@@ -1676,13 +1750,13 @@ LP.CharacterAdded:Connect(function()
     end
 end)
 
-AntiInertiaGroup:AddToggle('Anti Inertia', {
+addToggleWithNotify(AntiInertiaGroup, 'Anti Inertia', {
     Text = 'AntiInertia',
     Default = false,
     Callback = function(v)
         ToggleAntiInertia(v)
     end,
-    Tooltip = 'Removes inertia from movement (instant stop/start)'
+    Tooltip = '>_<'
 })
 
 -- === Yaw Locker (Player tab, новая секция) ===
@@ -1818,13 +1892,13 @@ local function setYawLocker(state)
     end
 end
 
-YawLockerGroup:AddToggle('YawLocker', {
+addToggleWithNotify(YawLockerGroup, 'YawLocker', {
     Text = 'YawLock',
     Default = false,
     Callback = function(v)
         setYawLocker(v)
     end,
-    Tooltip = 'Locks your yaw (horizontal rotation) to the selected angle.'
+    Tooltip = '>_<'
 })
 
 YawLockerGroup:AddDropdown('YawLockerMode', {
@@ -1836,7 +1910,7 @@ YawLockerGroup:AddDropdown('YawLockerMode', {
         yawJitterState = 1
         yawJitterTimer = 0
     end,
-    Tooltip = 'Yaw lock mode: Locked, Jitter, 3 Ways, 5 Ways'
+    Tooltip = '>_<'
 })
 
 YawLockerGroup:AddSlider('YawLockerAngle', {
@@ -1848,7 +1922,7 @@ YawLockerGroup:AddSlider('YawLockerAngle', {
     Callback = function(val)
         YawLockerConfig.Angle = val
     end,
-    Tooltip = 'Set the yaw angle (0-360 degrees)'
+    Tooltip = '>_<'
 })
 
 YawLockerGroup:AddToggle('YawLockerAtTarget', {
@@ -1857,7 +1931,7 @@ YawLockerGroup:AddToggle('YawLockerAtTarget', {
     Callback = function(v)
         YawLockerConfig.AtTarget = v
     end,
-    Tooltip = 'Apply yaw relative to aimbot target (face away if 180, etc.)'
+    Tooltip = '>_<'
 })
 
 YawLockerGroup:AddToggle('YawLockerDisableAutoRotate', {
@@ -1867,7 +1941,7 @@ YawLockerGroup:AddToggle('YawLockerDisableAutoRotate', {
         YawLockerConfig.DisableAutoRotate = v
         applyYawLockerAutoRotate()
     end,
-    Tooltip = 'Disables Humanoid.AutoRotate (prevents Roblox from rotating you automatically)'
+    Tooltip = '>_<'
 })
 LP.CharacterAdded:Connect(function(char)
     if YawLockerConfig.Enabled or YawLockerConfig.DisableAutoRotate then
@@ -1975,13 +2049,13 @@ end)
 -- Удаляем безусловный вызов setupAnimBreakerCharacter
 -- if LP.Character then setupAnimBreakerCharacter(LP.Character) end
 
-AnimBreakerGroup:AddToggle('AnimBreaker', {
+addToggleWithNotify(AnimBreakerGroup, 'AnimBreaker', {
     Text = 'AnimBreaker',
     Default = false,
     Callback = function(v)
         toggleAnimBreaker(v)
     end,
-    Tooltip = 'Breaks your animations (freezes and jitters)'
+    Tooltip = '>_<'
 })
 
 -- === RapidFireGunScript (Player tab, новая секция) ===
@@ -2047,7 +2121,7 @@ local function disableRapidFireGunScript()
     Traced.RapidFire = false
 end
 
-RapidFireGunScriptGroup:AddToggle('RapidFireGunScript', {
+addToggleWithNotify(RapidFireGunScriptGroup, 'RapidFireGunScript', {
     Text = 'RapidFireGunScript',
     Default = false,
     Callback = function(v)
@@ -2057,7 +2131,7 @@ RapidFireGunScriptGroup:AddToggle('RapidFireGunScript', {
             disableRapidFireGunScript()
         end
     end,
-    Tooltip = 'Patch GunScript for instant fire.'
+    Tooltip = '>_<'
 })
 
 -- === RapidFireM1Spam (Player tab, новая секция) ===
@@ -2126,7 +2200,7 @@ local function disableRapidFireM1()
     G.rapidFireM1Firing = false
 end
 
-RapidFireM1Group:AddToggle('RapidFireM1Spam', {
+addToggleWithNotify(RapidFireM1Group, 'RapidFireM1Spam', {
     Text = 'RapidFireM1',
     Default = false,
     Callback = function(v)
@@ -2136,7 +2210,7 @@ RapidFireM1Group:AddToggle('RapidFireM1Spam', {
             disableRapidFireM1()
         end
     end,
-    Tooltip = 'Auto spam Mouse1 (tool activation)'
+    Tooltip = '>_<'
 })
 
 -- === Destroy Cheaters (Misc tab, новая левая секция) ===
@@ -2154,10 +2228,10 @@ local function setDestroyCheatersActive(state)
     getgenv().Finobe1 = state
     if not state and LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') and destroyCheatersLastCFrame then
         LP.Character.HumanoidRootPart.CFrame = destroyCheatersLastCFrame
-        Library:Notify('Destroy Cheaters: Disabled', 3)
+        Library:Notify('>_< off', 3)
     elseif state then
         destroyCheatersLastCFrame = nil
-        Library:Notify('Destroy Cheaters: Enabled', 3)
+        Library:Notify('>_< on', 3)
     end
 end
 
@@ -2197,7 +2271,7 @@ destroyCheatersKeyConn = S.UIS.InputBegan:Connect(function(input, gp)
     end
 end)
 
-DestroyCheatersGroup:AddToggle('DestroyCheaters', {
+addToggleWithNotify(DestroyCheatersGroup, 'DestroyCheaters', {
     Text = 'DestroyCheaters',
     Default = false,
     Callback = function(v)
@@ -2206,7 +2280,7 @@ DestroyCheatersGroup:AddToggle('DestroyCheaters', {
             setDestroyCheatersActive(false)
         end
     end,
-    Tooltip = 'Enable keybind to toggle anti-exploit position breaker.'
+    Tooltip = '>_<'
 }):AddKeyPicker('DestroyCheatersKey', {
     Default = 'X',
     Text = 'DestroyCheatersKey',
@@ -2220,9 +2294,9 @@ DestroyCheatersGroup:AddButton({
     Text = 'DestroyVoid',
     Func = function()
         S.WS.FallenPartsDestroyHeight = 0/0
-        Library:Notify('Void destroyed!', 3)
+        Library:Notify('>_<', 3)
     end,
-    Tooltip = 'Set FallenPartsDestroyHeight to NaN'
+    Tooltip = '>_<'
 })
 
 -- === Silent Aim (Combat tab, новая секция) ===
@@ -2270,7 +2344,7 @@ getgenv().SilentAim = {
 }
 
 -- UI для Silent Aim
-SilentAimGroup:AddToggle('SilentAimEnabled', {
+addToggleWithNotify(SilentAimGroup, 'SilentAimEnabled', {
     Text = 'Ragebot',
     Default = false,
     Callback = function(v) 
@@ -2283,7 +2357,7 @@ SilentAimGroup:AddDropdown('SilentAimMode', {
     Default = 'Nuker',
     Callback = function(v) getgenv().SilentAim.Options.Mode = v end
 })
-SilentAimGroup:AddToggle('SilentAimAutoAir', {
+addToggleWithNotify(SilentAimGroup, 'SilentAimAutoAir', {
     Text = 'AutoAir',
     Default = false,
     Callback = function(v) 
@@ -2310,21 +2384,21 @@ SilentAimGroup:AddToggle('SilentAimAutoAir', {
             end
         end
     end,
-    Tooltip = 'Automatically shoots when target is in the air'
+    Tooltip = '>_<'
 })
 
 -- Добавляем Magic Bullet
-SilentAimGroup:AddToggle('SilentAimMagicBullet', {
+addToggleWithNotify(SilentAimGroup, 'SilentAimMagicBullet', {
     Text = 'MagicBullet',
     Default = false,
     Callback = function(v) 
         getgenv().SilentAim.Options.MagicBullet = v 
     end,
-    Tooltip = 'Automatically shoots at aimbot target through walls'
+    Tooltip = '>_<'
 })
 
 -- Добавляем View Target
-SilentAimGroup:AddToggle('SilentAimViewTarget', {
+addToggleWithNotify(SilentAimGroup, 'SilentAimViewTarget', {
     Text = 'View',
     Default = false,
     Callback = function(v) 
@@ -2336,7 +2410,7 @@ SilentAimGroup:AddToggle('SilentAimViewTarget', {
             end
         end
     end,
-    Tooltip = 'Moves camera to focus on the aimbot target'
+    Tooltip = '>_<'
 })
 
 -- Настройки Magic Bullet
@@ -2349,28 +2423,28 @@ MagicBulletGroup:AddSlider('MagicBulletRange', {
     Callback = function(v) 
         getgenv().SilentAim.MagicBullet.Range = tonumber(v) or 10000
     end,
-    Tooltip = 'Maximum distance for Magic Bullet'
+    Tooltip = '>_<'
 })
 
 MagicBulletGroup:AddToggle('MagicBulletIgnoreKO', {
     Text = 'IgnoreKO',
     Default = false,
     Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreKO = v end,
-    Tooltip = 'Shoot at knocked out targets'
+    Tooltip = '>_<'
 })
 
 MagicBulletGroup:AddToggle('MagicBulletIgnoreGrabbed', {
     Text = 'IgnoreGrabbed',
     Default = false,
     Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreGrabbed = v end,
-    Tooltip = 'Shoot at grabbed targets'
+    Tooltip = '>_<'
 })
 
 MagicBulletGroup:AddToggle('MagicBulletIgnoreForceField', {
     Text = 'ForceField',
     Default = true,
     Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreForceField = v end,
-    Tooltip = 'Do not shoot at targets with forcefield'
+    Tooltip = '>_<'
 })
 
 MagicBulletGroup:SetupDependencies({{Toggles.SilentAimMagicBullet, true}})
@@ -3014,7 +3088,7 @@ local function createCrosshair()
     end)
 end
 
-CrosshairGroup:AddToggle('CrosshairEnabled', {
+addToggleWithNotify(CrosshairGroup, 'CrosshairEnabled', {
     Text = 'Crosshair',
     Default = false,
     Callback = function(v)
@@ -3052,7 +3126,7 @@ CrosshairGroup:AddSlider('CrosshairRotSpeed', {
     Min = 0, Max = 1000, Rounding = 0,
     Callback = function(val) CrosshairConfig.RotSpeed = val end
 })
-CrosshairGroup:AddToggle('CrosshairRotate', {
+addToggleWithNotify(CrosshairGroup, 'CrosshairRotate', {
     Text = 'Spin',
     Default = CrosshairConfig.Rotate,
     Callback = function(v)
@@ -3062,7 +3136,7 @@ CrosshairGroup:AddToggle('CrosshairRotate', {
         end
     end
 })
-CrosshairGroup:AddToggle('CrosshairOutline', {
+addToggleWithNotify(CrosshairGroup, 'CrosshairOutline', {
     Text = 'Outline',
     Default = CrosshairConfig.Outline,
     Callback = function(v)
@@ -3082,18 +3156,18 @@ CrosshairGroup:AddSlider('CrosshairOutlineThickness', {
     Callback = function(val) CrosshairConfig.OutlineThickness = val end
 })
 
-CrosshairGroup:AddToggle('CrosshairAttachToTarget', {
+addToggleWithNotify(CrosshairGroup, 'CrosshairAttachToTarget', {
     Text = 'AttachTarget',
     Default = false,
     Callback = function(v) CrosshairConfig.AttachToTarget = v end,
-    Tooltip = 'Crosshair attaches to target (SilentAim)' 
+    Tooltip = '>_<' 
 })
 CrosshairGroup:AddDropdown('CrosshairAttachPart', {
     Text = 'Part',
     Values = {'UpperTorso', 'HumanoidRootPart', 'Head', 'LowerTorso'},
     Default = 'UpperTorso',
     Callback = function(val) CrosshairConfig.AttachPart = val end,
-    Tooltip = 'Which part of the target to attach the crosshair to'
+    Tooltip = '>_<'
 })
 
 CrosshairGroup:AddSlider('CrosshairAngle', {
@@ -3231,11 +3305,11 @@ local function PlayHitSound(config)
 end
 
 local HitChamsGroup = Tabs.Combat:AddRightGroupbox('>_<')
-local HitChamsToggle = HitChamsGroup:AddToggle('HitChamsEnabled', {
+local HitChamsToggle = addToggleWithNotify(HitChamsGroup, 'HitChamsEnabled', {
     Text = 'Chams',
     Default = false,
     Callback = function(v) HitChamsConfig.Enabled = v end,
-    Tooltip = 'Show chams on aimbot target when HP decreases.'
+    Tooltip = '>_<'
 })
 :AddColorPicker('HitChamsColor', {
     Default = Color3.fromRGB(255,255,255), -- белый по умолчанию
@@ -3269,11 +3343,11 @@ HitChamsSub:AddDropdown('HitChamsMaterial', {
 HitChamsSub:SetupDependencies({{Toggles.HitChamsEnabled, true}})
 
 -- Тоггл и саббокс для HitSounds
-local HitSoundsToggle = HitChamsGroup:AddToggle('HitSoundsEnabled', {
+local HitSoundsToggle = addToggleWithNotify(HitChamsGroup, 'HitSoundsEnabled', {
     Text = 'Sounds',
     Default = false,
     Callback = function(v) HitSoundsConfig.Enabled = v end,
-    Tooltip = 'Play sound on aimbot hit.'
+    Tooltip = '>_<'
 })
 local HitSoundsSub = HitChamsGroup:AddDependencyBox()
 HitSoundsSub:AddDropdown('HitSoundsSound', {
@@ -3327,7 +3401,7 @@ local CombatTracerConfig = {
 }
 local combatTracerLine = nil
 
-HitChamsGroup:AddToggle('CombatTracerEnabled', {
+addToggleWithNotify(HitChamsGroup, 'CombatTracerEnabled', {
     Text = 'Tracer',
     Default = false,
     Callback = function(v)
@@ -3406,11 +3480,11 @@ local HitEffectsConfig = {
     Color = Color3.fromRGB(255,255,255), -- белый по умолчанию
 }
 local hitEffectsTypes = {'Nova', 'Crescent Slash', 'Coom', 'Cosmic Explosion', 'Slash', 'Atomic Slash'}
-local HitEffectsToggle = HitChamsGroup:AddToggle('HitEffectsEnabled', {
+local HitEffectsToggle = addToggleWithNotify(HitChamsGroup, 'HitEffectsEnabled', {
     Text = 'HitEffects',
     Default = false,
     Callback = function(v) HitEffectsConfig.Enabled = v end,
-    Tooltip = 'Enable visual effects on target when damaged.'
+    Tooltip = '>_<'
 })
 :AddColorPicker('HitEffectsColor', {
     Default = Color3.fromRGB(255,255,255), -- белый по умолчанию
@@ -3434,11 +3508,11 @@ local HitNotificationsConfig = {
     ShowRemaining = true
 }
 
-local HitNotificationsToggle = HitChamsGroup:AddToggle('HitNotificationsEnabled', {
+local HitNotificationsToggle = addToggleWithNotify(HitChamsGroup, 'HitNotificationsEnabled', {
     Text = 'HitNotifications',
     Default = false,
     Callback = function(v) HitNotificationsConfig.Enabled = v end,
-    Tooltip = 'Show notifications about damage dealt to target.'
+    Tooltip = '>_<'
 })
 
 local HitNotificationsSub = HitChamsGroup:AddDependencyBox()
@@ -3505,16 +3579,9 @@ G.processHitEffects = function(target)
     -- Показываем уведомление о нанесенном уроне
     if HitNotificationsConfig.Enabled and target.Character:FindFirstChild('Humanoid') then
         local hum = target.Character.Humanoid
-        local notifText = target.Name
+        local notifText = ">_<"
         
-        if HitNotificationsConfig.ShowDamage and lastHP then
-            notifText = notifText .. " damaged " .. math.floor(lastHP - hum.Health)
-        end
-        if HitNotificationsConfig.ShowRemaining then
-            notifText = notifText .. " (" .. math.floor(hum.Health) .. " HP)"
-        end
-        
-        Library:Notify(notifText, HitNotificationsConfig.Duration)
+        Library:Notify('>_<', HitNotificationsConfig.Duration)
     end
 end
 
@@ -3813,23 +3880,23 @@ local function toggleTargetStrafe(state)
         else
             TS.Runtime.Connection = HRT:Connect(performTargetStrafe)
         end
-        Library:Notify('Target Strafe: Включен', 3)
+        Library:Notify('>_< on', 3)
     else
         -- Отключаем камеру
         TS.resetCamera()
-        Library:Notify('Target Strafe: Выключен', 3)
+        Library:Notify('>_< off', 3)
     end
 end
 
 -- UI для Target Strafe
-TargetStrafeGroup:AddToggle('TargetStrafeEnabled', {
+addToggleWithNotify(TargetStrafeGroup, 'TargetStrafeEnabled', {
     Text = 'Target Strafe',
     Default = false,
     Callback = function(v) toggleTargetStrafe(v) end,
-    Tooltip = 'Strafe around target'
+    Tooltip = '>_<'
 })
 
-TargetStrafeGroup:AddToggle('TargetStrafeDesync', {
+addToggleWithNotify(TargetStrafeGroup, 'TargetStrafeDesync', {
     Text = 'Use Desync (со старой версии)',
     Default = false,
     Callback = function(v)
@@ -3839,7 +3906,7 @@ TargetStrafeGroup:AddToggle('TargetStrafeDesync', {
             toggleTargetStrafe(true)
         end
     end,
-    Tooltip = 'Enable desync mode from old version'
+    Tooltip = '>_<'
 })
 
 TargetStrafeGroup:AddSlider('TargetStrafeRadius', {
@@ -3863,7 +3930,7 @@ TargetStrafeGroup:AddSlider('TargetStrafeSpeed', {
     Callback = function(val) TS.Config.Speed = val end
 })
 
-TargetStrafeGroup:AddToggle('TargetStrafeVisualise', {
+addToggleWithNotify(TargetStrafeGroup, 'TargetStrafeVisualise', {
     Text = 'Visualise',
     Default = false,
     Callback = function(v) 
@@ -3874,7 +3941,7 @@ TargetStrafeGroup:AddToggle('TargetStrafeVisualise', {
             TS.cleanupVisual()
         end
     end,
-    Tooltip = 'Show tracer to desync position'
+    Tooltip = '>_<'
 }):AddColorPicker('TargetStrafeVisualiseColor', {
     Default = Color3.fromRGB(255, 255, 255),
     Title = 'Color',
@@ -3916,7 +3983,7 @@ end)
 -- === Camera Unlock (Player tab) ===
 local CameraGroup = Tabs.Player:AddRightGroupbox('>_<')
 
-CameraGroup:AddToggle('UnlockCameraDistance', {
+addToggleWithNotify(CameraGroup, 'UnlockCameraDistance', {
     Text = 'Unlock Camera',
     Default = false,
     Callback = function(v) 
@@ -3926,7 +3993,7 @@ CameraGroup:AddToggle('UnlockCameraDistance', {
             game.Players.LocalPlayer.CameraMaxZoomDistance = 128 -- Стандартное значение
         end
     end,
-    Tooltip = 'Unlock maximum camera distance'
+    Tooltip = '>_<'
 })
 
 -- === AutoStomp (Combat tab, new section) ===
@@ -3945,7 +4012,7 @@ getgenv().AutoStomp = {
 }
 
 -- UI для AutoStomp
-AutoStompGroup:AddToggle('AutoStompEnabled', {
+addToggleWithNotify(AutoStompGroup, 'AutoStompEnabled', {
     Text = 'AutoStomp',
     Default = false,
     Callback = function(v) 
@@ -3958,7 +4025,7 @@ AutoStompGroup:AddToggle('AutoStompEnabled', {
             resetAutoStompCamera()
         end
     end,
-    Tooltip = 'Automatically stomp knocked out players'
+    Tooltip = '>_<'
 })
 
 AutoStompGroup:AddSlider('AutoStompInterval', {
@@ -3966,7 +4033,7 @@ AutoStompGroup:AddSlider('AutoStompInterval', {
     Default = getgenv().AutoStomp.StompInterval,
     Min = 0.01, Max = 1, Rounding = 3,
     Callback = function(v) getgenv().AutoStomp.StompInterval = v end,
-    Tooltip = 'Interval between stomps (in seconds)'
+    Tooltip = '>_<'
 })
 
 -- Функции AutoStomp
@@ -4141,11 +4208,11 @@ end)
 local GripGroup = Tabs.Combat:AddRightGroupbox('>_<')
 
 -- Create UI components
-GripGroup:AddToggle('GripEnabled', {
+addToggleWithNotify(GripGroup, 'GripEnabled', {
     Text = 'CustomGrip',
     Default = false,
     Callback = function(v) G.GripSettings.Enabled = v end,
-    Tooltip = 'Change weapon grip position and rotation'
+    Tooltip = '>_<'
 })
 
 -- Position sliders
@@ -4209,7 +4276,7 @@ GripGroup:AddButton({
         Options.GripRotY:SetValue(0)
         Options.GripRotZ:SetValue(0)
     end,
-    Tooltip = 'Reset all grip settings to default'
+    Tooltip = '>_<'
 })
 
 
@@ -4253,13 +4320,13 @@ getgenv().BulletTp = {
 }
 
 -- UI для BulletTP
-BulletTpGroup:AddToggle('BulletTpToggle', {
+addToggleWithNotify(BulletTpGroup, 'BulletTpToggle', {
     Text = 'BulletTP',
     Default = false,
     Callback = function(v) 
         getgenv().BulletTp.Toggle = v 
     end,
-    Tooltip = 'Teleports bullets to the selected body part of the target'
+    Tooltip = '>_<'
 })
 
 BulletTpGroup:AddLabel('BulletTP Key'):AddKeyPicker('BulletTpKey', {
@@ -4280,16 +4347,16 @@ BulletTpGroup:AddDropdown('BulletTpPart', {
     Values = {'Head', 'HumanoidRootPart', 'Torso', 'UpperTorso', 'LowerTorso', 'Left Arm', 'Right Arm', 'Left Leg', 'Right Leg', 'LeftUpperArm', 'RightUpperArm', 'LeftUpperLeg', 'RightUpperLeg'},
     Default = 'Head',
     Callback = function(v) getgenv().BulletTp.Part = v end,
-    Tooltip = 'Body part to which bullets will be teleported'
+    Tooltip = '>_<'
 })
 
-BulletTpGroup:AddToggle('BulletTpUseAimbotTarget', {
+addToggleWithNotify(BulletTpGroup, 'BulletTpUseAimbotTarget', {
     Text = 'UseAimbot',
     Default = true,
     Callback = function(v) 
         getgenv().BulletTp.UseAimbotTarget = v 
     end,
-    Tooltip = 'Use aimbot target for BulletTP'
+    Tooltip = '>_<'
 })
 
 -- Улучшенная функция поиска части тела
@@ -4485,8 +4552,7 @@ G.SetupBulletTp = function()
                         G.targetName = getgenv().BulletTp.Selected.Name
                     end
                     
-                    Library:Notify("BulletTP: " .. (getgenv().BulletTp.Enabled and "Enabled" or "Disabled") .. 
-                        " | Target: " .. G.targetName .. " | Part: " .. getgenv().BulletTp.Part, 2)
+                    Library:Notify(">_< " .. (getgenv().BulletTp.Enabled and "on" or "off"), 2)
                 end
             end)
         end
@@ -4550,7 +4616,7 @@ SaveDistanceGroup:AddToggle('SaveDistanceEnabled', {
         getgenv().SaveDistance.Enabled = v
         toggleSaveDistance(v)
     end,
-    Tooltip = 'Hover near aimbot target at fixed position'
+    Tooltip = '>_<'
 })
 
 SaveDistanceGroup:AddSlider('SaveDistanceOffsetX', {
@@ -4559,7 +4625,7 @@ SaveDistanceGroup:AddSlider('SaveDistanceOffsetX', {
     Min = -200, Max = 200, Rounding = 0,
     Increment = 1,
     Callback = function(v) getgenv().SaveDistance.OffsetX = v end,
-    Tooltip = 'X-axis offset from target (left/right)'
+    Tooltip = '>_<'
 })
 
 SaveDistanceGroup:AddSlider('SaveDistanceOffsetY', {
@@ -4568,7 +4634,7 @@ SaveDistanceGroup:AddSlider('SaveDistanceOffsetY', {
     Min = -200, Max = 200, Rounding = 0,
     Increment = 1,
     Callback = function(v) getgenv().SaveDistance.OffsetY = v end,
-    Tooltip = 'Y-axis offset from target (up/down)'
+    Tooltip = '>_<'
 })
 
 SaveDistanceGroup:AddSlider('SaveDistanceOffsetZ', {
@@ -4577,7 +4643,7 @@ SaveDistanceGroup:AddSlider('SaveDistanceOffsetZ', {
     Min = -200, Max = 200, Rounding = 0,
     Increment = 1,
     Callback = function(v) getgenv().SaveDistance.OffsetZ = v end,
-    Tooltip = 'Z-axis offset from target (forward/backward)'
+    Tooltip = '>_<'
 })
 
 -- Функция для получения "настоящей" позиции цели с учетом анти-аимбота
@@ -4735,9 +4801,9 @@ function toggleSaveDistance(state)
             hrp.CFrame = CFrame.new(newPos, targetPos) -- Смотрим на цель
         end)
         
-        Library:Notify('Save Position: Включен', 3)
+        Library:Notify('>_< on', 3)
     else
-        Library:Notify('Save Position: Выключен', 3)
+        Library:Notify('>_< off', 3)
     end
 end
 
@@ -4832,7 +4898,7 @@ G.autoArmorFunction = function()
                 end
                 
                 if G.AutoArmorSettings.Notify then
-                    Library:Notify("AutoArmor: Превышен таймаут покупки", 2)
+                    Library:Notify(">_<", 2)
                 end
             else
                 return -- Пропускаем выполнение, пока не завершится текущая покупка
@@ -4968,7 +5034,7 @@ G.autoArmorFunction = function()
                 
                 -- Уведомляем о покупке, если включены уведомления
                 if G.AutoArmorSettings.Notify then
-                    Library:Notify("AutoArmor: Броня куплена", 2)
+                    Library:Notify(">_<", 2)
                 end
             end)
         else
@@ -4978,7 +5044,7 @@ G.autoArmorFunction = function()
     
     if not G.success and G.AutoArmorSettings.Notify then
         -- Если произошла ошибка и включены уведомления, показываем сообщение об ошибке
-        Library:Notify("AutoArmor: Ошибка", 3)
+        Library:Notify(">_<", 3)
         -- Сбрасываем флаги при ошибке
         G.AutoArmorSettings.IsBuying = false
         if getgenv().SaveDistance then
@@ -5006,20 +5072,20 @@ G.toggleAutoArmor = function(state)
             G.autoArmorFunction()
         end)
         
-        Library:Notify("AutoArmor: Включен", 3)
+        Library:Notify(">_< on", 3)
     else
-        Library:Notify("AutoArmor: Выключен", 3)
+        Library:Notify(">_< off", 3)
     end
 end
 
 -- UI для AutoArmor
-G.AutoArmorGroup:AddToggle('AutoArmorEnabled', {
+addToggleWithNotify(G.AutoArmorGroup, 'AutoArmorEnabled', {
     Text = 'AutoArmor',
     Default = false,
     Callback = function(v) 
         G.toggleAutoArmor(v)
     end,
-    Tooltip = 'Автоматически покупает броню, когда она заканчивается'
+    Tooltip = '>_<'
 })
 
 G.AutoArmorGroup:AddSlider('AutoArmorMinValue', {
@@ -5027,7 +5093,7 @@ G.AutoArmorGroup:AddSlider('AutoArmorMinValue', {
     Default = G.AutoArmorSettings.MinArmorValue,
     Min = 0, Max = 200, Rounding = 0,
     Callback = function(v) G.AutoArmorSettings.MinArmorValue = v end,
-    Tooltip = 'Покупать броню, когда значение меньше этого'
+    Tooltip = '>_<'
 })
 
 G.AutoArmorGroup:AddSlider('AutoArmorInterval', {
@@ -5035,7 +5101,7 @@ G.AutoArmorGroup:AddSlider('AutoArmorInterval', {
     Default = G.AutoArmorSettings.CheckInterval,
     Min = 0.1, Max = 5, Rounding = 1,
     Callback = function(v) G.AutoArmorSettings.CheckInterval = v end,
-    Tooltip = 'Интервал проверки брони (в секундах)'
+    Tooltip = '>_<'
 })
 
 -- Упрощаем систему брони до двух основных вариантов
@@ -5045,7 +5111,7 @@ G.setupArmorOptions = function()
     G.armorValueMap = {}
     
     -- По умолчанию добавляем вариант для Da Hood
-    G.daHoodOption = "[High-Medium Armor] - $2513 (Da Hood)"
+    G.daHoodOption = "[High-Medium Armor] (Da Hood)"
     table.insert(G.armorDropdownValues, G.daHoodOption)
     G.armorValueMap[G.daHoodOption] = "[High-Medium Armor] - $2513"
     
@@ -5093,5 +5159,8 @@ G.AutoArmorGroup:AddDropdown('AutoArmorType', {
         -- Используем реальное имя предмета для поиска
         G.AutoArmorSettings.ArmorType = G.AutoArmorSettings.ArmorValuesMap[v] or v
     end,
-    Tooltip = 'Тип брони для покупки с указанием игры'
+    Tooltip = '>_<'
 })
+
+-- Конец скрипта
+
