@@ -1,305 +1,106 @@
-{
-  "p": {
-    "key": 1
-  },
-  "G": {
-    "key": 2
-  },
-  "k": {
-    "key": 3
-  },
-  "i": {
-    "key": 4
-  },
-  "1": {
-    "key": 5
-  },
-  ";": {
-    "key": 6
-  },
-  "7": {
-    "key": 7
-  },
-  "й": {
-    "key": 8
-  },
-  ">": {
-    "key": 9
-  },
-  "O": {
-    "key": 10
-  },
-  "'": {
-    "key": 11
-  },
-  "e": {
-    "key": 12
-  },
-  "(": {
-    "key": 13
-  },
-  "o": {
-    "key": 14
-  },
-  "5": {
-    "key": 15
-  },
-  "f": {
-    "key": 16
-  },
-  "S": {
-    "key": 17
-  },
-  "t": {
-    "key": 18
-  },
-  "%": {
-    "key": 19
-  },
-  "\"": {
-    "key": 20
-  },
-  "s": {
-    "key": 21
-  },
-  "U": {
-    "key": 22
-  },
-  "4": {
-    "key": 23
-  },
-  "L": {
-    "key": 24
-  },
-  "с": {
-    "key": 25
-  },
-  "Z": {
-    "key": 26
-  },
-  "ы": {
-    "key": 27
-  },
-  "C": {
-    "key": 28
-  },
-  "I": {
-    "key": 29
-  },
-  "x": {
-    "key": 30
-  },
-  "=": {
-    "key": 31
-  },
-  "[": {
-    "key": 32
-  },
-  "T": {
-    "key": 33
-  },
-  "M": {
-    "key": 34
-  },
-  "R": {
-    "key": 35
-  },
-  ":": {
-    "key": 36
-  },
-  "B": {
-    "key": 37
-  },
-  "X": {
-    "key": 38
-  },
-  "2": {
-    "key": 39
-  },
-  "h": {
-    "key": 40
-  },
-  "w": {
-    "key": 41
-  },
-  "A": {
-    "key": 42
-  },
-  "/": {
-    "key": 43
-  },
-  "$": {
-    "key": 44
-  },
-  "Y": {
-    "key": 45
-  },
-  "r": {
-    "key": 46
-  },
-  "u": {
-    "key": 47
-  },
-  "F": {
-    "key": 48
-  },
-  "б": {
-    "key": 49
-  },
-  "?": {
-    "key": 50
-  },
-  "l": {
-    "key": 51
-  },
-  "6": {
-    "key": 52
-  },
-  "d": {
-    "key": 53
-  },
-  "а": {
-    "key": 54
-  },
-  "m": {
-    "key": 55
-  },
-  "V": {
-    "key": 56
-  },
-  "-": {
-    "key": 57
-  },
-  "т": {
-    "key": 58
-  },
-  "P": {
-    "key": 59
-  },
-  "о": {
-    "key": 60
-  },
-  "+": {
-    "key": 61
-  },
-  "д": {
-    "key": 62
-  },
-  "#": {
-    "key": 63
-  },
-  "0": {
-    "key": 64
-  },
-  "]": {
-    "key": 65
-  },
-  "<": {
-    "key": 66
-  },
-  "c": {
-    "key": 67
-  },
-  "е": {
-    "key": 68
-  },
-  "j": {
-    "key": 69
-  },
-  "K": {
-    "key": 70
-  },
-  "z": {
-    "key": 71
-  },
-  "b": {
-    "key": 72
-  },
-  ")": {
-    "key": 73
-  },
-  "a": {
-    "key": 74
-  },
-  ".": {
-    "key": 75
-  },
-  "9": {
-    "key": 76
-  },
-  "v": {
-    "key": 77
-  },
-  "{": {
-    "key": 78
-  },
-  "E": {
-    "key": 79
-  },
-  "J": {
-    "key": 80
-  },
-  "g": {
-    "key": 81
-  },
-  "y": {
-    "key": 82
-  },
-  "8": {
-    "key": 83
-  },
-  "W": {
-    "key": 84
-  },
-  "H": {
-    "key": 85
-  },
-  "N": {
-    "key": 86
-  },
-  "|": {
-    "key": 87
-  },
-  "~": {
-    "key": 88
-  },
-  "з": {
-    "key": 89
-  },
-  "q": {
-    "key": 90
-  },
-  "р": {
-    "key": 91
-  },
-  "}": {
-    "key": 92
-  },
-  "*": {
-    "key": 93
-  },
-  "Q": {
-    "key": 94
-  },
-  "_": {
-    "key": 95
-  },
-  "3": {
-    "key": 96
-  },
-  " ": {
-    "key": 97
-  },
-  ",": {
-    "key": 98
-  },
-  "н": {
-    "key": 99
-  },
-  "D": {
-    "key": 100
-  },
-  "n": {
-    "key": 101
-  }
-}
+-- Таблица декодирования
+return function()
+    local decoder_table = {}
+    decoder_table[813702] = "Y"
+    decoder_table[166216] = "р"
+    decoder_table[174054] = "="
+    decoder_table[12+11] = "/"
+    decoder_table[6*6] = "J"
+    decoder_table[337990] = "s"
+    decoder_table[5*5] = "_"
+    decoder_table[17+13] = "e"
+    decoder_table[415794] = "Z"
+    decoder_table[7*7] = "T"
+    decoder_table[8*8] = "з"
+    decoder_table[6*6] = "<"
+    decoder_table[7*7] = "#"
+    decoder_table[52*45] = "i"
+    decoder_table[88-47] = "w"
+    decoder_table[7*7] = "0"
+    decoder_table[8*8] = "Q"
+    decoder_table[274882] = "~"
+    decoder_table[971854] = "е"
+    decoder_table[598475] = "a"
+    decoder_table[49+79] = "H"
+    decoder_table[5*5] = "b"
+    decoder_table[10+96] = "h"
+    decoder_table[661516] = "N"
+    decoder_table[39-10] = "R"
+    decoder_table[73213] = "c"
+    decoder_table[6*6] = "о"
+    decoder_table[58*69] = "U"
+    decoder_table[3*3] = "а"
+    decoder_table[33+82] = "|"
+    decoder_table[21*57] = "o"
+    decoder_table[924887] = "с"
+    decoder_table[9*9] = "v"
+    decoder_table[5*5] = "y"
+    decoder_table[57-97] = "f"
+    decoder_table[80+42] = "9"
+    decoder_table[342445] = "P"
+    decoder_table[417349] = "%"
+    decoder_table[15-75] = " "
+    decoder_table[774848] = ":"
+    decoder_table[915335] = "A"
+    decoder_table[2*2] = "5"
+    decoder_table[319734] = "4"
+    decoder_table[56-10] = "x"
+    decoder_table[10*10] = "{"
+    decoder_table[686825] = "?"
+    decoder_table[6*6] = "X"
+    decoder_table[650443] = "2"
+    decoder_table[89*76] = "u"
+    decoder_table[38-46] = "б"
+    decoder_table[426161] = "B"
+    decoder_table[311064] = "C"
+    decoder_table[74-65] = "t"
+    decoder_table[45*80] = "G"
+    decoder_table[68902] = "3"
+    decoder_table[5*5] = "["
+    decoder_table[2*2] = "l"
+    decoder_table[429753] = "q"
+    decoder_table[10*10] = "$"
+    decoder_table[1*1] = "r"
+    decoder_table[6*6] = "-"
+    decoder_table[40*80] = "\""
+    decoder_table[8*8] = "m"
+    decoder_table[104429] = "й"
+    decoder_table[3*3] = "W"
+    decoder_table[668295] = "8"
+    decoder_table[77+46] = "O"
+    decoder_table[499771] = "д"
+    decoder_table[836501] = "d"
+    decoder_table[64-22] = "}"
+    decoder_table[10*10] = "т"
+    decoder_table[48*73] = "1"
+    decoder_table[15*28] = "p"
+    decoder_table[963353] = ";"
+    decoder_table[7*7] = "z"
+    decoder_table[308318] = "]"
+    decoder_table[381178] = "7"
+    decoder_table[5*5] = "*"
+    decoder_table[17+83] = "6"
+    decoder_table[38-85] = "F"
+    decoder_table[967817] = ")"
+    decoder_table[787323] = "+"
+    decoder_table[24+70] = "E"
+    decoder_table[10-14] = "S"
+    decoder_table[91*10] = "D"
+    decoder_table[17-94] = "M"
+    decoder_table[349764] = ">"
+    decoder_table[6*6] = "g"
+    decoder_table[7*7] = ","
+    decoder_table[52+26] = "I"
+    decoder_table[505901] = "'"
+    decoder_table[201996] = "ы"
+    decoder_table[524163] = "V"
+    decoder_table[10*10] = "n"
+    decoder_table[98-58] = "k"
+    decoder_table[400858] = "j"
+    decoder_table[1*1] = "L"
+    decoder_table[58-22] = "."
+    decoder_table[7*7] = "K"
+    decoder_table[63327] = "н"
+    decoder_table[7*7] = "("
+    return decoder_table
+end
