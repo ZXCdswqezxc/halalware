@@ -501,7 +501,7 @@ local function sE()
     
     g.BP.ChildAdded:Connect(function(o)
         if not gS.s then return end
-        if BulletTracersConfig.Enabled and o.Name == g.BN then
+        if BulletTracersConfig.Enabled and o.Name == g.BBN then
             -- Убираем дебаунс для неограниченного количества трейсеров
             task.spawn(function()
                 local b = o:WaitForChild(g.BBN, 0.2) -- Уменьшаем время ожидания
@@ -2230,7 +2230,7 @@ local SilentAimGroup = Tabs.Combat:AddLeftGroupbox('>_<')
 
 getgenv().SilentAim = {
     Options = {
-        Enabled = false,
+    Enabled = false,
         Mode = "Nuker",
         StickyKey = Enum.KeyCode.Q,
         AutoAir = false, -- Добавлена новая опция AutoAir
@@ -2260,7 +2260,7 @@ getgenv().SilentAim = {
     MagicBullet = {
         LastShot = 0,
         Cooldown = 0, -- Без задержки между выстрелами
-        Range = 1000, -- Максимальная дистанция для Magic Bullet
+        Range = 10000, -- Максимальная дистанция для Magic Bullet
         IgnoreKO = false, -- Не стрелять в KO цели по умолчанию
         IgnoreGrabbed = false, -- Не стрелять в схваченные цели по умолчанию
         IgnoreForceField = true, -- Не стрелять в цели с форсфилдом по умолчанию
@@ -2327,10 +2327,10 @@ local MagicBulletGroup = SilentAimGroup:AddDependencyBox()
 
 MagicBulletGroup:AddSlider('MagicBulletRange', {
     Text = 'Range',
-    Default = 1000,
-    Min = 100, Max = 1000, Rounding = 0,
+    Default = 10000,
+    Min = 100, Max = 10000, Rounding = 0,
     Callback = function(v) 
-        getgenv().SilentAim.MagicBullet.Range = tonumber(v) or 1000
+        getgenv().SilentAim.MagicBullet.Range = tonumber(v) or 10000
     end,
     Tooltip = 'Maximum distance for Magic Bullet'
 })
@@ -2667,7 +2667,7 @@ if not getgenv().Loaded_SilentAim then
         
         local targetChangeConnection = RND:Connect(function()
             if SilentAim.Options.Enabled and SilentAim.Options.AutoAir then
-                local now = tick()
+        local now = tick()
                 if now - lastTargetUpdateTime > targetUpdateDebounce then
                     lastTargetUpdateTime = now
                     updateTargetConnection()
@@ -2776,9 +2776,9 @@ if not getgenv().Loaded_SilentAim then
                     end
                 end
             end
-        end
-    end
-    
+                    end
+                end
+                
     -- Обновляем LastAimbotTarget для Target Strafe
     if getgenv().TS and getgenv().TS.Config and getgenv().TS.Config.Enabled then
         getgenv().TS.Runtime.LastAimbotTarget = currentTarget
@@ -2825,9 +2825,9 @@ if not getgenv().Loaded_SilentAim then
             for _, item in ipairs(character:GetChildren()) do
                 if item:IsA("Tool") then
                     item.Parent = LocalPlayer:FindFirstChildOfClass("Backpack")
-                    break
+                        break
+                    end
                 end
-            end
         end
     end
     fixTool(LocalPlayer.Character)
@@ -2888,9 +2888,9 @@ local function createCrosshair()
         if not CrosshairConfig.Enabled then
             for _, l in ipairs(G.crosshairLines) do l.Visible = false end
             for _, l in ipairs(G.crosshairOutlines) do l.Visible = false end
-            return
-        end
-        
+                return
+            end
+            
         -- Ограничиваем частоту обновлений
         local now = tick()
         if now - lastUpdateTime < updateInterval then
@@ -3278,9 +3278,9 @@ RND:Connect(function()
         end
     else
         lastTarget, lastHP = nil, nil
-    end
-end)
-
+        end
+    end)
+    
 -- === Combat Tracer (трейсер до цели) ===
 local CombatTracerConfig = {
     Enabled = false,
@@ -3295,8 +3295,8 @@ HitChamsGroup:AddToggle('CombatTracerEnabled', {
         CombatTracerConfig.Enabled = v
         if not v and combatTracerLine then
             combatTracerLine.Visible = false
-        end
     end
+end
 }):AddColorPicker('CombatTracerColor', {
     Default = Color3.fromRGB(255,255,255), -- белый по умолчанию
     Title = 'Color',
@@ -3662,6 +3662,12 @@ local function performTargetStrafe()
         return 
     end
     
+    -- Сохраняем оригинальный CFrame
+    local originalCFrame = hrp.CFrame
+    
+    -- Новая позиция вокруг цели
+    local targetPos = targetHRP.Position
+    
     -- Обновляем угол
     TS.Runtime.Angle = TS.Runtime.Angle + TS.Config.Speed * HRT:Wait()
     
@@ -3672,11 +3678,6 @@ local function performTargetStrafe()
         M.sin(TS.Runtime.Angle) * TS.Config.Radius
     )
     
-    -- Сохраняем оригинальный CFrame
-    local originalCFrame = hrp.CFrame
-    
-    -- Новая позиция вокруг цели
-    local targetPos = targetHRP.Position
     local newPos = targetPos + offset
     local newCFrame = CFrame.new(newPos, targetPos) -- Смотрим на цель
     
@@ -3689,12 +3690,12 @@ local function performTargetStrafe()
     end
     
     -- Обновляем позицию FollowPart для фиксации камеры
-    if TS.Config.Enabled then  -- Проверяем, что Target Strafe всё ещё активен
+    if TS.Config.Enabled then
         if TS.Runtime.FollowPart and TS.Runtime.FollowPart.Parent then
-            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 2.0, 0) -- Увеличил высоту с 1.5 до 3.0
+            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 2.0, 0)
         else
             TS.Runtime.FollowPart = TS.createFollowPart()
-            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 2.0, 0) -- Увеличил высоту с 1.5 до 3.0
+            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 2.0, 0)
         end
         Cam.CameraSubject = TS.Runtime.FollowPart
     end
@@ -3751,18 +3752,18 @@ local function toggleTargetStrafe(state)
 end
 
 -- UI для Target Strafe
-TargetStrafeGroup:AddToggle('TargetStrafe', {
+TargetStrafeGroup:AddToggle('TargetStrafeEnabled', {
     Text = 'Target Strafe',
     Default = false,
     Callback = function(v) toggleTargetStrafe(v) end,
-    Tooltip = 'Strafe around target with desync'
+    Tooltip = 'Strafe around target'
 })
 
 TargetStrafeGroup:AddSlider('TargetStrafeRadius', {
     Text = 'Radius',
     Default = TS.Config.Radius,
-    Min = 2, Max = 50, Rounding = 1,
-    Callback = function(val) TS.Config.Radius = val end
+    Min = 1, Max = 20, Rounding = 1,
+    Callback = function(v) TS.Config.Radius = v end
 })
 
 TargetStrafeGroup:AddSlider('TargetStrafeHeight', {
@@ -3782,7 +3783,7 @@ TargetStrafeGroup:AddSlider('TargetStrafeSpeed', {
 TargetStrafeGroup:AddToggle('TargetStrafeVisualise', {
     Text = 'Visualise',
     Default = false,
-    Callback = function(v)
+    Callback = function(v) 
         TS.Config.Visualise = v
         
         -- Если отключаем визуализацию, удаляем трейсер
@@ -4442,3 +4443,437 @@ S.PS.PlayerRemoving:Connect(function(player)
         end)
     end
 end)
+
+-- === Save Distance (Combat tab, новая секция) ===
+local SaveDistanceGroup = Tabs.Combat:AddRightGroupbox('>_<')
+
+-- Настройки SaveDistance
+getgenv().SaveDistance = {
+    Enabled = false,
+    OffsetX = 0,
+    OffsetY = 100,
+    OffsetZ = 0,
+    Connection = nil,
+    IsBuyingArmor = false,
+    LastTarget = nil,
+    DampingConnection = nil
+}
+
+-- UI для SaveDistance
+SaveDistanceGroup:AddToggle('SaveDistanceEnabled', {
+    Text = 'Save Position',
+    Default = false,
+    Callback = function(v) 
+        getgenv().SaveDistance.Enabled = v
+        toggleSaveDistance(v)
+    end,
+    Tooltip = 'Hover near aimbot target at fixed position'
+})
+
+SaveDistanceGroup:AddSlider('SaveDistanceOffsetX', {
+    Text = 'X Offset',
+    Default = 0,
+    Min = -200, Max = 200, Rounding = 0,
+    Increment = 1,
+    Callback = function(v) getgenv().SaveDistance.OffsetX = v end,
+    Tooltip = 'X-axis offset from target (left/right)'
+})
+
+SaveDistanceGroup:AddSlider('SaveDistanceOffsetY', {
+    Text = 'Y Offset (Height)',
+    Default = 100,
+    Min = -200, Max = 200, Rounding = 0,
+    Increment = 1,
+    Callback = function(v) getgenv().SaveDistance.OffsetY = v end,
+    Tooltip = 'Y-axis offset from target (up/down)'
+})
+
+SaveDistanceGroup:AddSlider('SaveDistanceOffsetZ', {
+    Text = 'Z Offset',
+    Default = 0,
+    Min = -200, Max = 200, Rounding = 0,
+    Increment = 1,
+    Callback = function(v) getgenv().SaveDistance.OffsetZ = v end,
+    Tooltip = 'Z-axis offset from target (forward/backward)'
+})
+
+-- Функция для получения "настоящей" позиции цели с учетом анти-аимбота
+G.resolveCFrame = function(player)
+    if not player or not player.Character then return nil end
+    
+    local success, result = pcall(function()
+        local character = player.Character
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        
+        if not humanoid or not hrp then return nil end
+        
+        -- Базовые компоненты для расчета
+        local velocity = hrp.Velocity
+        local moveDirection = humanoid.MoveDirection
+        local lookVector = hrp.CFrame.LookVector
+        
+        -- Проверяем передвижение
+        local isMoving = velocity.Magnitude > 0.1
+        local isPredictable = moveDirection.Magnitude > 0.1
+        
+        -- Если у цели есть явная скорость и направление движения
+        if isMoving and isPredictable then
+            -- Коррекция CFrame на основе направления движения и скорости
+            local velocityUnit = velocity.Unit
+            local dot = velocityUnit:Dot(lookVector)
+            
+            -- Если игрок движется примерно в направлении, куда смотрит (или в противоположном)
+            if math.abs(dot) > 0.7 then
+                -- Создаем новый CFrame, который учитывает реальное направление движения
+                local forward = moveDirection.Unit
+                local right = Vector3.new(forward.z, 0, -forward.x).Unit
+                local up = Vector3.new(0, 1, 0)
+                
+                -- Сохраняем позицию, но корректируем ориентацию
+                return CFrame.fromMatrix(hrp.Position, right, up, forward)
+            end
+        end
+        
+        -- Если не смогли определить лучше, возвращаем оригинальный CFrame
+        return hrp.CFrame
+    end)
+    
+    if success and result then
+        return result
+    else
+        -- В случае ошибки возвращаем стандартный CFrame, если доступен
+        return player.Character and player.Character:FindFirstChild("HumanoidRootPart") and 
+               player.Character.HumanoidRootPart.CFrame
+    end
+end
+
+-- Функция плавного затухания скорости
+function smoothDamping(hrp, duration)
+    -- Сначала отключаем предыдущее соединение на всякий случай
+    if getgenv().SaveDistance.DampingConnection then
+        getgenv().SaveDistance.DampingConnection:Disconnect()
+        getgenv().SaveDistance.DampingConnection = nil
+    end
+    
+    if not hrp then return end
+    
+    -- Сохраняем текущую скорость для плавного гашения
+    local initialVelocity = hrp.Velocity
+    local startTime = tick()
+    
+    -- Создаем соединение для плавного снижения скорости
+    getgenv().SaveDistance.DampingConnection = game:GetService("RunService").Heartbeat:Connect(function()
+        local elapsedTime = tick() - startTime
+        local progress = math.min(elapsedTime / duration, 1) -- От 0 до 1
+        
+        if progress >= 1 then
+            -- Когда время вышло, завершаем процесс
+            hrp.Velocity = Vector3.new(0, -1, 0) -- Небольшая скорость вниз для естественного падения
+            
+            if getgenv().SaveDistance.DampingConnection then
+                getgenv().SaveDistance.DampingConnection:Disconnect()
+                getgenv().SaveDistance.DampingConnection = nil
+            end
+            return
+        end
+        
+        -- Экспоненциальная функция затухания для более плавного эффекта
+        local dampFactor = math.exp(-10 * progress)
+        hrp.Velocity = initialVelocity * dampFactor
+    end)
+end
+
+-- Функция для включения/отключения SaveDistance
+function toggleSaveDistance(state)
+    -- Отключаем предыдущее соединение SaveDistance
+    if getgenv().SaveDistance.Connection then
+        getgenv().SaveDistance.Connection:Disconnect()
+        getgenv().SaveDistance.Connection = nil
+        
+        -- Плавно гасим скорость при отключении
+        if not state and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+            smoothDamping(LP.Character.HumanoidRootPart, 0.8) -- 0.8 секунд на затухание скорости
+        end
+    end
+    
+    -- Отключаем предыдущее соединение затухания, если включаем SaveDistance
+    if state and getgenv().SaveDistance.DampingConnection then
+        getgenv().SaveDistance.DampingConnection:Disconnect()
+        getgenv().SaveDistance.DampingConnection = nil
+    end
+    
+    if state then
+        getgenv().SaveDistance.Connection = HRT:Connect(function()
+            -- Если в данный момент покупается броня, пропускаем обновление позиции
+            if getgenv().SaveDistance.IsBuyingArmor then return end
+            
+            local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget
+            
+            -- Если цель изменилась, плавно гасим скорость перед переходом к новой цели
+            if target ~= getgenv().SaveDistance.LastTarget and getgenv().SaveDistance.LastTarget then
+                -- Проверяем наличие локального персонажа
+                if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                    -- Плавное затухание перед переходом к новой цели
+                    smoothDamping(LP.Character.HumanoidRootPart, 0.3) -- Меньше времени для смены цели
+                end
+            end
+            
+            -- Обновляем последнюю цель
+            getgenv().SaveDistance.LastTarget = target
+            
+            if not target or not target.Character then return end
+            
+            -- Получаем реальный CFrame цели с учетом анти-аимбота
+            local resolvedTargetCF = G.resolveCFrame(target)
+            if not resolvedTargetCF then return end
+            
+            local character = LP.Character
+            if not character then return end
+            
+            local hrp = character:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            
+            -- Перемещаем игрока относительно цели с учетом всех осей
+            local targetPos = resolvedTargetCF.Position
+            local offset = Vector3.new(
+                getgenv().SaveDistance.OffsetX,
+                getgenv().SaveDistance.OffsetY,
+                getgenv().SaveDistance.OffsetZ
+            )
+            
+            -- Учитываем ориентацию цели для правильного смещения по X и Z
+            -- Используем разрешенный CFrame для более точного расчета
+            local offsetInWorldSpace = resolvedTargetCF.RightVector * offset.X + 
+                                      Vector3.new(0, offset.Y, 0) + 
+                                      resolvedTargetCF.LookVector * offset.Z
+            
+            local newPos = targetPos + offsetInWorldSpace
+            hrp.CFrame = CFrame.new(newPos, targetPos) -- Смотрим на цель
+        end)
+        
+        Library:Notify('Save Position: Включен', 3)
+    else
+        Library:Notify('Save Position: Выключен', 3)
+    end
+end
+
+-- === AutoArmor (Misc tab, new section) ===
+local AutoArmorGroup = Tabs.Misc:AddLeftGroupbox('AutoArmor')
+
+-- Глобальные настройки AutoArmor
+G.AutoArmorSettings = {
+    Enabled = false,
+    LastArmorCheck = 0,
+    CheckInterval = 1, -- Проверять каждую секунду
+    MinArmorValue = 50, -- Покупать броню, когда значение меньше этого
+    ArmorType = "[High-Medium Armor] - $2513", -- Тип брони для покупки
+    Notify = true, -- Уведомлять о покупке брони
+    -- Переменные для функции autoArmorFunction
+    BuyingArmor = nil,
+    Connection = nil,
+    char = nil,
+    bodyEffects = nil,
+    armorValue = 0,
+    hrp = nil,
+    armorShop = nil,
+    armorItem = nil,
+    originalCFrame = nil,
+    originalVelocity = nil
+}
+
+-- Функция автоматической покупки брони
+G.autoArmorFunction = function()
+    -- Защита от ошибок
+    local success, err = pcall(function()
+        if not G.AutoArmorSettings.Enabled then return end
+        
+        -- Проверяем не слишком часто для оптимизации
+        local now = tick()
+        if now - G.AutoArmorSettings.LastArmorCheck < G.AutoArmorSettings.CheckInterval then
+            return
+        end
+        G.AutoArmorSettings.LastArmorCheck = now
+        
+        G.AutoArmorSettings.char = LP.Character
+        if not G.AutoArmorSettings.char then return end
+        
+        -- Проверяем наличие BodyEffects и значение брони
+        G.AutoArmorSettings.bodyEffects = G.AutoArmorSettings.char:FindFirstChild("BodyEffects")
+        if not G.AutoArmorSettings.bodyEffects then return end
+        
+        -- Всегда проверяем текущее значение брони
+        G.AutoArmorSettings.armorValue = G.AutoArmorSettings.bodyEffects:FindFirstChild("Armor") and 
+                                         G.AutoArmorSettings.bodyEffects.Armor.Value or 0
+        
+        -- Если броня ниже минимального значения, покупаем новую
+        if G.AutoArmorSettings.armorValue < G.AutoArmorSettings.MinArmorValue then
+            -- Сохраняем текущую позицию
+            G.AutoArmorSettings.hrp = G.AutoArmorSettings.char:FindFirstChild("HumanoidRootPart")
+            if not G.AutoArmorSettings.hrp then return end
+            
+            G.AutoArmorSettings.BuyingArmor = G.AutoArmorSettings.hrp.CFrame
+            
+            -- Устанавливаем флаг, что покупаем броню (для SavePosition)
+            if getgenv().SaveDistance and getgenv().SaveDistance.Enabled then
+                getgenv().SaveDistance.IsBuyingArmor = true
+            end
+            
+            -- Ищем магазин брони
+            G.AutoArmorSettings.armorShop = workspace:FindFirstChild("Ignored") and workspace.Ignored:FindFirstChild("Shop")
+            if not G.AutoArmorSettings.armorShop then
+                -- Пробуем найти магазин в других местах
+                for _, folder in pairs(workspace:GetChildren()) do
+                    if folder:FindFirstChild("Shop") then
+                        G.AutoArmorSettings.armorShop = folder.Shop
+                        break
+                    end
+                end
+                
+                if not G.AutoArmorSettings.armorShop then 
+                    -- Сбрасываем флаг покупки брони
+                    if getgenv().SaveDistance then
+                        getgenv().SaveDistance.IsBuyingArmor = false
+                    end
+                    return 
+                end
+            end
+            
+            G.AutoArmorSettings.armorItem = G.AutoArmorSettings.armorShop:FindFirstChild(G.AutoArmorSettings.ArmorType)
+            if not G.AutoArmorSettings.armorItem then
+                -- Если не нашли конкретный тип брони, ищем любую броню
+                for _, item in pairs(G.AutoArmorSettings.armorShop:GetChildren()) do
+                    if item.Name:lower():find("armor") then
+                        G.AutoArmorSettings.armorItem = item
+                        break
+                    end
+                end
+                
+                if not G.AutoArmorSettings.armorItem then 
+                    -- Сбрасываем флаг покупки брони
+                    if getgenv().SaveDistance then
+                        getgenv().SaveDistance.IsBuyingArmor = false
+                    end
+                    return 
+                end
+            end
+            
+            if not (G.AutoArmorSettings.armorItem:FindFirstChild("Head") and 
+                   G.AutoArmorSettings.armorItem:FindFirstChild("ClickDetector")) then
+                -- Сбрасываем флаг покупки брони
+                if getgenv().SaveDistance then
+                    getgenv().SaveDistance.IsBuyingArmor = false
+                end
+                return
+            end
+            
+            -- Телепортируемся к броне, покупаем и возвращаемся
+            G.AutoArmorSettings.originalCFrame = G.AutoArmorSettings.hrp.CFrame
+            G.AutoArmorSettings.originalVelocity = G.AutoArmorSettings.hrp.Velocity
+            
+            -- Телепортируемся к броне
+            G.AutoArmorSettings.hrp.CFrame = G.AutoArmorSettings.armorItem.Head.CFrame
+            G.AutoArmorSettings.hrp.Velocity = Vector3.new(0, 0, 0) -- Сбрасываем скорость для стабильности
+            
+            -- Небольшая задержка перед покупкой
+            task.wait(0.1)
+            
+            -- Покупаем броню
+            fireclickdetector(G.AutoArmorSettings.armorItem.ClickDetector)
+            
+            -- Возвращаемся на исходную позицию
+            task.wait(0.1)
+            if G.AutoArmorSettings.hrp and G.AutoArmorSettings.hrp.Parent then
+                G.AutoArmorSettings.hrp.CFrame = G.AutoArmorSettings.originalCFrame
+                G.AutoArmorSettings.hrp.Velocity = G.AutoArmorSettings.originalVelocity -- Восстанавливаем скорость
+            end
+            
+            -- Сбрасываем флаг покупки брони
+            if getgenv().SaveDistance then
+                getgenv().SaveDistance.IsBuyingArmor = false
+            end
+            
+            -- Уведомляем о покупке, если включены уведомления
+            if G.AutoArmorSettings.Notify then
+                Library:Notify("AutoArmor: Броня куплена", 2)
+            end
+        else
+            G.AutoArmorSettings.BuyingArmor = nil
+        end
+    end)
+    
+    if not success and G.AutoArmorSettings.Notify then
+        -- Если произошла ошибка и включены уведомления, показываем сообщение об ошибке
+        Library:Notify("AutoArmor: Ошибка - " .. tostring(err), 3)
+    end
+end
+
+-- Глобальная функция для включения/отключения AutoArmor
+G.toggleAutoArmor = function(state)
+    G.AutoArmorSettings.Enabled = state
+    
+    -- Отключаем предыдущее соединение
+    if G.AutoArmorSettings.Connection then
+        G.AutoArmorSettings.Connection:Disconnect()
+        G.AutoArmorSettings.Connection = nil
+    end
+    
+    -- Создаем новое соединение, если включено
+    if state then
+        G.AutoArmorSettings.Connection = game:GetService("RunService").RenderStepped:Connect(G.autoArmorFunction)
+        
+        -- Немедленно вызываем функцию для проверки текущего значения брони
+        task.spawn(function()
+            G.autoArmorFunction()
+        end)
+        
+        Library:Notify("AutoArmor: Включен", 3)
+    else
+        Library:Notify("AutoArmor: Выключен", 3)
+    end
+end
+
+-- UI для AutoArmor
+AutoArmorGroup:AddToggle('AutoArmorEnabled', {
+    Text = 'Auto Armor',
+    Default = false,
+    Callback = function(v) 
+        G.toggleAutoArmor(v)
+    end,
+    Tooltip = 'Автоматически покупает броню, когда она заканчивается'
+})
+
+AutoArmorGroup:AddSlider('AutoArmorInterval', {
+    Text = 'Check Interval',
+    Default = G.AutoArmorSettings.CheckInterval,
+    Min = 0.1, Max = 5, Rounding = 1,
+    Callback = function(v) G.AutoArmorSettings.CheckInterval = v end,
+    Tooltip = 'Интервал проверки брони (в секундах)'
+})
+
+AutoArmorGroup:AddSlider('AutoArmorMinValue', {
+    Text = 'Min Armor Value',
+    Default = G.AutoArmorSettings.MinArmorValue,
+    Min = 0, Max = 100, Rounding = 0,
+    Callback = function(v) G.AutoArmorSettings.MinArmorValue = v end,
+    Tooltip = 'Покупать броню, когда значение меньше этого'
+})
+
+AutoArmorGroup:AddDropdown('AutoArmorType', {
+    Text = 'Armor Type',
+    Values = {
+        "[High-Medium Armor] - $2513",
+        "[Medium Armor] - $1000",
+        "[High Armor] - $4113"
+    },
+    Default = G.AutoArmorSettings.ArmorType,
+    Callback = function(v) G.AutoArmorSettings.ArmorType = v end,
+    Tooltip = 'Тип брони для покупки'
+})
+
+AutoArmorGroup:AddToggle('AutoArmorNotify', {
+    Text = 'Notifications',
+    Default = G.AutoArmorSettings.Notify,
+    Callback = function(v) G.AutoArmorSettings.Notify = v end,
+    Tooltip = 'Показывать уведомления о покупке брони'
+})
