@@ -143,7 +143,7 @@ SaveManager:LoadAutoloadConfig()
 -- === HUD Section in Config ===
 local HUDGroup = Tabs.Config:AddRightGroupbox('HUD')
 HUDGroup:AddToggle('ShowWatermark', {
-    Text = 'Watermark',
+    Text = 'WMark',
     Default = false,
     Callback = function(v)
         if v then
@@ -155,7 +155,7 @@ HUDGroup:AddToggle('ShowWatermark', {
     end
 })
 HUDGroup:AddToggle('ShowKeybinds', {
-    Text = 'Keybinds',
+    Text = 'Keys',
     Default = false,
     Callback = function(v)
         if Library.KeybindFrame then
@@ -222,7 +222,7 @@ ESPGroup:AddToggle('ESPEnabled', {
     Callback = function(v) ESPConfig.Enabled = v end
 })
 ESPGroup:AddSlider('ESPMaxDist', {
-    Text = 'Max Distance',
+    Text = 'MaxDistance',
     Min = 50, Max = 10000, Default = ESPConfig.MaxDistance,
     Rounding = 0,
     Callback = function(v) ESPConfig.MaxDistance = v end
@@ -247,12 +247,12 @@ ESPGroup:AddToggle('ESPBoxFilled', {
     Callback = function(v) ESPConfig.Box.Filled.Gradient.Color.End = v end
 })
 ESPGroup:AddToggle('ESPBoxGradient', {
-    Text = 'Gradient Anim',
+    Text = 'GradAnim',
     Default = false,
     Callback = function(v) ESPConfig.Box.Filled.Gradient.Enable = v end
 })
 ESPGroup:AddSlider('ESPBoxGradTrans', {
-    Text = 'Grad Transp',
+    Text = 'GradTrans',
     Min = 0, Max = 1, Default = ESPConfig.Box.Filled.Gradient.Transparency, Rounding = 2,
     Callback = function(v) ESPConfig.Box.Filled.Gradient.Transparency = v end
 })
@@ -1044,7 +1044,7 @@ getgenv().GetCircleAuraSettings = function() return CircleAuraSettings end
 
 -- UI
 SphereAuraGroup:AddToggle('CircleAura', {
-    Text = 'CircleAura',
+    Text = 'Aura',
     Default = false,
     Callback = function(v)
         CircleAuraSettings.enabled = v
@@ -1072,7 +1072,7 @@ SphereAuraGroup:AddToggle('CircleAura', {
 
 local CircleAuraSub = SphereAuraGroup:AddDependencyBox()
 CircleAuraSub:AddSlider('CircleAuraLightEmission', {
-    Text = 'LightEmission',
+    Text = 'Emission',
     Default = CircleAuraSettings.lightEmission,
     Min = 0,
     Max = 2,
@@ -1083,7 +1083,7 @@ CircleAuraSub:AddSlider('CircleAuraLightEmission', {
     end
 })
 CircleAuraSub:AddDropdown('CircleAuraCircleTexture', {
-    Text = 'Circle Texture',
+    Text = 'CircleTexture',
     Values = {
         '8920246243',
         '10365549270',
@@ -1544,7 +1544,7 @@ local function disableNoRecoil()
 end
 
 NoRecoilGroup:AddToggle('No Recoil', {
-    Text = 'No Recoil',
+    Text = 'NoRecoil',
     Default = false,
     Callback = function(v)
         noRecoilEnabled = v
@@ -1592,7 +1592,7 @@ local function disableNoJumpCD()
 end
 
 NoJumpCDGroup:AddToggle('No Jump CD', {
-    Text = 'No Jump CD',
+    Text = 'NoJumpCD',
     Default = false,
     Callback = function(v)
         noJumpCDEnabled = v
@@ -1606,7 +1606,7 @@ NoJumpCDGroup:AddToggle('No Jump CD', {
 })
 
 NoJumpCDGroup:AddButton({
-    Text = 'Destroy Seats',
+    Text = 'DestroySeats',
     Func = function()
         local count = 0
         for _, obj in ipairs(S.WS:GetDescendants()) do
@@ -1677,7 +1677,7 @@ LP.CharacterAdded:Connect(function()
 end)
 
 AntiInertiaGroup:AddToggle('Anti Inertia', {
-    Text = 'Anti Inertia',
+    Text = 'AntiInertia',
     Default = false,
     Callback = function(v)
         ToggleAntiInertia(v)
@@ -1819,7 +1819,7 @@ local function setYawLocker(state)
 end
 
 YawLockerGroup:AddToggle('YawLocker', {
-    Text = 'Yaw Locker',
+    Text = 'YawLock',
     Default = false,
     Callback = function(v)
         setYawLocker(v)
@@ -1828,7 +1828,7 @@ YawLockerGroup:AddToggle('YawLocker', {
 })
 
 YawLockerGroup:AddDropdown('YawLockerMode', {
-    Text = 'Yaw Mode',
+    Text = 'Mode',
     Values = YawLockerConfig.Modes,
     Default = 'Locked',
     Callback = function(val)
@@ -1840,7 +1840,7 @@ YawLockerGroup:AddDropdown('YawLockerMode', {
 })
 
 YawLockerGroup:AddSlider('YawLockerAngle', {
-    Text = 'Yaw Angle',
+    Text = 'Angle',
     Default = 0,
     Min = 0,
     Max = 360,
@@ -1852,7 +1852,7 @@ YawLockerGroup:AddSlider('YawLockerAngle', {
 })
 
 YawLockerGroup:AddToggle('YawLockerAtTarget', {
-    Text = 'At Target',
+    Text = 'AtTarget',
     Default = false,
     Callback = function(v)
         YawLockerConfig.AtTarget = v
@@ -1861,7 +1861,7 @@ YawLockerGroup:AddToggle('YawLockerAtTarget', {
 })
 
 YawLockerGroup:AddToggle('YawLockerDisableAutoRotate', {
-    Text = 'Disable AutoRotate',
+    Text = 'DisableAutoRotate',
     Default = false,
     Callback = function(v)
         YawLockerConfig.DisableAutoRotate = v
@@ -1976,7 +1976,7 @@ end)
 -- if LP.Character then setupAnimBreakerCharacter(LP.Character) end
 
 AnimBreakerGroup:AddToggle('AnimBreaker', {
-    Text = 'Anim Breaker',
+    Text = 'AnimBreaker',
     Default = false,
     Callback = function(v)
         toggleAnimBreaker(v)
@@ -2048,7 +2048,7 @@ local function disableRapidFireGunScript()
 end
 
 RapidFireGunScriptGroup:AddToggle('RapidFireGunScript', {
-    Text = 'Rapid Fire GunScript Method',
+    Text = 'RapidFireGunScript',
     Default = false,
     Callback = function(v)
         if v then
@@ -2127,7 +2127,7 @@ local function disableRapidFireM1()
 end
 
 RapidFireM1Group:AddToggle('RapidFireM1Spam', {
-    Text = 'Rapid Fire M1 Spam',
+    Text = 'RapidFireM1',
     Default = false,
     Callback = function(v)
         if v then
@@ -2198,7 +2198,7 @@ destroyCheatersKeyConn = S.UIS.InputBegan:Connect(function(input, gp)
 end)
 
 DestroyCheatersGroup:AddToggle('DestroyCheaters', {
-    Text = 'Destroy Cheaters',
+    Text = 'DestroyCheaters',
     Default = false,
     Callback = function(v)
         destroyCheatersEnabled = v
@@ -2209,7 +2209,7 @@ DestroyCheatersGroup:AddToggle('DestroyCheaters', {
     Tooltip = 'Enable keybind to toggle anti-exploit position breaker.'
 }):AddKeyPicker('DestroyCheatersKey', {
     Default = 'X',
-    Text = 'Destroy Cheaters Key',
+    Text = 'DestroyCheatersKey',
     NoUI = false,
     Callback = function(key)
         destroyCheatersKey = Enum.KeyCode[key] or Enum.KeyCode.X
@@ -2217,7 +2217,7 @@ DestroyCheatersGroup:AddToggle('DestroyCheaters', {
 })
 
 DestroyCheatersGroup:AddButton({
-    Text = 'Destroy Void',
+    Text = 'DestroyVoid',
     Func = function()
         S.WS.FallenPartsDestroyHeight = 0/0
         Library:Notify('Void destroyed!', 3)
@@ -2271,7 +2271,7 @@ getgenv().SilentAim = {
 
 -- UI для Silent Aim
 SilentAimGroup:AddToggle('SilentAimEnabled', {
-    Text = 'Silent Aim',
+    Text = 'Ragebot',
     Default = false,
     Callback = function(v) 
         getgenv().SilentAim.Options.Enabled = v 
@@ -2284,7 +2284,7 @@ SilentAimGroup:AddDropdown('SilentAimMode', {
     Callback = function(v) getgenv().SilentAim.Options.Mode = v end
 })
 SilentAimGroup:AddToggle('SilentAimAutoAir', {
-    Text = 'Auto Air',
+    Text = 'AutoAir',
     Default = false,
     Callback = function(v) 
         getgenv().SilentAim.Options.AutoAir = v 
@@ -2315,7 +2315,7 @@ SilentAimGroup:AddToggle('SilentAimAutoAir', {
 
 -- Добавляем Magic Bullet
 SilentAimGroup:AddToggle('SilentAimMagicBullet', {
-    Text = 'Magic Bullet',
+    Text = 'MagicBullet',
     Default = false,
     Callback = function(v) 
         getgenv().SilentAim.Options.MagicBullet = v 
@@ -2325,7 +2325,7 @@ SilentAimGroup:AddToggle('SilentAimMagicBullet', {
 
 -- Добавляем View Target
 SilentAimGroup:AddToggle('SilentAimViewTarget', {
-    Text = 'View Target',
+    Text = 'View',
     Default = false,
     Callback = function(v) 
         getgenv().SilentAim.Options.ViewTarget = v 
@@ -2353,21 +2353,21 @@ MagicBulletGroup:AddSlider('MagicBulletRange', {
 })
 
 MagicBulletGroup:AddToggle('MagicBulletIgnoreKO', {
-    Text = 'Ignore KO Check',
+    Text = 'IgnoreKO',
     Default = false,
     Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreKO = v end,
     Tooltip = 'Shoot at knocked out targets'
 })
 
 MagicBulletGroup:AddToggle('MagicBulletIgnoreGrabbed', {
-    Text = 'Ignore Grabbed Check',
+    Text = 'IgnoreGrabbed',
     Default = false,
     Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreGrabbed = v end,
     Tooltip = 'Shoot at grabbed targets'
 })
 
 MagicBulletGroup:AddToggle('MagicBulletIgnoreForceField', {
-    Text = 'ForceField Check',
+    Text = 'ForceField',
     Default = true,
     Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreForceField = v end,
     Tooltip = 'Do not shoot at targets with forcefield'
@@ -2375,28 +2375,28 @@ MagicBulletGroup:AddToggle('MagicBulletIgnoreForceField', {
 
 MagicBulletGroup:SetupDependencies({{Toggles.SilentAimMagicBullet, true}})
 SilentAimGroup:AddInput('SilentAimPredictionXZ', {
-    Text = 'Prediction XZ',
+    Text = 'PredictionXZ',
     Default = tostring(getgenv().SilentAim.Silent.PredictionXZ),
     Numeric = true,
     Finished = true,
     Callback = function(val) local n = tonumber(val); if n then getgenv().SilentAim.Silent.PredictionXZ = n end end
 })
 SilentAimGroup:AddInput('SilentAimPredictionY', {
-    Text = 'Prediction Y',
+    Text = 'PredictionY',
     Default = tostring(getgenv().SilentAim.Silent.PredictionY),
     Numeric = true,
     Finished = true,
     Callback = function(val) local n = tonumber(val); if n then getgenv().SilentAim.Silent.PredictionY = n end end
 })
 SilentAimGroup:AddInput('SilentAimJumpOffset', {
-    Text = 'Jump Offset',
+    Text = 'JumpOffset',
     Default = tostring(getgenv().SilentAim.Silent.Offsets.Jump.Amount),
     Numeric = true,
     Finished = true,
     Callback = function(val) local n = tonumber(val); if n then getgenv().SilentAim.Silent.Offsets.Jump.Amount = n end end
 })
 SilentAimGroup:AddInput('SilentAimFallOffset', {
-    Text = 'Fall Offset',
+    Text = 'FallOffset',
     Default = tostring(getgenv().SilentAim.Silent.Offsets.Fall.Amount),
     Numeric = true,
     Finished = true,
@@ -2404,7 +2404,7 @@ SilentAimGroup:AddInput('SilentAimFallOffset', {
 })
 SilentAimGroup:AddLabel('Sticky Key'):AddKeyPicker('SilentAimStickyKey', {
     Default = 'Q',
-    Text = 'Sticky Key',
+    Text = 'StickyKey',
     NoUI = false,
     Callback = function(key)
         if typeof(key) == "EnumItem" then
@@ -2419,22 +2419,22 @@ SilentAimGroup:AddLabel('Sticky Key'):AddKeyPicker('SilentAimStickyKey', {
 
 -- ... существующий UI для Silent Aim ...
 SilentAimGroup:AddToggle('SilentAimWallCheck', {
-    Text = 'Wall Check',
+    Text = 'WallCheck',
     Default = false,
     Callback = function(v) getgenv().SilentAim.Misc.Checks.WallCheck = v end
 })
 SilentAimGroup:AddToggle('SilentAimKOCheck', {
-    Text = 'KO Check',
+    Text = 'KOCheck',
     Default = false,
     Callback = function(v) getgenv().SilentAim.Misc.Checks.KOCheck = v end
 })
 SilentAimGroup:AddToggle('SilentAimGrabbedCheck', {
-    Text = 'Grabbed Check',
+    Text = 'GrabbedCheck',
     Default = false,
     Callback = function(v) getgenv().SilentAim.Misc.Checks.GrabbedCheck = v end
 })
 SilentAimGroup:AddToggle('SilentAimTargetDeathCheck', {
-    Text = 'Target Death Check',
+    Text = 'DeathCheck',
     Default = false,
     Callback = function(v) getgenv().SilentAim.Misc.Checks.TargetDeathCheck = v end
 })
@@ -2445,14 +2445,14 @@ SilentAimGroup:AddToggle('SilentAimResolverEnabled', {
 })
 
 SilentAimGroup:AddDropdown('SilentAimResolverType', {
-    Text = 'Resolver Type',
+    Text = 'ResolverType',
     Values = {'Calculate CFrame', 'Velocity', 'Move direction'},
     Default = getgenv().SilentAim.Misc.Checks.Resolver.Type,
     Callback = function(v) getgenv().SilentAim.Misc.Checks.Resolver.Type = v end
 })
 
 SilentAimGroup:AddDropdown('SilentAimPart', {
-    Text = 'Aim Part',
+    Text = 'Hitpart',
     Values = {'HumanoidRootPart', 'UpperTorso', 'LowerTorso', 'Head'},
     Default = getgenv().SilentAim.Silent.Part,
     Callback = function(v) getgenv().SilentAim.Silent.Part = v end
@@ -3053,7 +3053,7 @@ CrosshairGroup:AddSlider('CrosshairRotSpeed', {
     Callback = function(val) CrosshairConfig.RotSpeed = val end
 })
 CrosshairGroup:AddToggle('CrosshairRotate', {
-    Text = 'Rotate',
+    Text = 'Spin',
     Default = CrosshairConfig.Rotate,
     Callback = function(v)
         CrosshairConfig.Rotate = v
@@ -3072,24 +3072,24 @@ CrosshairGroup:AddToggle('CrosshairOutline', {
 })
 :AddColorPicker('CrosshairOutlineColor', {
     Default = CrosshairConfig.OutlineColor,
-    Title = 'Outline Color',
+    Title = 'Color',
     Callback = function(val) CrosshairConfig.OutlineColor = val end
 })
 CrosshairGroup:AddSlider('CrosshairOutlineThickness', {
-    Text = 'Outline Th.',
+    Text = 'OutlineThick',
     Default = CrosshairConfig.OutlineThickness,
     Min = 1, Max = 20, Rounding = 0,
     Callback = function(val) CrosshairConfig.OutlineThickness = val end
 })
 
 CrosshairGroup:AddToggle('CrosshairAttachToTarget', {
-    Text = 'Attach to Target',
+    Text = 'AttachTarget',
     Default = false,
     Callback = function(v) CrosshairConfig.AttachToTarget = v end,
     Tooltip = 'Crosshair attaches to target (SilentAim)' 
 })
 CrosshairGroup:AddDropdown('CrosshairAttachPart', {
-    Text = 'Attach Part',
+    Text = 'Part',
     Values = {'UpperTorso', 'HumanoidRootPart', 'Head', 'LowerTorso'},
     Default = 'UpperTorso',
     Callback = function(val) CrosshairConfig.AttachPart = val end,
@@ -3232,7 +3232,7 @@ end
 
 local HitChamsGroup = Tabs.Combat:AddRightGroupbox('>_<')
 local HitChamsToggle = HitChamsGroup:AddToggle('HitChamsEnabled', {
-    Text = 'HitChams',
+    Text = 'Chams',
     Default = false,
     Callback = function(v) HitChamsConfig.Enabled = v end,
     Tooltip = 'Show chams on aimbot target when HP decreases.'
@@ -3270,7 +3270,7 @@ HitChamsSub:SetupDependencies({{Toggles.HitChamsEnabled, true}})
 
 -- Тоггл и саббокс для HitSounds
 local HitSoundsToggle = HitChamsGroup:AddToggle('HitSoundsEnabled', {
-    Text = 'HitSounds',
+    Text = 'Sounds',
     Default = false,
     Callback = function(v) HitSoundsConfig.Enabled = v end,
     Tooltip = 'Play sound on aimbot hit.'
@@ -3328,7 +3328,7 @@ local CombatTracerConfig = {
 local combatTracerLine = nil
 
 HitChamsGroup:AddToggle('CombatTracerEnabled', {
-    Text = 'TracerToTarget',
+    Text = 'Tracer',
     Default = false,
     Callback = function(v)
         CombatTracerConfig.Enabled = v
@@ -3414,12 +3414,12 @@ local HitEffectsToggle = HitChamsGroup:AddToggle('HitEffectsEnabled', {
 })
 :AddColorPicker('HitEffectsColor', {
     Default = Color3.fromRGB(255,255,255), -- белый по умолчанию
-    Title = 'Effect Color',
+    Title = 'Color',
     Callback = function(val) HitEffectsConfig.Color = val end
 })
 local HitEffectsSub = HitChamsGroup:AddDependencyBox()
 HitEffectsSub:AddDropdown('HitEffectsType', {
-    Text = 'Effect Type',
+    Text = 'EffectType',
     Values = hitEffectsTypes,
     Default = HitEffectsConfig.Type,
     Callback = function(val) HitEffectsConfig.Type = val end
@@ -4142,7 +4142,7 @@ local GripGroup = Tabs.Combat:AddRightGroupbox('>_<')
 
 -- Create UI components
 GripGroup:AddToggle('GripEnabled', {
-    Text = 'Custom Grip',
+    Text = 'CustomGrip',
     Default = false,
     Callback = function(v) G.GripSettings.Enabled = v end,
     Tooltip = 'Change weapon grip position and rotation'
@@ -4151,21 +4151,21 @@ GripGroup:AddToggle('GripEnabled', {
 -- Position sliders
 GripGroup:AddLabel('Position:')
 GripGroup:AddSlider('GripPosX', {
-    Text = 'X Position',
+    Text = 'X',
     Default = 0,
     Min = -100, Max = 100, Rounding = 1,
     Callback = function(val) G.GripSettings.Position = Vector3.new(val, G.GripSettings.Position.Y, G.GripSettings.Position.Z) end
 })
 
 GripGroup:AddSlider('GripPosY', {
-    Text = 'Y Position',
+    Text = 'Y',
     Default = 0,
     Min = -100, Max = 100, Rounding = 1,
     Callback = function(val) G.GripSettings.Position = Vector3.new(G.GripSettings.Position.X, val, G.GripSettings.Position.Z) end
 })
 
 GripGroup:AddSlider('GripPosZ', {
-    Text = 'Z Position',
+    Text = 'Z',
     Default = 0,
     Min = -100, Max = 100, Rounding = 1,
     Callback = function(val) G.GripSettings.Position = Vector3.new(G.GripSettings.Position.X, G.GripSettings.Position.Y, val) end
@@ -4174,21 +4174,21 @@ GripGroup:AddSlider('GripPosZ', {
 -- Rotation sliders
 GripGroup:AddLabel('Rotation:')
 GripGroup:AddSlider('GripRotX', {
-    Text = 'X Rotation',
+    Text = 'X',
     Default = 0,
     Min = -180, Max = 180, Rounding = 1,
     Callback = function(val) G.GripSettings.Rotation = Vector3.new(val, G.GripSettings.Rotation.Y, G.GripSettings.Rotation.Z) end
 })
 
 GripGroup:AddSlider('GripRotY', {
-    Text = 'Y Rotation',
+    Text = 'Y',
     Default = 0,
     Min = -180, Max = 180, Rounding = 1,
     Callback = function(val) G.GripSettings.Rotation = Vector3.new(G.GripSettings.Rotation.X, val, G.GripSettings.Rotation.Z) end
 })
 
 GripGroup:AddSlider('GripRotZ', {
-    Text = 'Z Rotation',
+    Text = 'Z',
     Default = 0,
     Min = -180, Max = 180, Rounding = 1,
     Callback = function(val) G.GripSettings.Rotation = Vector3.new(G.GripSettings.Rotation.X, G.GripSettings.Rotation.Y, val) end
@@ -4197,7 +4197,7 @@ GripGroup:AddSlider('GripRotZ', {
 -- Reset button
 GripGroup:AddLabel('Options:')
 GripGroup:AddButton({
-    Text = 'Reset All',
+    Text = 'Reset',
     Func = function()
         G.GripSettings.Position = Vector3.new(0, 0, 0)
         G.GripSettings.Rotation = Vector3.new(0, 0, 0)
@@ -4264,7 +4264,7 @@ BulletTpGroup:AddToggle('BulletTpToggle', {
 
 BulletTpGroup:AddLabel('BulletTP Key'):AddKeyPicker('BulletTpKey', {
     Default = 'C',
-    Text = 'BulletTP Key',
+    Text = 'Key',
     NoUI = false,
     Callback = function(key)
         if typeof(key) == "EnumItem" then
@@ -4276,7 +4276,7 @@ BulletTpGroup:AddLabel('BulletTP Key'):AddKeyPicker('BulletTpKey', {
 })
 
 BulletTpGroup:AddDropdown('BulletTpPart', {
-    Text = 'Target Part',
+    Text = 'Part',
     Values = {'Head', 'HumanoidRootPart', 'Torso', 'UpperTorso', 'LowerTorso', 'Left Arm', 'Right Arm', 'Left Leg', 'Right Leg', 'LeftUpperArm', 'RightUpperArm', 'LeftUpperLeg', 'RightUpperLeg'},
     Default = 'Head',
     Callback = function(v) getgenv().BulletTp.Part = v end,
@@ -4284,7 +4284,7 @@ BulletTpGroup:AddDropdown('BulletTpPart', {
 })
 
 BulletTpGroup:AddToggle('BulletTpUseAimbotTarget', {
-    Text = 'Use Aimbot Target',
+    Text = 'UseAimbot',
     Default = true,
     Callback = function(v) 
         getgenv().BulletTp.UseAimbotTarget = v 
@@ -4544,7 +4544,7 @@ getgenv().SaveDistance = {
 
 -- UI для SaveDistance
 SaveDistanceGroup:AddToggle('SaveDistanceEnabled', {
-    Text = 'Save Position',
+    Text = 'SavePos',
     Default = false,
     Callback = function(v) 
         getgenv().SaveDistance.Enabled = v
@@ -4554,7 +4554,7 @@ SaveDistanceGroup:AddToggle('SaveDistanceEnabled', {
 })
 
 SaveDistanceGroup:AddSlider('SaveDistanceOffsetX', {
-    Text = 'X Offset',
+    Text = 'X',
     Default = 0,
     Min = -200, Max = 200, Rounding = 0,
     Increment = 1,
@@ -4563,7 +4563,7 @@ SaveDistanceGroup:AddSlider('SaveDistanceOffsetX', {
 })
 
 SaveDistanceGroup:AddSlider('SaveDistanceOffsetY', {
-    Text = 'Y Offset (Height)',
+    Text = 'Y',
     Default = 100,
     Min = -200, Max = 200, Rounding = 0,
     Increment = 1,
@@ -4572,7 +4572,7 @@ SaveDistanceGroup:AddSlider('SaveDistanceOffsetY', {
 })
 
 SaveDistanceGroup:AddSlider('SaveDistanceOffsetZ', {
-    Text = 'Z Offset',
+    Text = 'Z',
     Default = 0,
     Min = -200, Max = 200, Rounding = 0,
     Increment = 1,
@@ -5014,7 +5014,7 @@ end
 
 -- UI для AutoArmor
 G.AutoArmorGroup:AddToggle('AutoArmorEnabled', {
-    Text = 'Auto Armor',
+    Text = 'AutoArmor',
     Default = false,
     Callback = function(v) 
         G.toggleAutoArmor(v)
@@ -5023,7 +5023,7 @@ G.AutoArmorGroup:AddToggle('AutoArmorEnabled', {
 })
 
 G.AutoArmorGroup:AddSlider('AutoArmorMinValue', {
-    Text = 'Min Armor Value',
+    Text = 'MinValue',
     Default = G.AutoArmorSettings.MinArmorValue,
     Min = 0, Max = 200, Rounding = 0,
     Callback = function(v) G.AutoArmorSettings.MinArmorValue = v end,
@@ -5031,7 +5031,7 @@ G.AutoArmorGroup:AddSlider('AutoArmorMinValue', {
 })
 
 G.AutoArmorGroup:AddSlider('AutoArmorInterval', {
-    Text = 'Check Interval',
+    Text = 'Interval',
     Default = G.AutoArmorSettings.CheckInterval,
     Min = 0.1, Max = 5, Rounding = 1,
     Callback = function(v) G.AutoArmorSettings.CheckInterval = v end,
@@ -5086,7 +5086,7 @@ G.setupArmorOptions()
 G.AutoArmorSettings.ArmorValuesMap = G.armorValueMap
 
 G.AutoArmorGroup:AddDropdown('AutoArmorType', {
-    Text = 'Armor Type',
+    Text = 'ArmorType',
     Values = G.armorDropdownValues,
     Default = G.armorDropdownValues[1] or "",
     Callback = function(v) 
@@ -5095,6 +5095,3 @@ G.AutoArmorGroup:AddDropdown('AutoArmorType', {
     end,
     Tooltip = 'Тип брони для покупки с указанием игры'
 })
-
-
-
