@@ -33,7 +33,21 @@ local STR = {
     rep = string.rep, split = string.split, fmt = string.format
 }
 
--- Глобальная таблица для хранения переменных
+local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+local Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/library'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+
+-- Функция-обертка для тоглов с уведомлениями
+local function addToggleWithNotify(group, id, options)
+    local originalCallback = options.Callback
+    options.Callback = function(v)
+        originalCallback(v)
+        Library:Notify(">_< " .. (v and "on" or "off"), 3)
+    end
+    return group:AddToggle(id, options)
+end
+
 local G = {
     -- Трейсеры
     lastTracerUpdate = 0,
@@ -105,11 +119,6 @@ local Body = {
 
 local Cam, Mse, Bp, Tm, UID, PGui = S.WS.CurrentCamera, LP:GetMouse(), LP:FindFirstChildOfClass('Backpack'), LP.Team, LP.UserId, LP:FindFirstChildOfClass('PlayerGui')
 
-local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
-local Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/library'))()
-local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
-local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
-
 local Window = Library:CreateWindow({
     Title = 'Halalware',
     Center = true,
@@ -143,7 +152,7 @@ SaveManager:LoadAutoloadConfig()
 -- === HUD Section in Config ===
 local HUDGroup = Tabs.Config:AddRightGroupbox('HUD')
 HUDGroup:AddToggle('ShowWatermark', {
-    Text = 'Watermark',
+    Text = 'WMark',
     Default = false,
     Callback = function(v)
         if v then
@@ -155,7 +164,7 @@ HUDGroup:AddToggle('ShowWatermark', {
     end
 })
 HUDGroup:AddToggle('ShowKeybinds', {
-    Text = 'Keybinds',
+    Text = 'Keys',
     Default = false,
     Callback = function(v)
         if Library.KeybindFrame then
@@ -216,13 +225,13 @@ local ESPConfig = {
 }
 
 local ESPGroup = Tabs.Visuals:AddLeftGroupbox('>_<')
-ESPGroup:AddToggle('ESPEnabled', {
+addToggleWithNotify(ESPGroup, 'ESPEnabled', {
     Text = 'ESP',
     Default = false,
     Callback = function(v) ESPConfig.Enabled = v end
 })
 ESPGroup:AddSlider('ESPMaxDist', {
-    Text = 'Max Distance',
+    Text = 'MaxDistance',
     Min = 50, Max = 10000, Default = ESPConfig.MaxDistance,
     Rounding = 0,
     Callback = function(v) ESPConfig.MaxDistance = v end
@@ -247,12 +256,12 @@ ESPGroup:AddToggle('ESPBoxFilled', {
     Callback = function(v) ESPConfig.Box.Filled.Gradient.Color.End = v end
 })
 ESPGroup:AddToggle('ESPBoxGradient', {
-    Text = 'Gradient Anim',
+    Text = 'GradAnim',
     Default = false,
     Callback = function(v) ESPConfig.Box.Filled.Gradient.Enable = v end
 })
 ESPGroup:AddSlider('ESPBoxGradTrans', {
-    Text = 'Grad Transp',
+    Text = 'GradTrans',
     Min = 0, Max = 1, Default = ESPConfig.Box.Filled.Gradient.Transparency, Rounding = 2,
     Callback = function(v) ESPConfig.Box.Filled.Gradient.Transparency = v end
 })
@@ -311,7 +320,7 @@ local BulletTextures = {
     ["Beam"] = "rbxassetid://1263079249"
 }
 
-local BulletToggle = BulletTracersGroup:AddToggle('BulletTracersEnabled', {
+local BulletToggle = addToggleWithNotify(BulletTracersGroup, 'BulletTracersEnabled', {
     Text = 'Tracer',
     Default = false,
     Callback = function(v) BulletTracersConfig.Enabled = v end
@@ -340,195 +349,260 @@ BulletTracersGroup:AddDropdown('BulletTracersTexture', {
 })
 
 -- === Bullet Tracers Logic (ONLY) ===
-local gS = { t = nil, a = 0, s = false, c = {} }
-local gM = {
-    [2788229376] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
-    [71189885129233] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
-    [5602055394] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
-    [17403265390] = { BN = "Part", BBN = "gb", BP = "" },
-    [17403166075] = { BN = "Part", BBN = "gb", BP = "" },
-    [18111448661] = { BN = "Part", BBN = "gb", BP = "" },
-    [15186202290] = { BN = "Part", BBN = "gb", BP = "" },
-    [11143225577] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
-    [15763494605] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
-    [15166543806] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
-    [17897702920] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
-    [16033173781] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
-    [7213786345] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
-    [9825515356] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
-    [16859411452] = { BN = "bulletray", BBN = "beam", BP = "Ignored" },
-    [14277620939] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
-    [0] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" }
+-- Состояние оружия
+local gunState = {
+    current_tool = nil,
+    previous_ammo = 0,
+    recently_shot = false,
+    connections = {}
 }
-local function gP(r, p)
-    if p == "" then return r end
-    local ps = STR.split(p, ".")
-    local c = r
-    for _, pt in ipairs(ps) do
-        c = c:FindFirstChild(pt)
-        if not c then return nil end
-    end
-    return c
+
+-- Определение игры и путей к пулям
+local function detectGame()
+    local placeId = game.PlaceId
+    
+    local gameData = {
+        -- Da Hood
+        [2788229376] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
+        [71189885129233] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
+        [5602055394] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
+        [17403265390] = { BN = "Part", BBN = "gb", BP = "" },
+        [17403166075] = { BN = "Part", BBN = "gb", BP = "" },
+        [18111448661] = { BN = "Part", BBN = "gb", BP = "" },
+        [15186202290] = { BN = "Part", BBN = "gb", BP = "" },
+        [11143225577] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
+        [15763494605] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
+        [15166543806] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
+        [17897702920] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "" },
+        [16033173781] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
+        [7213786345] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored.Siren.Radius" },
+        [9825515356] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
+        [16859411452] = { BN = "bulletray", BBN = "beam", BP = "Ignored" },
+        [14277620939] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" },
+        [0] = { BN = "BULLET_RAYS", BBN = "GunBeam", BP = "Ignored" }
+    }
+    
+    local data = gameData[placeId] or gameData[0]
+    return data
 end
-local function dG()
-    local d = gM[game.PlaceId] or gM[0]
-    d.BP = gP(S.WS, d.BP) or S.WS
-    return d
+
+-- Получение пути к пулям
+local function getPath(root, path)
+    if path == "" then return root end
+    local parts = STR.split(path, ".")
+    local current = root
+    for _, part in ipairs(parts) do
+        current = current:FindFirstChild(part)
+        if not current then return nil end
+    end
+    return current
 end
-local function cB(f, t, c1, c2, thickness, texture)
-    -- Убираем ограничения на количество трейсеров
-    local tracerLifetime = 0.4 -- Время жизни трейсера
+
+-- Создание луча (beam)
+local function createBeam(from, to, color1, color2, thickness, texture)
+    -- Создаем невидимую основную часть
+    local mainPart = Instance.new("Part")
+    mainPart.Name = "BulletTracer"
+    mainPart.Parent = S.WS
+    mainPart.Size = V3.new(0, 0, 0)
+    mainPart.Massless = true
+    mainPart.Transparency = 1
+    mainPart.CanCollide = false
+    mainPart.Position = from
+    mainPart.Anchored = true
     
-    -- Используем глобальную таблицу для отслеживания активных трейсеров
-    if not G.ActiveTracers then
-        G.ActiveTracers = {}
-        G.TracerCount = 0
-    end
+    -- Создаем две точки для луча
+    local part0 = Instance.new("Part")
+    part0.Parent = mainPart
+    part0.Size = V3.new(0, 0, 0)
+    part0.Massless = true
+    part0.Transparency = 1
+    part0.CanCollide = false
+    part0.Position = from
+    part0.Anchored = true
     
-    -- Увеличиваем счетчик трейсеров
-    G.TracerCount = G.TracerCount + 1
+    local part1 = Instance.new("Part")
+    part1.Parent = mainPart
+    part1.Size = V3.new(0, 0, 0)
+    part1.Massless = true
+    part1.Transparency = 1
+    part1.CanCollide = false
+    part1.Position = to
+    part1.Anchored = true
     
-    -- Создаем трейсер с оптимизированными параметрами
-    local p = Instance.new("Part")
-    p.Name = "BT"
-    p.Parent = S.WS
-    p.Size = V3.zero
-    p.Massless = true
-    p.Transparency = 1
-    p.CanCollide = false
-    p.Position = f
-    p.Anchored = true
+    -- Создаем точки крепления для луча
+    local attachment0 = Instance.new("Attachment")
+    attachment0.Parent = part0
     
-    -- Оптимизируем создание частей - используем только необходимые объекты
-    local p0, p1 = Instance.new("Part"), Instance.new("Part")
-    for _, pt in ipairs({p0, p1}) do
-        pt.Parent = p
-        pt.Size = V3.zero
-        pt.Massless = true
-        pt.Transparency = 1
-        pt.CanCollide = false
-        pt.Anchored = true
-    end
-    p0.Position = f
-    p1.Position = t
+    local attachment1 = Instance.new("Attachment")
+    attachment1.Parent = part1
     
-    local a0, a1 = Instance.new("Attachment", p0), Instance.new("Attachment", p1)
-    local b = Instance.new("Beam")
-    b.Texture = texture
-    b.TextureMode = Enum.TextureMode.Wrap
-    b.TextureLength = 10
-    b.LightEmission = 1
-    b.LightInfluence = 1
-    b.FaceCamera = true
-    b.ZOffset = -1
-    b.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1)})
-    b.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, c1), ColorSequenceKeypoint.new(1, c2)})
-    b.Attachment0 = a0
-    b.Attachment1 = a1
-    b.Enabled = true
-    b.Width0 = thickness
-    b.Width1 = thickness
-    b.Parent = p
+    -- Создаем сам луч с градиентом цвета
+    local beam = Instance.new("Beam")
+    beam.Texture = texture
+    beam.TextureMode = Enum.TextureMode.Wrap
+    beam.TextureLength = 10
+    beam.LightEmission = 1
+    beam.LightInfluence = 1
+    beam.FaceCamera = true
+    beam.ZOffset = -1
+    beam.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0),
+        NumberSequenceKeypoint.new(1, 1),
+    })
+    beam.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, color1),
+        ColorSequenceKeypoint.new(1, color2),
+    })
+    beam.Attachment0 = attachment0
+    beam.Attachment1 = attachment1
+    beam.Width0 = thickness
+    beam.Width1 = thickness
+    beam.Enabled = true
+    beam.Parent = mainPart
     
-    -- Сохраняем трейсер в таблице активных трейсеров
-    table.insert(G.ActiveTracers, p)
-    
-    -- Удаляем трейсер через указанное время и уменьшаем счетчик
-    task.delay(tracerLifetime, function()
-        if p and p.Parent then
-            p:Destroy()
-        end
-        G.TracerCount = G.TracerCount - 1
-        
-        -- Удаляем трейсер из таблицы активных трейсеров
-        for i, tracer in ipairs(G.ActiveTracers) do
-            if tracer == p then
-                table.remove(G.ActiveTracers, i)
-                break
-            end
-        end
+    -- Уничтожаем луч через указанное время
+    task.delay(0.4, function()
+        mainPart:Destroy()
     end)
 end
-local function gG(p)
-    if not p.Character then return end
-    local t = p.Character:FindFirstChildWhichIsA("Tool")
-    if not t then return end
-    for _, o in ipairs(t:GetDescendants()) do
-        if STR.lower(o.Name):find("ammo") and not STR.lower(o.Name):find("max") and o.ClassName:match("Value$") then
-            return { a = o, t = t }
+
+-- Функция для получения оружия локального игрока
+local function getGun(player)
+    if not player or not player.Character then return nil end
+    
+    local tool = player.Character:FindFirstChildWhichIsA("Tool")
+    if not tool then return nil end
+    
+    local gunInfo = {}
+    
+    -- Ищем значение патронов в оружии
+    local descendants = tool:GetDescendants()
+    for _, obj in ipairs(descendants) do
+        if (STR.lower(obj.Name):find("ammo") and not STR.lower(obj.Name):find("max") and
+            (obj.ClassName == "IntValue" or obj.ClassName == "NumberValue")) then
+            gunInfo.ammo = obj
+            gunInfo.tool = tool
+            return gunInfo
         end
     end
+    
+    return nil
 end
-local function sGT(p)
-    for _, cn in ipairs(gS.c) do cn:Disconnect() end
-    gS.c = {}
-    if not p.Character then
-        T.insert(gS.c, p.CharacterAdded:Connect(function() sGT(p) end))
+
+-- Функция для настройки отслеживания оружия
+local function setupGunTracking(player)
+    -- Очищаем текущие соединения
+    for _, connection in ipairs(gunState.connections) do
+        if connection then connection:Disconnect() end
+    end
+    gunState.connections = {}
+    
+    -- Если персонаж игрока не существует, создаем соединение на его появление
+    if not player.Character then
+        table.insert(gunState.connections, player.CharacterAdded:Connect(function(character)
+            setupGunTracking(player)
+        end))
         return
     end
-    local function oG(c, ia)
-        if not c:IsA("Tool") then return end
-        if ia then
-            local g = gG(p)
-            if g then
-                gS.t = g.t
-                gS.a = g.a.Value
-                T.insert(gS.c, g.a.Changed:Connect(function(na)
-                    if na < gS.a then
-                        gS.s = true
-                        task.wait()
-                        gS.s = false
+    
+    -- Отслеживаем добавление/удаление оружия
+    table.insert(gunState.connections, player.Character.ChildAdded:Connect(function(child)
+        if child:IsA("Tool") then
+            local gun = getGun(player)
+            if gun then
+                gunState.current_tool = gun.tool
+                gunState.previous_ammo = gun.ammo.Value
+                
+                -- Отслеживаем изменение количества патронов
+                table.insert(gunState.connections, gun.ammo.Changed:Connect(function()
+                    local new_ammo = gun.ammo.Value
+                    if new_ammo < gunState.previous_ammo then
+                        gunState.recently_shot = true
+                        task.wait() -- Короткая пауза для обнаружения пули
+                        gunState.recently_shot = false
                     end
-                    gS.a = na
+                    gunState.previous_ammo = new_ammo
                 end))
             end
-        else
-            if c == gS.t then gS.t, gS.a = nil, 0 end
         end
+    end))
+    
+    table.insert(gunState.connections, player.Character.ChildRemoved:Connect(function(child)
+        if child == gunState.current_tool then
+            gunState.current_tool = nil
+            gunState.previous_ammo = 0
+        end
+    end))
+    
+    -- Проверяем наличие оружия сразу
+    local gun = getGun(player)
+    if gun then
+        gunState.current_tool = gun.tool
+        gunState.previous_ammo = gun.ammo.Value
+        
+        -- Отслеживаем изменение количества патронов
+        table.insert(gunState.connections, gun.ammo.Changed:Connect(function()
+            local new_ammo = gun.ammo.Value
+            if new_ammo < gunState.previous_ammo then
+                gunState.recently_shot = true
+                task.wait() -- Короткая пауза для обнаружения пули
+                gunState.recently_shot = false
+            end
+            gunState.previous_ammo = new_ammo
+        end))
     end
-    T.insert(gS.c, p.Character.ChildAdded:Connect(function(c) oG(c, true) end))
-    T.insert(gS.c, p.Character.ChildRemoved:Connect(function(c) oG(c, false) end))
-    local g = gG(p)
-    if g then oG(g.t, true) end
 end
-local function sE()
-    local g = dG()
-    if not g.BP then return end
-    sGT(LP)
-    if not LP.Character then LP.CharacterAdded:Connect(function() sGT(LP) end) end
+
+-- Основная функция для настройки эффектов пуль
+local function setupBulletEffects()
+    local gameData = detectGame()
+    local bulletPath = getPath(S.WS, gameData.BP) or S.WS
     
-    -- Используем дебаунс из таблицы G для обработки трейсеров
+    -- Настраиваем отслеживание оружия локального игрока
+    setupGunTracking(LP)
     
-    g.BP.ChildAdded:Connect(function(o)
-        if not gS.s then return end
-        if BulletTracersConfig.Enabled and o.Name == g.BBN then
-            -- Убираем дебаунс для неограниченного количества трейсеров
+    -- Отслеживаем добавление персонажа, если он еще не существует
+    if not LP.Character then
+        LP.CharacterAdded:Connect(function(character)
+            setupGunTracking(LP)
+        end)
+    end
+    
+    -- Следим за созданием новых пуль
+    bulletPath.ChildAdded:Connect(function(object)
+        if not BulletTracersConfig.Enabled then return end
+        
+        -- Проверяем, чтобы это была пуля с правильным именем и недавно выстрелил локальный игрок
+        if object.Name == gameData.BN and gunState.recently_shot then
             task.spawn(function()
-                local b = o:WaitForChild(g.BBN, 0.2) -- Уменьшаем время ожидания
-                if not b then return end
+                local gunBeam = object:WaitForChild(gameData.BBN, 0.2)
+                if not gunBeam then return end
                 
-                local sp, ep = o.Position, b.Attachment1.WorldPosition
+                local startPos = object.Position
+                local endPos = gunBeam.Attachment1.WorldPosition
                 
-                -- Проверяем расстояние трейсера, чтобы избежать слишком длинных трейсеров
-                local distance = (sp - ep).Magnitude
-                if distance > 2000 then return end
+                -- Удаляем оригинальный луч
+                gunBeam:Destroy()
                 
-                b:Destroy()
-                
-                cB(
-                    sp, ep,
-                    BulletTracersConfig.Color1,
-                    BulletTracersConfig.Color2,
+                -- Создаем трейсер
+                createBeam(
+                    startPos, 
+                    endPos, 
+                    BulletTracersConfig.Color1, 
+                    BulletTracersConfig.Color2, 
                     BulletTracersConfig.Thickness,
                     BulletTracersConfig.Texture
                 )
             end)
         end
     end)
-    
-    -- Удаляем кнопку Clear All
 end
-sE()
+
+-- Запускаем скрипт
+setupBulletEffects()
+
+-- Старый код bullet tracers удален для избежания конфликтов с новой реализацией
 
 local ESPCache, ESPConnections = {}, {}
 local gui_inset = S.GU:GetGuiInset()
@@ -892,7 +966,7 @@ end
 getgenv().GetSphereAuraSettings = function() return SphereAuraSettings end
 
 local SphereAuraGroup = Tabs.Visuals:AddRightGroupbox('>_<')
-SphereAuraGroup:AddToggle('SphereAura', {
+addToggleWithNotify(SphereAuraGroup, 'SphereAura', {
     Text = 'SphereAura',
     Default = false,
     Callback = function(v)
@@ -1043,8 +1117,8 @@ end
 getgenv().GetCircleAuraSettings = function() return CircleAuraSettings end
 
 -- UI
-SphereAuraGroup:AddToggle('CircleAura', {
-    Text = 'CircleAura',
+addToggleWithNotify(SphereAuraGroup, 'CircleAura', {
+    Text = 'Aura',
     Default = false,
     Callback = function(v)
         CircleAuraSettings.enabled = v
@@ -1072,7 +1146,7 @@ SphereAuraGroup:AddToggle('CircleAura', {
 
 local CircleAuraSub = SphereAuraGroup:AddDependencyBox()
 CircleAuraSub:AddSlider('CircleAuraLightEmission', {
-    Text = 'LightEmission',
+    Text = 'Emission',
     Default = CircleAuraSettings.lightEmission,
     Min = 0,
     Max = 2,
@@ -1083,7 +1157,7 @@ CircleAuraSub:AddSlider('CircleAuraLightEmission', {
     end
 })
 CircleAuraSub:AddDropdown('CircleAuraCircleTexture', {
-    Text = 'Circle Texture',
+    Text = 'CircleTexture',
     Values = {
         '8920246243',
         '10365549270',
@@ -1115,7 +1189,7 @@ local ChinaHatSettings = {
 }
 
 local ChinaHatGroup = Tabs.Visuals:AddLeftGroupbox('>_<')
-ChinaHatGroup:AddToggle('ChinaHatEnabled', {
+addToggleWithNotify(ChinaHatGroup, 'ChinaHatEnabled', {
     Text = 'ChinaHat',
     Default = ChinaHatSettings.enabled,
     Callback = function(v)
@@ -1244,7 +1318,7 @@ local function applyWorld()
     cc.Brightness = WorldConfig.Brightness
 end
 
-local FogToggle = WorldGroup:AddToggle('FogEnabled', {
+local FogToggle = addToggleWithNotify(WorldGroup, 'FogEnabled', {
     Text = 'Fog',
     Default = false,
     Callback = function(v) WorldConfig.FogEnabled = v; applyWorld() end
@@ -1334,7 +1408,7 @@ local function updateSpeedHack(character)
         end
     end)
 end
-SpeedhackGroup:AddToggle('SpeedhackEnabled', {
+addToggleWithNotify(SpeedhackGroup, 'SpeedhackEnabled', {
     Text = 'Speedhack',
     Default = false,
     Callback = function(v)
@@ -1467,7 +1541,7 @@ local function setFlyActive(state)
         stopFly()
     end
 end
-FlyGroup:AddToggle('FlyEnabled', {
+addToggleWithNotify(FlyGroup, 'FlyEnabled', {
     Text = 'Fly',
     Default = false,
     Callback = function(v)
@@ -1543,8 +1617,8 @@ local function disableNoRecoil()
     noRecoilHook = nil
 end
 
-NoRecoilGroup:AddToggle('No Recoil', {
-    Text = 'No Recoil',
+addToggleWithNotify(NoRecoilGroup, 'No Recoil', {
+    Text = 'NoRecoil',
     Default = false,
     Callback = function(v)
         noRecoilEnabled = v
@@ -1554,7 +1628,7 @@ NoRecoilGroup:AddToggle('No Recoil', {
             disableNoRecoil()
         end
     end,
-    Tooltip = 'Removes camera recoil (Framework)'
+    Tooltip = '>_<'
 })
 
 -- === NoJumpCD (Misc tab, правая секция) ===
@@ -1591,8 +1665,8 @@ local function disableNoJumpCD()
     currentNoJumpCDHook = nil
 end
 
-NoJumpCDGroup:AddToggle('No Jump CD', {
-    Text = 'No Jump CD',
+addToggleWithNotify(NoJumpCDGroup, 'No Jump CD', {
+    Text = 'NoJumpCD',
     Default = false,
     Callback = function(v)
         noJumpCDEnabled = v
@@ -1602,11 +1676,11 @@ NoJumpCDGroup:AddToggle('No Jump CD', {
             disableNoJumpCD()
         end
     end,
-    Tooltip = 'Removes jump cooldown (blocks JumpPower set)'
+    Tooltip = '>_<'
 })
 
 NoJumpCDGroup:AddButton({
-    Text = 'Destroy Seats',
+    Text = 'DestroySeats',
     Func = function()
         local count = 0
         for _, obj in ipairs(S.WS:GetDescendants()) do
@@ -1615,9 +1689,9 @@ NoJumpCDGroup:AddButton({
                 count = count + 1
             end
         end
-        Library:Notify('Destroyed seats: ' .. count, 3)
+        Library:Notify('>_<', 3)
     end,
-    Tooltip = 'Remove all seats (Seat/VehicleSeat) in the game'
+    Tooltip = '>_<'
 })
 
 -- === AntiInertia (Misc tab, отдельная правая секция) ===
@@ -1676,13 +1750,13 @@ LP.CharacterAdded:Connect(function()
     end
 end)
 
-AntiInertiaGroup:AddToggle('Anti Inertia', {
-    Text = 'Anti Inertia',
+addToggleWithNotify(AntiInertiaGroup, 'Anti Inertia', {
+    Text = 'AntiInertia',
     Default = false,
     Callback = function(v)
         ToggleAntiInertia(v)
     end,
-    Tooltip = 'Removes inertia from movement (instant stop/start)'
+    Tooltip = '>_<'
 })
 
 -- === Yaw Locker (Player tab, новая секция) ===
@@ -1818,17 +1892,17 @@ local function setYawLocker(state)
     end
 end
 
-YawLockerGroup:AddToggle('YawLocker', {
-    Text = 'Yaw Locker',
+addToggleWithNotify(YawLockerGroup, 'YawLocker', {
+    Text = 'YawLock',
     Default = false,
     Callback = function(v)
         setYawLocker(v)
     end,
-    Tooltip = 'Locks your yaw (horizontal rotation) to the selected angle.'
+    Tooltip = '>_<'
 })
 
 YawLockerGroup:AddDropdown('YawLockerMode', {
-    Text = 'Yaw Mode',
+    Text = 'Mode',
     Values = YawLockerConfig.Modes,
     Default = 'Locked',
     Callback = function(val)
@@ -1836,11 +1910,11 @@ YawLockerGroup:AddDropdown('YawLockerMode', {
         yawJitterState = 1
         yawJitterTimer = 0
     end,
-    Tooltip = 'Yaw lock mode: Locked, Jitter, 3 Ways, 5 Ways'
+    Tooltip = '>_<'
 })
 
 YawLockerGroup:AddSlider('YawLockerAngle', {
-    Text = 'Yaw Angle',
+    Text = 'Angle',
     Default = 0,
     Min = 0,
     Max = 360,
@@ -1848,26 +1922,26 @@ YawLockerGroup:AddSlider('YawLockerAngle', {
     Callback = function(val)
         YawLockerConfig.Angle = val
     end,
-    Tooltip = 'Set the yaw angle (0-360 degrees)'
+    Tooltip = '>_<'
 })
 
 YawLockerGroup:AddToggle('YawLockerAtTarget', {
-    Text = 'At Target',
+    Text = 'AtTarget',
     Default = false,
     Callback = function(v)
         YawLockerConfig.AtTarget = v
     end,
-    Tooltip = 'Apply yaw relative to aimbot target (face away if 180, etc.)'
+    Tooltip = '>_<'
 })
 
 YawLockerGroup:AddToggle('YawLockerDisableAutoRotate', {
-    Text = 'Disable AutoRotate',
+    Text = 'DisableAutoRotate',
     Default = false,
     Callback = function(v)
         YawLockerConfig.DisableAutoRotate = v
         applyYawLockerAutoRotate()
     end,
-    Tooltip = 'Disables Humanoid.AutoRotate (prevents Roblox from rotating you automatically)'
+    Tooltip = '>_<'
 })
 LP.CharacterAdded:Connect(function(char)
     if YawLockerConfig.Enabled or YawLockerConfig.DisableAutoRotate then
@@ -1876,26 +1950,34 @@ LP.CharacterAdded:Connect(function(char)
 end)
 
 -- === AnimBreaker (Player tab, новая секция) ===
-local AnimBreakerGroup = Tabs.Player:AddRightGroupbox('AnimBreaker')
+local AnimBreakerGroup = Tabs.Player:AddRightGroupbox('>_<')
 
-local AnimBreakerSettings = {
+-- Глобальные переменные и настройки для AnimBreaker
+getgenv().AnimBreakerSettings = {
     enabled = false,
     delayTime = 0.4,
-    stepSize = 0.4
+    stepSize = 0.4,
+    customAnimEnabled = false,
+    customAnimId = "10714340543",
+    persistAfterDeath = true -- Продолжать работу после смерти
 }
 
-local animBreakerTracks = {}
-local animBreakerAnimatorConn = nil
-local animBreakerHeartbeatConn = nil
-local animBreakerCoroutine = nil
+getgenv().animBreakerTracks = {}
+getgenv().animBreakerAnimatorConn = nil
+getgenv().animBreakerHeartbeatConn = nil
+getgenv().animBreakerCoroutine = nil
+getgenv().customAnimCoroutine = nil
+getgenv().deathConnection = nil
+getgenv().respawnConnection = nil
 
-local function freezeAnimBreakerTrack(track)
+-- Глобальные функции для AnimBreaker
+function freezeAnimBreakerTrack(track)
     if not track or not track.IsPlaying then return end
     track:AdjustSpeed(0)
-    animBreakerTracks[track] = true
+    getgenv().animBreakerTracks[track] = true
 end
 
-local function restoreAnimations(character)
+function restoreAnimations(character)
     local humanoid = character and character:FindFirstChildOfClass('Humanoid')
     if not humanoid then return end
     
@@ -1903,85 +1985,305 @@ local function restoreAnimations(character)
     if not animator then return end
     
     for _, track in pairs(animator:GetPlayingAnimationTracks()) do
-        if animBreakerTracks[track] then
+        if getgenv().animBreakerTracks[track] then
             track:AdjustSpeed(1) -- Восстанавливаем нормальную скорость
-            animBreakerTracks[track] = nil
+            getgenv().animBreakerTracks[track] = nil
         end
     end
     
-    if animBreakerAnimatorConn then 
-        animBreakerAnimatorConn:Disconnect()
-        animBreakerAnimatorConn = nil
+    if getgenv().animBreakerAnimatorConn then 
+        getgenv().animBreakerAnimatorConn:Disconnect()
+        getgenv().animBreakerAnimatorConn = nil
+    end
+    
+    -- Восстанавливаем анимацию персонажа
+    if humanoid:FindFirstChild("Animate") then
+        humanoid.Animate.Disabled = false
     end
 end
 
-local function setupAnimBreakerCharacter(character)
-    if not AnimBreakerSettings.enabled then return end -- Не устанавливаем, если функция отключена
+function playCustomAnimation(character, withLags)
+    if not character then return end
+    
+    -- Проверяем, существует ли персонаж
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+    
+    -- Добавляем обработчик события смерти для перезапуска анимации
+    if not getgenv().deathConnection and humanoid then
+        getgenv().deathConnection = humanoid.Died:Connect(function()
+            -- Сохраняем труп для проигрывания анимации на нем
+            local deadCharacter = character
+            
+            -- Продолжаем проигрывать анимацию на трупе
+            task.spawn(function()
+                if getgenv().AnimBreakerSettings.customAnimEnabled and deadCharacter then
+                    -- Пытаемся проиграть анимацию на трупе
+                    local animator = deadCharacter:FindFirstChildOfClass("Humanoid") and 
+                                    deadCharacter:FindFirstChildOfClass("Humanoid"):FindFirstChildOfClass("Animator")
+                    
+                    if animator then
+                        local animation = Instance.new("Animation")
+                        animation.AnimationId = "rbxassetid://" .. getgenv().AnimBreakerSettings.customAnimId
+                        
+                        pcall(function()
+                            local track = animator:LoadAnimation(animation)
+                            if track then
+                                track:Play()
+                                track.Looped = true
+                            end
+                        end)
+                    end
+                end
+            end)
+            
+            -- Также настраиваем анимацию для нового персонажа после респавна
+            task.spawn(function()
+                task.wait(1) -- Даем время на респавн
+                if getgenv().AnimBreakerSettings.customAnimEnabled then
+                    local newCharacter = LP.Character or LP.CharacterAdded:Wait()
+                    if newCharacter and newCharacter ~= deadCharacter then
+                        playCustomAnimation(newCharacter, getgenv().AnimBreakerSettings.enabled)
+                    end
+                end
+            end)
+        end)
+    end
+    
+    local animator = humanoid:FindFirstChildOfClass("Animator")
+    if not animator then return end
+    
+    -- Отменяем предыдущую корутину
+    if getgenv().customAnimCoroutine then
+        task.cancel(getgenv().customAnimCoroutine)
+        getgenv().customAnimCoroutine = nil
+    end
+    
+    -- Создаем новую корутину для проигрывания анимации
+    getgenv().customAnimCoroutine = task.spawn(function()
+        -- Создаем анимацию
+        local animation = Instance.new("Animation")
+        animation.AnimationId = "rbxassetid://" .. getgenv().AnimBreakerSettings.customAnimId
+        
+        -- Загружаем анимацию
+        local animTrack = nil
+        pcall(function()
+            animTrack = animator:LoadAnimation(animation)
+        end)
+        
+        -- Если не удалось загрузить, пробуем еще раз
+        if not animTrack then
+            task.wait(0.1)
+            pcall(function()
+                animTrack = animator:LoadAnimation(animation)
+            end)
+        end
+        
+        -- Проигрываем анимацию, если удалось загрузить
+        if animTrack then
+            animTrack:Play()
+            
+            -- Если включен режим с лагами (AnimBreaker + CustomAnim)
+            if withLags then
+                -- Создаем эффект лагов, меняя скорость воспроизведения
+                task.spawn(function()
+                    while animTrack.IsPlaying and getgenv().AnimBreakerSettings.customAnimEnabled do
+                        pcall(function()
+                            -- Случайно меняем скорость для эффекта лагов
+                            animTrack:AdjustSpeed(math.random(5, 20) / 10)
+                            
+                            -- Иногда перемещаем позицию воспроизведения
+                            if math.random() > 0.5 then
+                                animTrack.TimePosition = math.random() * animTrack.Length
+                            end
+                        end)
+                        task.wait(math.random(5, 15) / 100)
+                    end
+                end)
+            else
+                -- Обычное воспроизведение без лагов
+                animTrack:AdjustSpeed(1)
+                animTrack.Looped = true
+            end
+        else
+            -- Запасной метод через RemoteEvent
+            pcall(function()
+                if game:GetService("ReplicatedStorage"):FindFirstChild("MainEvent") then
+                    local args = {
+                        [1] = "PlayAnimation",
+                        [2] = "rbxassetid://" .. getgenv().AnimBreakerSettings.customAnimId
+                    }
+                    game:GetService("ReplicatedStorage").MainEvent:FireServer(unpack(args))
+                end
+            end)
+        end
+    end)
+end
+
+function setupAnimBreakerCharacter(character)
+    if not getgenv().AnimBreakerSettings.enabled then return end
     
     local humanoid = character:WaitForChild("Humanoid")
     local animator = humanoid:WaitForChild("Animator")
-    T.clear(animBreakerTracks)
+    
+    table.clear(getgenv().animBreakerTracks)
+    
     for _, track in pairs(animator:GetPlayingAnimationTracks()) do
         freezeAnimBreakerTrack(track)
     end
-    if animBreakerAnimatorConn then animBreakerAnimatorConn:Disconnect() end
-    animBreakerAnimatorConn = animator.AnimationPlayed:Connect(freezeAnimBreakerTrack)
+    
+    if getgenv().animBreakerAnimatorConn then 
+        getgenv().animBreakerAnimatorConn:Disconnect() 
+    end
+    
+    getgenv().animBreakerAnimatorConn = animator.AnimationPlayed:Connect(freezeAnimBreakerTrack)
 end
 
-local function toggleAnimBreaker(state)
-    AnimBreakerSettings.enabled = state
-    if animBreakerHeartbeatConn then animBreakerHeartbeatConn:Disconnect() animBreakerHeartbeatConn = nil end
-    if animBreakerCoroutine then coroutine.close(animBreakerCoroutine) animBreakerCoroutine = nil end
+function toggleAnimBreaker(state)
+    getgenv().AnimBreakerSettings.enabled = state
+    
+    if getgenv().animBreakerHeartbeatConn then 
+        getgenv().animBreakerHeartbeatConn:Disconnect() 
+        getgenv().animBreakerHeartbeatConn = nil 
+    end
     
     if state then
         if LP.Character then
             setupAnimBreakerCharacter(LP.Character)
         end
         
-        animBreakerHeartbeatConn = HRT:Connect(function()
-            for track in pairs(animBreakerTracks) do
+        getgenv().animBreakerHeartbeatConn = HRT:Connect(function()
+            for track in pairs(getgenv().animBreakerTracks) do
                 if track and track.IsPlaying then
                     track:AdjustSpeed(0)
                 else
-                    animBreakerTracks[track] = nil
+                    getgenv().animBreakerTracks[track] = nil
                 end
             end
         end)
-        animBreakerCoroutine = coroutine.create(function()
-            while AnimBreakerSettings.enabled do
-                for track in pairs(animBreakerTracks) do
+        
+        -- Запускаем отдельную корутину для обновления позиции анимации
+        task.spawn(function()
+            while getgenv().AnimBreakerSettings.enabled do
+                for track in pairs(getgenv().animBreakerTracks) do
                     if track and track.IsPlaying then
-                        track.TimePosition = track.TimePosition + AnimBreakerSettings.stepSize
+                        pcall(function()
+                            track.TimePosition = track.TimePosition + getgenv().AnimBreakerSettings.stepSize
+                        end)
                     end
                 end
-                task.wait(AnimBreakerSettings.delayTime)
+                task.wait(getgenv().AnimBreakerSettings.delayTime)
             end
         end)
-        coroutine.resume(animBreakerCoroutine)
     else
         -- Восстанавливаем нормальные анимации при отключении
         if LP.Character then
             restoreAnimations(LP.Character)
         end
     end
+    
+    -- Обновляем состояние кастомной анимации при изменении AnimBreaker
+    updateCustomAnimationState()
 end
 
-LP.CharacterAdded:Connect(function(character)
-    if AnimBreakerSettings.enabled then
+function toggleCustomAnimation(state)
+    getgenv().AnimBreakerSettings.customAnimEnabled = state
+    
+    -- Очищаем предыдущие соединения смерти
+    if getgenv().deathConnection then
+        getgenv().deathConnection:Disconnect()
+        getgenv().deathConnection = nil
+    end
+    
+    if state and LP.Character then
+        -- Запускаем анимацию с лагами или без в зависимости от состояния AnimBreaker
+        local withLags = getgenv().AnimBreakerSettings.enabled
+        playCustomAnimation(LP.Character, withLags)
+    else
+        -- Останавливаем корутину кастомной анимации
+        if getgenv().customAnimCoroutine then
+            task.cancel(getgenv().customAnimCoroutine)
+            getgenv().customAnimCoroutine = nil
+        end
+        
+        -- Останавливаем все анимации с нашим ID на всех персонажах в игре
+        -- Это нужно, чтобы очистить анимации, которые могли остаться после смерти
+        for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+            if player.Character then
+                local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    local animator = humanoid:FindFirstChildOfClass("Animator")
+                    if animator then
+                        for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                            if track.Animation and track.Animation.AnimationId and 
+                               track.Animation.AnimationId:find(getgenv().AnimBreakerSettings.customAnimId) then
+                                track:Stop()
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Обновляем состояние кастомной анимации при изменении AnimBreaker
+function updateCustomAnimationState()
+    if getgenv().AnimBreakerSettings.customAnimEnabled and LP.Character then
+        -- Перезапускаем анимацию с новыми параметрами
+        local withLags = getgenv().AnimBreakerSettings.enabled
+        
+        -- Останавливаем все текущие анимации
+        local humanoid = LP.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            local animator = humanoid:FindFirstChildOfClass("Animator")
+            if animator then
+                for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                    if track.Animation and track.Animation.AnimationId and 
+                       track.Animation.AnimationId:find(getgenv().AnimBreakerSettings.customAnimId) then
+                        track:Stop()
+                    end
+                end
+            end
+        end
+        
+        -- Запускаем с новыми параметрами
+        playCustomAnimation(LP.Character, withLags)
+    end
+end
+
+-- Глобальный обработчик появления персонажа
+getgenv().respawnConnection = LP.CharacterAdded:Connect(function(character)
+    -- Для AnimBreaker
+    if getgenv().AnimBreakerSettings.enabled then
         setupAnimBreakerCharacter(character)
+    end
+    
+    -- Для CustomAnim - запускаем анимацию после респавна
+    if getgenv().AnimBreakerSettings.customAnimEnabled then
+        -- Даем персонажу немного времени загрузиться
+        task.wait(0.5)
+        playCustomAnimation(character, getgenv().AnimBreakerSettings.enabled)
     end
 end)
 
--- Удаляем безусловный вызов setupAnimBreakerCharacter
--- if LP.Character then setupAnimBreakerCharacter(LP.Character) end
-
-AnimBreakerGroup:AddToggle('AnimBreaker', {
-    Text = 'Anim Breaker',
+addToggleWithNotify(AnimBreakerGroup, 'AnimBreaker', {
+    Text = 'AnimBreaker',
     Default = false,
     Callback = function(v)
         toggleAnimBreaker(v)
     end,
-    Tooltip = 'Breaks your animations (freezes and jitters)'
+    Tooltip = '>_<'
+})
+
+-- Добавляем тогл для кастомной анимации
+addToggleWithNotify(AnimBreakerGroup, 'CustomAnimation', {
+    Text = 'CustomAnim',
+    Default = false,
+    Callback = function(v)
+        toggleCustomAnimation(v)
+    end,
+    Tooltip = '>_<'
 })
 
 -- === RapidFireGunScript (Player tab, новая секция) ===
@@ -2047,8 +2349,8 @@ local function disableRapidFireGunScript()
     Traced.RapidFire = false
 end
 
-RapidFireGunScriptGroup:AddToggle('RapidFireGunScript', {
-    Text = 'Rapid Fire GunScript Method',
+addToggleWithNotify(RapidFireGunScriptGroup, 'RapidFireGunScript', {
+    Text = 'RapidFireGunScript',
     Default = false,
     Callback = function(v)
         if v then
@@ -2057,7 +2359,7 @@ RapidFireGunScriptGroup:AddToggle('RapidFireGunScript', {
             disableRapidFireGunScript()
         end
     end,
-    Tooltip = 'Patch GunScript for instant fire.'
+    Tooltip = '>_<'
 })
 
 -- === RapidFireM1Spam (Player tab, новая секция) ===
@@ -2126,8 +2428,8 @@ local function disableRapidFireM1()
     G.rapidFireM1Firing = false
 end
 
-RapidFireM1Group:AddToggle('RapidFireM1Spam', {
-    Text = 'Rapid Fire M1 Spam',
+addToggleWithNotify(RapidFireM1Group, 'RapidFireM1Spam', {
+    Text = 'RapidFireM1',
     Default = false,
     Callback = function(v)
         if v then
@@ -2136,7 +2438,7 @@ RapidFireM1Group:AddToggle('RapidFireM1Spam', {
             disableRapidFireM1()
         end
     end,
-    Tooltip = 'Auto spam Mouse1 (tool activation)'
+    Tooltip = '>_<'
 })
 
 -- === Destroy Cheaters (Misc tab, новая левая секция) ===
@@ -2154,10 +2456,10 @@ local function setDestroyCheatersActive(state)
     getgenv().Finobe1 = state
     if not state and LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') and destroyCheatersLastCFrame then
         LP.Character.HumanoidRootPart.CFrame = destroyCheatersLastCFrame
-        Library:Notify('Destroy Cheaters: Disabled', 3)
+        Library:Notify('>_< off', 3)
     elseif state then
         destroyCheatersLastCFrame = nil
-        Library:Notify('Destroy Cheaters: Enabled', 3)
+        Library:Notify('>_< on', 3)
     end
 end
 
@@ -2197,8 +2499,8 @@ destroyCheatersKeyConn = S.UIS.InputBegan:Connect(function(input, gp)
     end
 end)
 
-DestroyCheatersGroup:AddToggle('DestroyCheaters', {
-    Text = 'Destroy Cheaters',
+addToggleWithNotify(DestroyCheatersGroup, 'DestroyCheaters', {
+    Text = 'DestroyCheaters',
     Default = false,
     Callback = function(v)
         destroyCheatersEnabled = v
@@ -2206,10 +2508,10 @@ DestroyCheatersGroup:AddToggle('DestroyCheaters', {
             setDestroyCheatersActive(false)
         end
     end,
-    Tooltip = 'Enable keybind to toggle anti-exploit position breaker.'
+    Tooltip = '>_<'
 }):AddKeyPicker('DestroyCheatersKey', {
     Default = 'X',
-    Text = 'Destroy Cheaters Key',
+    Text = 'DestroyCheatersKey',
     NoUI = false,
     Callback = function(key)
         destroyCheatersKey = Enum.KeyCode[key] or Enum.KeyCode.X
@@ -2217,12 +2519,12 @@ DestroyCheatersGroup:AddToggle('DestroyCheaters', {
 })
 
 DestroyCheatersGroup:AddButton({
-    Text = 'Destroy Void',
+    Text = 'DestroyVoid',
     Func = function()
         S.WS.FallenPartsDestroyHeight = 0/0
-        Library:Notify('Void destroyed!', 3)
+        Library:Notify('>_<', 3)
     end,
-    Tooltip = 'Set FallenPartsDestroyHeight to NaN'
+    Tooltip = '>_<'
 })
 
 -- === Silent Aim (Combat tab, новая секция) ===
@@ -2235,6 +2537,7 @@ getgenv().SilentAim = {
         StickyKey = Enum.KeyCode.Q,
         AutoAir = false, -- Добавлена новая опция AutoAir
         MagicBullet = false, -- Добавлена опция Magic Bullet
+        ViewTarget = false, -- Добавлена опция View Target
     },
     Silent = {
         PredictionXZ = 0.12362,
@@ -2269,8 +2572,8 @@ getgenv().SilentAim = {
 }
 
 -- UI для Silent Aim
-SilentAimGroup:AddToggle('SilentAimEnabled', {
-    Text = 'Silent Aim',
+addToggleWithNotify(SilentAimGroup, 'SilentAimEnabled', {
+    Text = 'Ragebot',
     Default = false,
     Callback = function(v) 
         getgenv().SilentAim.Options.Enabled = v 
@@ -2282,8 +2585,8 @@ SilentAimGroup:AddDropdown('SilentAimMode', {
     Default = 'Nuker',
     Callback = function(v) getgenv().SilentAim.Options.Mode = v end
 })
-SilentAimGroup:AddToggle('SilentAimAutoAir', {
-    Text = 'Auto Air',
+addToggleWithNotify(SilentAimGroup, 'SilentAimAutoAir', {
+    Text = 'AutoAir',
     Default = false,
     Callback = function(v) 
         getgenv().SilentAim.Options.AutoAir = v 
@@ -2309,17 +2612,33 @@ SilentAimGroup:AddToggle('SilentAimAutoAir', {
             end
         end
     end,
-    Tooltip = 'Automatically shoots when target is in the air'
+    Tooltip = '>_<'
 })
 
 -- Добавляем Magic Bullet
-SilentAimGroup:AddToggle('SilentAimMagicBullet', {
-    Text = 'Magic Bullet',
+addToggleWithNotify(SilentAimGroup, 'SilentAimMagicBullet', {
+    Text = 'MagicBullet',
     Default = false,
     Callback = function(v) 
         getgenv().SilentAim.Options.MagicBullet = v 
     end,
-    Tooltip = 'Automatically shoots at aimbot target through walls'
+    Tooltip = '>_<'
+})
+
+-- Добавляем View Target
+addToggleWithNotify(SilentAimGroup, 'SilentAimViewTarget', {
+    Text = 'View',
+    Default = false,
+    Callback = function(v) 
+        getgenv().SilentAim.Options.ViewTarget = v 
+        -- Восстанавливаем камеру при выключении
+        if not v then
+            if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") then
+                game:GetService("Workspace").CurrentCamera.CameraSubject = LP.Character:FindFirstChildOfClass("Humanoid")
+            end
+        end
+    end,
+    Tooltip = '>_<'
 })
 
 -- Настройки Magic Bullet
@@ -2332,54 +2651,54 @@ MagicBulletGroup:AddSlider('MagicBulletRange', {
     Callback = function(v) 
         getgenv().SilentAim.MagicBullet.Range = tonumber(v) or 10000
     end,
-    Tooltip = 'Maximum distance for Magic Bullet'
+    Tooltip = '>_<'
 })
 
 MagicBulletGroup:AddToggle('MagicBulletIgnoreKO', {
-    Text = 'Ignore KO Check',
+    Text = 'IgnoreKO',
     Default = false,
     Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreKO = v end,
-    Tooltip = 'Shoot at knocked out targets'
+    Tooltip = '>_<'
 })
 
 MagicBulletGroup:AddToggle('MagicBulletIgnoreGrabbed', {
-    Text = 'Ignore Grabbed Check',
+    Text = 'IgnoreGrabbed',
     Default = false,
     Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreGrabbed = v end,
-    Tooltip = 'Shoot at grabbed targets'
+    Tooltip = '>_<'
 })
 
 MagicBulletGroup:AddToggle('MagicBulletIgnoreForceField', {
-    Text = 'ForceField Check',
+    Text = 'ForceField',
     Default = true,
     Callback = function(v) getgenv().SilentAim.MagicBullet.IgnoreForceField = v end,
-    Tooltip = 'Do not shoot at targets with forcefield'
+    Tooltip = '>_<'
 })
 
 MagicBulletGroup:SetupDependencies({{Toggles.SilentAimMagicBullet, true}})
 SilentAimGroup:AddInput('SilentAimPredictionXZ', {
-    Text = 'Prediction XZ',
+    Text = 'PredictionXZ',
     Default = tostring(getgenv().SilentAim.Silent.PredictionXZ),
     Numeric = true,
     Finished = true,
     Callback = function(val) local n = tonumber(val); if n then getgenv().SilentAim.Silent.PredictionXZ = n end end
 })
 SilentAimGroup:AddInput('SilentAimPredictionY', {
-    Text = 'Prediction Y',
+    Text = 'PredictionY',
     Default = tostring(getgenv().SilentAim.Silent.PredictionY),
     Numeric = true,
     Finished = true,
     Callback = function(val) local n = tonumber(val); if n then getgenv().SilentAim.Silent.PredictionY = n end end
 })
 SilentAimGroup:AddInput('SilentAimJumpOffset', {
-    Text = 'Jump Offset',
+    Text = 'JumpOffset',
     Default = tostring(getgenv().SilentAim.Silent.Offsets.Jump.Amount),
     Numeric = true,
     Finished = true,
     Callback = function(val) local n = tonumber(val); if n then getgenv().SilentAim.Silent.Offsets.Jump.Amount = n end end
 })
 SilentAimGroup:AddInput('SilentAimFallOffset', {
-    Text = 'Fall Offset',
+    Text = 'FallOffset',
     Default = tostring(getgenv().SilentAim.Silent.Offsets.Fall.Amount),
     Numeric = true,
     Finished = true,
@@ -2387,7 +2706,7 @@ SilentAimGroup:AddInput('SilentAimFallOffset', {
 })
 SilentAimGroup:AddLabel('Sticky Key'):AddKeyPicker('SilentAimStickyKey', {
     Default = 'Q',
-    Text = 'Sticky Key',
+    Text = 'StickyKey',
     NoUI = false,
     Callback = function(key)
         if typeof(key) == "EnumItem" then
@@ -2402,22 +2721,22 @@ SilentAimGroup:AddLabel('Sticky Key'):AddKeyPicker('SilentAimStickyKey', {
 
 -- ... существующий UI для Silent Aim ...
 SilentAimGroup:AddToggle('SilentAimWallCheck', {
-    Text = 'Wall Check',
+    Text = 'WallCheck',
     Default = false,
     Callback = function(v) getgenv().SilentAim.Misc.Checks.WallCheck = v end
 })
 SilentAimGroup:AddToggle('SilentAimKOCheck', {
-    Text = 'KO Check',
+    Text = 'KOCheck',
     Default = false,
     Callback = function(v) getgenv().SilentAim.Misc.Checks.KOCheck = v end
 })
 SilentAimGroup:AddToggle('SilentAimGrabbedCheck', {
-    Text = 'Grabbed Check',
+    Text = 'GrabbedCheck',
     Default = false,
     Callback = function(v) getgenv().SilentAim.Misc.Checks.GrabbedCheck = v end
 })
 SilentAimGroup:AddToggle('SilentAimTargetDeathCheck', {
-    Text = 'Target Death Check',
+    Text = 'DeathCheck',
     Default = false,
     Callback = function(v) getgenv().SilentAim.Misc.Checks.TargetDeathCheck = v end
 })
@@ -2428,14 +2747,14 @@ SilentAimGroup:AddToggle('SilentAimResolverEnabled', {
 })
 
 SilentAimGroup:AddDropdown('SilentAimResolverType', {
-    Text = 'Resolver Type',
+    Text = 'ResolverType',
     Values = {'Calculate CFrame', 'Velocity', 'Move direction'},
     Default = getgenv().SilentAim.Misc.Checks.Resolver.Type,
     Callback = function(v) getgenv().SilentAim.Misc.Checks.Resolver.Type = v end
 })
 
 SilentAimGroup:AddDropdown('SilentAimPart', {
-    Text = 'Aim Part',
+    Text = 'Hitpart',
     Values = {'HumanoidRootPart', 'UpperTorso', 'LowerTorso', 'Head'},
     Default = getgenv().SilentAim.Silent.Part,
     Callback = function(v) getgenv().SilentAim.Silent.Part = v end
@@ -2573,16 +2892,18 @@ if not getgenv().Loaded_SilentAim then
     end
 
     local function getGun(player)
-        if not player.Character then return end
+        if not player or not player.Character then return end
         local tool = player.Character:FindFirstChildOfClass("Tool")
         if not tool then return end
         local info = {}
         for _, obj in pairs(tool:GetDescendants()) do
-            local name = STR.lower(obj.Name)
-            if name:find("ammo") and not name:find("max") and (obj:IsA("IntValue") or obj:IsA("NumberValue")) then
-                info.ammo = obj
-                info.tool = tool
-                return info
+            if obj and obj.Name then
+                local name = STR.lower(obj.Name)
+                if name:find("ammo") and not name:find("max") and (obj:IsA("IntValue") or obj:IsA("NumberValue")) then
+                    info.ammo = obj
+                    info.tool = tool
+                    return info
+                end
             end
         end
     end
@@ -2599,8 +2920,12 @@ if not getgenv().Loaded_SilentAim then
         if not humanoid then return end
         
         -- Проверяем состояние humanoid или скорость по Y
-        local isInAir = humanoid:GetState() == Enum.HumanoidStateType.Jumping or 
-                        humanoid:GetState() == Enum.HumanoidStateType.Freefall
+        local success, isInAir = pcall(function()
+            return humanoid:GetState() == Enum.HumanoidStateType.Jumping or 
+                   humanoid:GetState() == Enum.HumanoidStateType.Freefall
+        end)
+        
+        if not success then isInAir = false end
         
         local targetVel = calculateVelocity(target)
         local isMovingUp = targetVel.Y > 15
@@ -2612,7 +2937,7 @@ if not getgenv().Loaded_SilentAim then
             local tool = character:FindFirstChildOfClass("Tool")
             if tool then
                 G.autoAirDebounce = true
-                tool:Activate() -- Активировать оружие (выстрел)
+                pcall(function() tool:Activate() end) -- Активировать оружие (выстрел) с защитой
                 
                 -- Сбрасываем дебаунс через указанное время
                 task.delay(G.autoAirDebounceTime, function()
@@ -2721,6 +3046,22 @@ if not getgenv().Loaded_SilentAim then
             currentTarget = getClosestPlayer()
         end
         SilentAim.currentTarget = currentTarget
+        
+        -- Обработка View Target
+        pcall(function()
+            if SilentAim.Options.ViewTarget and currentTarget and currentTarget.Character then
+                local targetHumanoid = currentTarget.Character:FindFirstChildOfClass("Humanoid")
+                if targetHumanoid then
+                    game:GetService("Workspace").CurrentCamera.CameraSubject = targetHumanoid
+                end
+            elseif not SilentAim.Options.ViewTarget and LP.Character then
+                -- Возвращаем камеру к игроку, если View Target выключен
+                local playerHumanoid = LP.Character:FindFirstChildOfClass("Humanoid")
+                if playerHumanoid then
+                    game:GetService("Workspace").CurrentCamera.CameraSubject = playerHumanoid
+                end
+            end
+        end)
         
             -- Проверка AutoAir для текущей цели - ограничиваем частоту вызовов
     if SilentAim.Options.AutoAir and currentTarget and tick() % 0.2 < 0.02 then
@@ -2975,7 +3316,7 @@ local function createCrosshair()
     end)
 end
 
-CrosshairGroup:AddToggle('CrosshairEnabled', {
+addToggleWithNotify(CrosshairGroup, 'CrosshairEnabled', {
     Text = 'Crosshair',
     Default = false,
     Callback = function(v)
@@ -3013,8 +3354,8 @@ CrosshairGroup:AddSlider('CrosshairRotSpeed', {
     Min = 0, Max = 1000, Rounding = 0,
     Callback = function(val) CrosshairConfig.RotSpeed = val end
 })
-CrosshairGroup:AddToggle('CrosshairRotate', {
-    Text = 'Rotate',
+addToggleWithNotify(CrosshairGroup, 'CrosshairRotate', {
+    Text = 'Spin',
     Default = CrosshairConfig.Rotate,
     Callback = function(v)
         CrosshairConfig.Rotate = v
@@ -3023,7 +3364,7 @@ CrosshairGroup:AddToggle('CrosshairRotate', {
         end
     end
 })
-CrosshairGroup:AddToggle('CrosshairOutline', {
+addToggleWithNotify(CrosshairGroup, 'CrosshairOutline', {
     Text = 'Outline',
     Default = CrosshairConfig.Outline,
     Callback = function(v)
@@ -3033,28 +3374,28 @@ CrosshairGroup:AddToggle('CrosshairOutline', {
 })
 :AddColorPicker('CrosshairOutlineColor', {
     Default = CrosshairConfig.OutlineColor,
-    Title = 'Outline Color',
+    Title = 'Color',
     Callback = function(val) CrosshairConfig.OutlineColor = val end
 })
 CrosshairGroup:AddSlider('CrosshairOutlineThickness', {
-    Text = 'Outline Th.',
+    Text = 'OutlineThick',
     Default = CrosshairConfig.OutlineThickness,
     Min = 1, Max = 20, Rounding = 0,
     Callback = function(val) CrosshairConfig.OutlineThickness = val end
 })
 
-CrosshairGroup:AddToggle('CrosshairAttachToTarget', {
-    Text = 'Attach to Target',
+addToggleWithNotify(CrosshairGroup, 'CrosshairAttachToTarget', {
+    Text = 'AttachTarget',
     Default = false,
     Callback = function(v) CrosshairConfig.AttachToTarget = v end,
-    Tooltip = 'Crosshair attaches to target (SilentAim)' 
+    Tooltip = '>_<' 
 })
 CrosshairGroup:AddDropdown('CrosshairAttachPart', {
-    Text = 'Attach Part',
+    Text = 'Part',
     Values = {'UpperTorso', 'HumanoidRootPart', 'Head', 'LowerTorso'},
     Default = 'UpperTorso',
     Callback = function(val) CrosshairConfig.AttachPart = val end,
-    Tooltip = 'Which part of the target to attach the crosshair to'
+    Tooltip = '>_<'
 })
 
 CrosshairGroup:AddSlider('CrosshairAngle', {
@@ -3192,11 +3533,11 @@ local function PlayHitSound(config)
 end
 
 local HitChamsGroup = Tabs.Combat:AddRightGroupbox('>_<')
-local HitChamsToggle = HitChamsGroup:AddToggle('HitChamsEnabled', {
-    Text = 'HitChams',
+local HitChamsToggle = addToggleWithNotify(HitChamsGroup, 'HitChamsEnabled', {
+    Text = 'Chams',
     Default = false,
     Callback = function(v) HitChamsConfig.Enabled = v end,
-    Tooltip = 'Show chams on aimbot target when HP decreases.'
+    Tooltip = '>_<'
 })
 :AddColorPicker('HitChamsColor', {
     Default = Color3.fromRGB(255,255,255), -- белый по умолчанию
@@ -3230,11 +3571,11 @@ HitChamsSub:AddDropdown('HitChamsMaterial', {
 HitChamsSub:SetupDependencies({{Toggles.HitChamsEnabled, true}})
 
 -- Тоггл и саббокс для HitSounds
-local HitSoundsToggle = HitChamsGroup:AddToggle('HitSoundsEnabled', {
-    Text = 'HitSounds',
+local HitSoundsToggle = addToggleWithNotify(HitChamsGroup, 'HitSoundsEnabled', {
+    Text = 'Sounds',
     Default = false,
     Callback = function(v) HitSoundsConfig.Enabled = v end,
-    Tooltip = 'Play sound on aimbot hit.'
+    Tooltip = '>_<'
 })
 local HitSoundsSub = HitChamsGroup:AddDependencyBox()
 HitSoundsSub:AddDropdown('HitSoundsSound', {
@@ -3288,8 +3629,8 @@ local CombatTracerConfig = {
 }
 local combatTracerLine = nil
 
-HitChamsGroup:AddToggle('CombatTracerEnabled', {
-    Text = 'TracerToTarget',
+addToggleWithNotify(HitChamsGroup, 'CombatTracerEnabled', {
+    Text = 'Tracer',
     Default = false,
     Callback = function(v)
         CombatTracerConfig.Enabled = v
@@ -3367,20 +3708,30 @@ local HitEffectsConfig = {
     Color = Color3.fromRGB(255,255,255), -- белый по умолчанию
 }
 local hitEffectsTypes = {'Nova', 'Crescent Slash', 'Coom', 'Cosmic Explosion', 'Slash', 'Atomic Slash'}
-local HitEffectsToggle = HitChamsGroup:AddToggle('HitEffectsEnabled', {
+
+-- Настройки для Highlight
+local HighlightConfig = {
+    Enabled = false,
+    OutlineColor = Color3.fromRGB(255, 0, 0), -- красный контур по умолчанию
+    FillColor = Color3.fromRGB(255, 0, 0), -- красная заливка
+    OutlineTransparency = 0, -- непрозрачный контур
+    FillTransparency = 0.5, -- полупрозрачная заливка
+    CurrentHighlight = nil
+}
+local HitEffectsToggle = addToggleWithNotify(HitChamsGroup, 'HitEffectsEnabled', {
     Text = 'HitEffects',
     Default = false,
     Callback = function(v) HitEffectsConfig.Enabled = v end,
-    Tooltip = 'Enable visual effects on target when damaged.'
+    Tooltip = '>_<'
 })
 :AddColorPicker('HitEffectsColor', {
     Default = Color3.fromRGB(255,255,255), -- белый по умолчанию
-    Title = 'Effect Color',
+    Title = 'Color',
     Callback = function(val) HitEffectsConfig.Color = val end
 })
 local HitEffectsSub = HitChamsGroup:AddDependencyBox()
 HitEffectsSub:AddDropdown('HitEffectsType', {
-    Text = 'Effect Type',
+    Text = 'EffectType',
     Values = hitEffectsTypes,
     Default = HitEffectsConfig.Type,
     Callback = function(val) HitEffectsConfig.Type = val end
@@ -3395,11 +3746,11 @@ local HitNotificationsConfig = {
     ShowRemaining = true
 }
 
-local HitNotificationsToggle = HitChamsGroup:AddToggle('HitNotificationsEnabled', {
+local HitNotificationsToggle = addToggleWithNotify(HitChamsGroup, 'HitNotificationsEnabled', {
     Text = 'HitNotifications',
     Default = false,
     Callback = function(v) HitNotificationsConfig.Enabled = v end,
-    Tooltip = 'Show notifications about damage dealt to target.'
+    Tooltip = '>_<'
 })
 
 local HitNotificationsSub = HitChamsGroup:AddDependencyBox()
@@ -3420,6 +3771,80 @@ HitNotificationsSub:AddToggle('HitNotificationsShowRemaining', {
     Callback = function(v) HitNotificationsConfig.ShowRemaining = v end
 })
 HitNotificationsSub:SetupDependencies({{Toggles.HitNotificationsEnabled, true}})
+
+-- Добавляем Highlight
+local HighlightToggle = addToggleWithNotify(HitChamsGroup, 'HighlightEnabled', {
+    Text = 'Highlight',
+    Default = false,
+    Callback = function(v) 
+        HighlightConfig.Enabled = v 
+        
+        -- Удаляем существующий хайлайт при выключении
+        if not v and HighlightConfig.CurrentHighlight then
+            pcall(function()
+                HighlightConfig.CurrentHighlight:Destroy()
+                HighlightConfig.CurrentHighlight = nil
+            end)
+        end
+    end,
+    Tooltip = '>_<'
+})
+
+local HighlightSub = HitChamsGroup:AddDependencyBox()
+
+-- Добавляем колорпикеры для цветов контура и заливки
+HighlightSub:AddLabel('Outline Color'):AddColorPicker('HighlightOutlineColor', {
+    Default = HighlightConfig.OutlineColor,
+    Title = 'Outline',
+    Callback = function(val) 
+        HighlightConfig.OutlineColor = val 
+        -- Обновляем цвет, если хайлайт активен
+        if HighlightConfig.CurrentHighlight then
+            HighlightConfig.CurrentHighlight.OutlineColor = val
+        end
+    end
+})
+
+HighlightSub:AddLabel('Fill Color'):AddColorPicker('HighlightFillColor', {
+    Default = HighlightConfig.FillColor,
+    Title = 'Fill',
+    Callback = function(val) 
+        HighlightConfig.FillColor = val 
+        -- Обновляем цвет, если хайлайт активен
+        if HighlightConfig.CurrentHighlight then
+            HighlightConfig.CurrentHighlight.FillColor = val
+        end
+    end
+})
+
+-- Добавляем слайдеры для прозрачности
+HighlightSub:AddSlider('HighlightOutlineTransparency', {
+    Text = 'Outline Transparency',
+    Default = HighlightConfig.OutlineTransparency,
+    Min = 0, Max = 1, Rounding = 2,
+    Callback = function(val) 
+        HighlightConfig.OutlineTransparency = val 
+        -- Обновляем прозрачность, если хайлайт активен
+        if HighlightConfig.CurrentHighlight then
+            HighlightConfig.CurrentHighlight.OutlineTransparency = val
+        end
+    end
+})
+
+HighlightSub:AddSlider('HighlightFillTransparency', {
+    Text = 'Fill Transparency',
+    Default = HighlightConfig.FillTransparency,
+    Min = 0, Max = 1, Rounding = 2,
+    Callback = function(val) 
+        HighlightConfig.FillTransparency = val 
+        -- Обновляем прозрачность, если хайлайт активен
+        if HighlightConfig.CurrentHighlight then
+            HighlightConfig.CurrentHighlight.FillTransparency = val
+        end
+    end
+})
+
+HighlightSub:SetupDependencies({{Toggles.HighlightEnabled, true}})
 
 -- 3. Загрузка библиотеки эффектов (один раз)
 G.HitEffectsLib = nil
@@ -3442,6 +3867,57 @@ end
 -- 4. Вызов эффекта при уроне цели (в том же месте, где HitChams/HitSounds)
 local lastTarget, lastHP = nil, nil
 -- Используем G.lastDamageTick вместо локальной переменной
+
+-- Функция для управления хайлайтом цели
+G.updateHighlight = function(target)
+    -- Если хайлайт выключен, удаляем существующий и выходим
+    if not HighlightConfig.Enabled then
+        if HighlightConfig.CurrentHighlight then
+            pcall(function()
+                HighlightConfig.CurrentHighlight:Destroy()
+                HighlightConfig.CurrentHighlight = nil
+            end)
+        end
+        return
+    end
+    
+    -- Если нет цели или её персонажа, удаляем хайлайт
+    if not target or not target.Character then
+        if HighlightConfig.CurrentHighlight then
+            pcall(function()
+                HighlightConfig.CurrentHighlight:Destroy()
+                HighlightConfig.CurrentHighlight = nil
+            end)
+        end
+        return
+    end
+    
+    -- Если хайлайт уже существует, проверяем, нужно ли его переместить на новую цель
+    if HighlightConfig.CurrentHighlight then
+        if HighlightConfig.CurrentHighlight.Parent ~= target.Character then
+            -- Если цель изменилась, удаляем старый хайлайт
+            pcall(function()
+                HighlightConfig.CurrentHighlight:Destroy()
+                HighlightConfig.CurrentHighlight = nil
+            end)
+        end
+    end
+    
+    -- Если хайлайта нет, создаем новый
+    if not HighlightConfig.CurrentHighlight then
+        pcall(function()
+            local highlight = Instance.new("Highlight")
+            highlight.OutlineColor = HighlightConfig.OutlineColor
+            highlight.FillColor = HighlightConfig.FillColor
+            highlight.OutlineTransparency = HighlightConfig.OutlineTransparency
+            highlight.FillTransparency = HighlightConfig.FillTransparency
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Parent = target.Character
+            
+            HighlightConfig.CurrentHighlight = highlight
+        end)
+    end
+end
 
 -- Объединяем все эффекты в одну функцию для оптимизации
 G.processHitEffects = function(target)
@@ -3466,27 +3942,27 @@ G.processHitEffects = function(target)
     -- Показываем уведомление о нанесенном уроне
     if HitNotificationsConfig.Enabled and target.Character:FindFirstChild('Humanoid') then
         local hum = target.Character.Humanoid
-        local notifText = target.Name
+        local notifText = ">_<"
         
-        if HitNotificationsConfig.ShowDamage and lastHP then
-            notifText = notifText .. " damaged " .. math.floor(lastHP - hum.Health)
-        end
-        if HitNotificationsConfig.ShowRemaining then
-            notifText = notifText .. " (" .. math.floor(hum.Health) .. " HP)"
-        end
-        
-        Library:Notify(notifText, HitNotificationsConfig.Duration)
+        Library:Notify('>_<', HitNotificationsConfig.Duration)
     end
 end
 
 -- Используем Heartbeat вместо RenderStepped для снижения нагрузки
 HRT:Connect(function()
+    local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget
+    
+    -- Обновляем хайлайт для текущей цели аимбота
+    if HighlightConfig.Enabled then
+        G.updateHighlight(target)
+    end
+    
+    -- Если никакие эффекты при попадании не включены, выходим
     if not HitChamsConfig.Enabled and not HitSoundsConfig.Enabled and not HitEffectsConfig.Enabled and not HitNotificationsConfig.Enabled then
         lastTarget, lastHP = nil, nil
         return
     end
     
-    local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget
     if target and target.Character and target.Character:FindFirstChild('Humanoid') then
         local hum = target.Character.Humanoid
         local hp = hum.Health
@@ -3513,7 +3989,7 @@ G.findRootPart = function(character)
 end
 
 -- === Target Strafe (Combat tab, новая секция) ===
-local TargetStrafeGroup = Tabs.Combat:AddRightGroupbox('>_<')
+local TargetStrafeGroup = Tabs.Combat:AddLeftGroupbox('>_<')
 
 -- Объединяем все переменные в одну таблицу
 local TS = {
@@ -3523,7 +3999,8 @@ local TS = {
         Height = 5,
         Speed = 2,
         Visualise = false,
-        VisualiseColor = Color3.fromRGB(255, 255, 255)
+        VisualiseColor = Color3.fromRGB(255, 255, 255),
+        UseDesync = false -- Новая опция для переключения между режимами
     },
     Runtime = {
         Angle = 0,
@@ -3539,19 +4016,6 @@ local TS = {
 -- Делаем TS доступным глобально
 getgenv().TS = TS
 
--- Добавляем cleanup при завершении скрипта
-game:GetService("Players").LocalPlayer.Character:GetPropertyChangedSignal("Parent"):Connect(function()
-    if TS.Runtime.VisualiseDrawing then
-        cleanupVisualisation()
-    end
-end)
-
-game:GetService("Players").LocalPlayer.Destroying:Connect(function()
-    if TS.Runtime.VisualiseDrawing then
-        cleanupVisualisation()
-    end
-end)
-
 -- Функция для создания FollowPart для камеры
 TS.createFollowPart = function()
     if TS.Runtime.FollowPart and TS.Runtime.FollowPart.Parent then
@@ -3563,12 +4027,12 @@ TS.createFollowPart = function()
     part.Anchored = true
     part.CanCollide = false
     part.Transparency = 1
-    part.Size = V3.new(0.1, 0.1, 0.1)
-    part.Parent = S.WS
+    part.Size = Vector3.new(0.1, 0.1, 0.1)
+    part.Parent = game:GetService("Workspace")
 
     -- Инициализируем начальную позицию
     if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-        part.CFrame = LP.Character.HumanoidRootPart.CFrame + V3.new(0, 2.0, 0)
+        part.CFrame = LP.Character.HumanoidRootPart.CFrame + Vector3.new(0, 2.0, 0)
     end
     
     return part
@@ -3582,7 +4046,7 @@ TS.resetCamera = function()
     end
     
     if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") then
-        S.WS.CurrentCamera.CameraSubject = LP.Character:FindFirstChildOfClass("Humanoid")
+        game:GetService("Workspace").CurrentCamera.CameraSubject = LP.Character:FindFirstChildOfClass("Humanoid")
     end
 end
 
@@ -3590,7 +4054,9 @@ end
 TS.updateVisual = function()
     -- Если визуализация отключена, удаляем трейсер
     if not TS.Config.Visualise or not TS.Runtime.DesyncPosition then
-        if TS.Runtime.VisualiseDrawing then TS.Runtime.VisualiseDrawing.Visible = false end
+        if TS.Runtime.VisualiseDrawing then 
+            TS.Runtime.VisualiseDrawing.Visible = false 
+        end
         return
     end
     
@@ -3602,10 +4068,10 @@ TS.updateVisual = function()
     end
     
     -- Получаем позицию десинка на экране
-    local screenPos, onScreen = S.WS.CurrentCamera:WorldToViewportPoint(TS.Runtime.DesyncPosition)
+    local screenPos, onScreen = game:GetService("Workspace").CurrentCamera:WorldToViewportPoint(TS.Runtime.DesyncPosition)
     
     if onScreen then
-        TS.Runtime.VisualiseDrawing.From = S.UIS:GetMouseLocation()
+        TS.Runtime.VisualiseDrawing.From = game:GetService("UserInputService"):GetMouseLocation()
         TS.Runtime.VisualiseDrawing.To = Vector2.new(screenPos.X, screenPos.Y)
         TS.Runtime.VisualiseDrawing.Color = TS.Config.VisualiseColor
         TS.Runtime.VisualiseDrawing.Visible = true
@@ -3622,9 +4088,9 @@ TS.cleanupVisual = function()
     end
 end
 
--- Основная функция стрейфа
-local function performTargetStrafe()
-    if not TS.Config.Enabled then 
+-- Основная функция стрейфа с десинком
+local function performTargetStrafeDesync()
+    if not TS.Config.Enabled or not TS.Config.UseDesync then 
         TS.Runtime.DesyncPosition = nil
         
         -- Убедимся, что визуализация скрыта при отключении
@@ -3662,22 +4128,21 @@ local function performTargetStrafe()
         return 
     end
     
+    -- Обновляем угол
+    TS.Runtime.Angle = TS.Runtime.Angle + TS.Config.Speed * HRT:Wait()
+    
+    -- Вычисляем смещение
+    local offset = Vector3.new(
+        math.cos(TS.Runtime.Angle) * TS.Config.Radius,
+        TS.Config.Height,
+        math.sin(TS.Runtime.Angle) * TS.Config.Radius
+    )
+    
     -- Сохраняем оригинальный CFrame
     local originalCFrame = hrp.CFrame
     
     -- Новая позиция вокруг цели
     local targetPos = targetHRP.Position
-    
-    -- Обновляем угол
-    TS.Runtime.Angle = TS.Runtime.Angle + TS.Config.Speed * HRT:Wait()
-    
-    -- Вычисляем смещение
-    local offset = V3.new(
-        M.cos(TS.Runtime.Angle) * TS.Config.Radius,
-        TS.Config.Height,
-        M.sin(TS.Runtime.Angle) * TS.Config.Radius
-    )
-    
     local newPos = targetPos + offset
     local newCFrame = CFrame.new(newPos, targetPos) -- Смотрим на цель
     
@@ -3690,14 +4155,14 @@ local function performTargetStrafe()
     end
     
     -- Обновляем позицию FollowPart для фиксации камеры
-    if TS.Config.Enabled then
+    if TS.Config.Enabled and TS.Config.UseDesync then  -- Проверяем, что Target Strafe всё ещё активен
         if TS.Runtime.FollowPart and TS.Runtime.FollowPart.Parent then
-            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 2.0, 0)
+            TS.Runtime.FollowPart.CFrame = originalCFrame + Vector3.new(0, 2.0, 0) -- Увеличил высоту с 1.5 до 2.0
         else
             TS.Runtime.FollowPart = TS.createFollowPart()
-            TS.Runtime.FollowPart.CFrame = originalCFrame + V3.new(0, 2.0, 0)
+            TS.Runtime.FollowPart.CFrame = originalCFrame + Vector3.new(0, 2.0, 0)
         end
-        Cam.CameraSubject = TS.Runtime.FollowPart
+        game:GetService("Workspace").CurrentCamera.CameraSubject = TS.Runtime.FollowPart
     end
     
     -- Устанавливаем новую позицию
@@ -3705,7 +4170,7 @@ local function performTargetStrafe()
     
     -- Возвращаем оригинальную позицию после отрисовки кадра
     task.spawn(function()
-        RND:Wait() -- Ждем один кадр отрисовки в отдельном потоке
+        game:GetService("RunService").RenderStepped:Wait() -- Ждем один кадр отрисовки в отдельном потоке
         if hrp and hrp.Parent then -- Проверяем, что HRP все еще существует
             hrp.CFrame = originalCFrame
         end
@@ -3713,11 +4178,47 @@ local function performTargetStrafe()
     
     -- Возвращаем камеру к игроку после десинка
     task.spawn(function()
-        RND:Wait() -- Используем RenderStepped для синхронизации с отрисовкой
+        game:GetService("RunService").RenderStepped:Wait() -- Используем RenderStepped для синхронизации с отрисовкой
         if character and character:FindFirstChildOfClass("Humanoid") then
-            Cam.CameraSubject = character:FindFirstChildOfClass("Humanoid")
+            game:GetService("Workspace").CurrentCamera.CameraSubject = character:FindFirstChildOfClass("Humanoid")
         end
     end)
+end
+
+-- Основная функция стрейфа (без десинка)
+local function performTargetStrafe()
+    if not TS.Config.Enabled then return end
+    if TS.Config.UseDesync then return end
+    
+    local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget
+    
+    if not target or not target.Character then return end
+    
+    local targetHRP = target.Character:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then return end
+    
+    local character = LP.Character
+    if not character then return end
+    
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    -- Обновляем угол
+    TS.Runtime.Angle = TS.Runtime.Angle + TS.Config.Speed * HRT:Wait()
+    
+    -- Вычисляем смещение
+    local offset = Vector3.new(
+        math.cos(TS.Runtime.Angle) * TS.Config.Radius,
+        TS.Config.Height,
+        math.sin(TS.Runtime.Angle) * TS.Config.Radius
+    )
+    
+    -- Новая позиция вокруг цели
+    local targetPos = targetHRP.Position
+    local newPos = targetPos + offset
+    
+    -- Плавно перемещаемся к новой позиции
+    hrp.CFrame = CFrame.new(hrp.Position:Lerp(newPos, 0.1), targetPos)
 end
 
 -- Функция включения стрейфа
@@ -3738,25 +4239,44 @@ local function toggleTargetStrafe(state)
     end
     
     if state then
-        -- Создаем FollowPart для камеры
-        TS.Runtime.FollowPart = TS.createFollowPart()
+        -- Создаем FollowPart для камеры если нужен десинк
+        if TS.Config.UseDesync then
+            TS.Runtime.FollowPart = TS.createFollowPart()
+        end
         
-        -- Запускаем стрейф
-        TS.Runtime.Connection = HRT:Connect(performTargetStrafe)
-        Library:Notify('Target Strafe: Включен', 3)
+        -- Запускаем стрейф с правильной функцией в зависимости от режима
+        if TS.Config.UseDesync then
+            TS.Runtime.Connection = HRT:Connect(performTargetStrafeDesync)
+        else
+            TS.Runtime.Connection = HRT:Connect(performTargetStrafe)
+        end
+        Library:Notify('>_< on', 3)
     else
         -- Отключаем камеру
         TS.resetCamera()
-        Library:Notify('Target Strafe: Выключен', 3)
+        Library:Notify('>_< off', 3)
     end
 end
 
 -- UI для Target Strafe
-TargetStrafeGroup:AddToggle('TargetStrafeEnabled', {
-    Text = 'Target Strafe',
+addToggleWithNotify(TargetStrafeGroup, 'TargetStrafeEnabled', {
+    Text = 'TargetStrafe',
     Default = false,
     Callback = function(v) toggleTargetStrafe(v) end,
-    Tooltip = 'Strafe around target'
+    Tooltip = '>_<'
+})
+
+addToggleWithNotify(TargetStrafeGroup, 'TargetStrafeDesync', {
+    Text = 'UseDesync',
+    Default = false,
+    Callback = function(v)
+        TS.Config.UseDesync = v
+        if TS.Config.Enabled then
+            toggleTargetStrafe(false)
+            toggleTargetStrafe(true)
+        end
+    end,
+    Tooltip = '>_<'
 })
 
 TargetStrafeGroup:AddSlider('TargetStrafeRadius', {
@@ -3780,7 +4300,7 @@ TargetStrafeGroup:AddSlider('TargetStrafeSpeed', {
     Callback = function(val) TS.Config.Speed = val end
 })
 
-TargetStrafeGroup:AddToggle('TargetStrafeVisualise', {
+addToggleWithNotify(TargetStrafeGroup, 'TargetStrafeVisualise', {
     Text = 'Visualise',
     Default = false,
     Callback = function(v) 
@@ -3791,7 +4311,7 @@ TargetStrafeGroup:AddToggle('TargetStrafeVisualise', {
             TS.cleanupVisual()
         end
     end,
-    Tooltip = 'Show tracer to desync position'
+    Tooltip = '>_<'
 }):AddColorPicker('TargetStrafeVisualiseColor', {
     Default = Color3.fromRGB(255, 255, 255),
     Title = 'Color',
@@ -3810,7 +4330,7 @@ LP.CharacterAdded:Connect(function(newCharacter)
     if TS.Config.Enabled then
         -- Пересоздаем камеру при смене персонажа
         task.wait(0.5) -- Ждем загрузки персонажа
-        if TS.Runtime.FollowPart then
+        if TS.Runtime.FollowPart and TS.Config.UseDesync then
             TS.resetCamera()
             TS.Runtime.FollowPart = TS.createFollowPart()
         end
@@ -3821,7 +4341,7 @@ end)
 local aimbotTargetWatcher = nil
 aimbotTargetWatcher = HRT:Connect(function()
     -- Обновляем визуализацию десинка на каждом кадре
-    if TS.Config.Enabled and TS.Config.Visualise and TS.Runtime.DesyncPosition then
+    if TS.Config.Enabled and TS.Config.UseDesync and TS.Config.Visualise and TS.Runtime.DesyncPosition then
         TS.updateVisual()
     else
         if TS.Runtime.VisualiseDrawing and TS.Runtime.VisualiseDrawing.Visible then
@@ -3833,7 +4353,7 @@ end)
 -- === Camera Unlock (Player tab) ===
 local CameraGroup = Tabs.Player:AddRightGroupbox('>_<')
 
-CameraGroup:AddToggle('UnlockCameraDistance', {
+addToggleWithNotify(CameraGroup, 'UnlockCameraDistance', {
     Text = 'Unlock Camera',
     Default = false,
     Callback = function(v) 
@@ -3843,7 +4363,7 @@ CameraGroup:AddToggle('UnlockCameraDistance', {
             game.Players.LocalPlayer.CameraMaxZoomDistance = 128 -- Стандартное значение
         end
     end,
-    Tooltip = 'Unlock maximum camera distance'
+    Tooltip = '>_<'
 })
 
 -- === AutoStomp (Combat tab, new section) ===
@@ -3862,7 +4382,7 @@ getgenv().AutoStomp = {
 }
 
 -- UI для AutoStomp
-AutoStompGroup:AddToggle('AutoStompEnabled', {
+addToggleWithNotify(AutoStompGroup, 'AutoStompEnabled', {
     Text = 'AutoStomp',
     Default = false,
     Callback = function(v) 
@@ -3875,7 +4395,7 @@ AutoStompGroup:AddToggle('AutoStompEnabled', {
             resetAutoStompCamera()
         end
     end,
-    Tooltip = 'Automatically stomp knocked out players'
+    Tooltip = '>_<'
 })
 
 AutoStompGroup:AddSlider('AutoStompInterval', {
@@ -3883,7 +4403,7 @@ AutoStompGroup:AddSlider('AutoStompInterval', {
     Default = getgenv().AutoStomp.StompInterval,
     Min = 0.01, Max = 1, Rounding = 3,
     Callback = function(v) getgenv().AutoStomp.StompInterval = v end,
-    Tooltip = 'Interval between stomps (in seconds)'
+    Tooltip = '>_<'
 })
 
 -- Функции AutoStomp
@@ -4058,31 +4578,31 @@ end)
 local GripGroup = Tabs.Combat:AddRightGroupbox('>_<')
 
 -- Create UI components
-GripGroup:AddToggle('GripEnabled', {
-    Text = 'Custom Grip',
+addToggleWithNotify(GripGroup, 'GripEnabled', {
+    Text = 'CustomGrip',
     Default = false,
     Callback = function(v) G.GripSettings.Enabled = v end,
-    Tooltip = 'Change weapon grip position and rotation'
+    Tooltip = '>_<'
 })
 
 -- Position sliders
 GripGroup:AddLabel('Position:')
 GripGroup:AddSlider('GripPosX', {
-    Text = 'X Position',
+    Text = 'X',
     Default = 0,
     Min = -100, Max = 100, Rounding = 1,
     Callback = function(val) G.GripSettings.Position = Vector3.new(val, G.GripSettings.Position.Y, G.GripSettings.Position.Z) end
 })
 
 GripGroup:AddSlider('GripPosY', {
-    Text = 'Y Position',
+    Text = 'Y',
     Default = 0,
     Min = -100, Max = 100, Rounding = 1,
     Callback = function(val) G.GripSettings.Position = Vector3.new(G.GripSettings.Position.X, val, G.GripSettings.Position.Z) end
 })
 
 GripGroup:AddSlider('GripPosZ', {
-    Text = 'Z Position',
+    Text = 'Z',
     Default = 0,
     Min = -100, Max = 100, Rounding = 1,
     Callback = function(val) G.GripSettings.Position = Vector3.new(G.GripSettings.Position.X, G.GripSettings.Position.Y, val) end
@@ -4091,21 +4611,21 @@ GripGroup:AddSlider('GripPosZ', {
 -- Rotation sliders
 GripGroup:AddLabel('Rotation:')
 GripGroup:AddSlider('GripRotX', {
-    Text = 'X Rotation',
+    Text = 'X',
     Default = 0,
     Min = -180, Max = 180, Rounding = 1,
     Callback = function(val) G.GripSettings.Rotation = Vector3.new(val, G.GripSettings.Rotation.Y, G.GripSettings.Rotation.Z) end
 })
 
 GripGroup:AddSlider('GripRotY', {
-    Text = 'Y Rotation',
+    Text = 'Y',
     Default = 0,
     Min = -180, Max = 180, Rounding = 1,
     Callback = function(val) G.GripSettings.Rotation = Vector3.new(G.GripSettings.Rotation.X, val, G.GripSettings.Rotation.Z) end
 })
 
 GripGroup:AddSlider('GripRotZ', {
-    Text = 'Z Rotation',
+    Text = 'Z',
     Default = 0,
     Min = -180, Max = 180, Rounding = 1,
     Callback = function(val) G.GripSettings.Rotation = Vector3.new(G.GripSettings.Rotation.X, G.GripSettings.Rotation.Y, val) end
@@ -4114,7 +4634,7 @@ GripGroup:AddSlider('GripRotZ', {
 -- Reset button
 GripGroup:AddLabel('Options:')
 GripGroup:AddButton({
-    Text = 'Reset All',
+    Text = 'Reset',
     Func = function()
         G.GripSettings.Position = Vector3.new(0, 0, 0)
         G.GripSettings.Rotation = Vector3.new(0, 0, 0)
@@ -4126,7 +4646,7 @@ GripGroup:AddButton({
         Options.GripRotY:SetValue(0)
         Options.GripRotZ:SetValue(0)
     end,
-    Tooltip = 'Reset all grip settings to default'
+    Tooltip = '>_<'
 })
 
 
@@ -4166,22 +4686,22 @@ getgenv().BulletTp = {
     Keybind = Enum.KeyCode.C,
     Part = "Head",
     Selected = nil,
-    UseAimbotTarget = true
+    UseAimbotTarget = true -- Всегда используем цель аимбота
 }
 
 -- UI для BulletTP
-BulletTpGroup:AddToggle('BulletTpToggle', {
+addToggleWithNotify(BulletTpGroup, 'BulletTpToggle', {
     Text = 'BulletTP',
     Default = false,
     Callback = function(v) 
         getgenv().BulletTp.Toggle = v 
     end,
-    Tooltip = 'Teleports bullets to the selected body part of the target'
+    Tooltip = '>_<'
 })
 
 BulletTpGroup:AddLabel('BulletTP Key'):AddKeyPicker('BulletTpKey', {
     Default = 'C',
-    Text = 'BulletTP Key',
+    Text = 'Key',
     NoUI = false,
     Callback = function(key)
         if typeof(key) == "EnumItem" then
@@ -4193,21 +4713,14 @@ BulletTpGroup:AddLabel('BulletTP Key'):AddKeyPicker('BulletTpKey', {
 })
 
 BulletTpGroup:AddDropdown('BulletTpPart', {
-    Text = 'Target Part',
+    Text = 'Part',
     Values = {'Head', 'HumanoidRootPart', 'Torso', 'UpperTorso', 'LowerTorso', 'Left Arm', 'Right Arm', 'Left Leg', 'Right Leg', 'LeftUpperArm', 'RightUpperArm', 'LeftUpperLeg', 'RightUpperLeg'},
     Default = 'Head',
     Callback = function(v) getgenv().BulletTp.Part = v end,
-    Tooltip = 'Body part to which bullets will be teleported'
+    Tooltip = '>_<'
 })
 
-BulletTpGroup:AddToggle('BulletTpUseAimbotTarget', {
-    Text = 'Use Aimbot Target',
-    Default = true,
-    Callback = function(v) 
-        getgenv().BulletTp.UseAimbotTarget = v 
-    end,
-    Tooltip = 'Use aimbot target for BulletTP'
-})
+-- Убрали тогл UseAimbot, т.к. BulletTP всегда работает с аимботом
 
 -- Улучшенная функция поиска части тела
 G.findBodyPart = function(character, partName)
@@ -4250,7 +4763,8 @@ G.TeleportBullet = function(tool)
         local BTP = getgenv().BulletTp
         if not BTP.Toggle or not BTP.Enabled then return end
 
-        local target = BTP.UseAimbotTarget and getgenv().SilentAim and getgenv().SilentAim.currentTarget or BTP.Selected
+        -- Всегда используем цель аимбота
+        local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget or BTP.Selected
         if not target or not target.Character then return end
 
         local originPart = LP.Character and LP.Character:FindFirstChild("RightHand")
@@ -4391,27 +4905,30 @@ G.SetupBulletTp = function()
                 if gpe then return end
                 
                 if input.KeyCode == getgenv().BulletTp.Keybind then
+                    -- Предотвращаем двойное срабатывание уведомлений
+                    local wasEnabled = getgenv().BulletTp.Enabled
                     pcall(function()
-                        getgenv().BulletTp.Enabled = not getgenv().BulletTp.Enabled
+                        getgenv().BulletTp.Enabled = not wasEnabled
                     end)
                     
                     G.targetName = "Нет цели"
-                    if getgenv().BulletTp.UseAimbotTarget and getgenv().SilentAim and getgenv().SilentAim.currentTarget then
+                    if getgenv().SilentAim and getgenv().SilentAim.currentTarget then
                         G.targetName = getgenv().SilentAim.currentTarget.Name
                     elseif getgenv().BulletTp.Selected then
                         G.targetName = getgenv().BulletTp.Selected.Name
                     end
                     
-                    Library:Notify("BulletTP: " .. (getgenv().BulletTp.Enabled and "Enabled" or "Disabled") .. 
-                        " | Target: " .. G.targetName .. " | Part: " .. getgenv().BulletTp.Part, 2)
+                    -- Отправляем только одно уведомление
+                    Library:Notify(">_< " .. (getgenv().BulletTp.Enabled and "on" or "off"), 2)
                 end
             end)
         end
         
-        -- Соединение с обновлением цели
+        -- Соединение с обновлением цели для запасного варианта
         if not G.bulletTpConns.TargetUpdate then
             G.bulletTpConns.TargetUpdate = HRT:Connect(function()
-                if not getgenv().BulletTp.UseAimbotTarget then
+                -- Если нет цели аимбота, используем ближайшего игрока
+                if not getgenv().SilentAim or not getgenv().SilentAim.currentTarget then
                     getgenv().BulletTp.Selected = G.getClosestPlayer()
                 end
             end)
@@ -4461,40 +4978,40 @@ getgenv().SaveDistance = {
 
 -- UI для SaveDistance
 SaveDistanceGroup:AddToggle('SaveDistanceEnabled', {
-    Text = 'Save Position',
+    Text = 'SavePos',
     Default = false,
     Callback = function(v) 
         getgenv().SaveDistance.Enabled = v
         toggleSaveDistance(v)
     end,
-    Tooltip = 'Hover near aimbot target at fixed position'
+    Tooltip = '>_<'
 })
 
 SaveDistanceGroup:AddSlider('SaveDistanceOffsetX', {
-    Text = 'X Offset',
+    Text = 'X',
     Default = 0,
     Min = -200, Max = 200, Rounding = 0,
     Increment = 1,
     Callback = function(v) getgenv().SaveDistance.OffsetX = v end,
-    Tooltip = 'X-axis offset from target (left/right)'
+    Tooltip = '>_<'
 })
 
 SaveDistanceGroup:AddSlider('SaveDistanceOffsetY', {
-    Text = 'Y Offset (Height)',
+    Text = 'Y',
     Default = 100,
     Min = -200, Max = 200, Rounding = 0,
     Increment = 1,
     Callback = function(v) getgenv().SaveDistance.OffsetY = v end,
-    Tooltip = 'Y-axis offset from target (up/down)'
+    Tooltip = '>_<'
 })
 
 SaveDistanceGroup:AddSlider('SaveDistanceOffsetZ', {
-    Text = 'Z Offset',
+    Text = 'Z',
     Default = 0,
     Min = -200, Max = 200, Rounding = 0,
     Increment = 1,
     Callback = function(v) getgenv().SaveDistance.OffsetZ = v end,
-    Tooltip = 'Z-axis offset from target (forward/backward)'
+    Tooltip = '>_<'
 })
 
 -- Функция для получения "настоящей" позиции цели с учетом анти-аимбота
@@ -4652,14 +5169,15 @@ function toggleSaveDistance(state)
             hrp.CFrame = CFrame.new(newPos, targetPos) -- Смотрим на цель
         end)
         
-        Library:Notify('Save Position: Включен', 3)
+        Library:Notify('>_< on', 3)
     else
-        Library:Notify('Save Position: Выключен', 3)
+        Library:Notify('>_< off', 3)
     end
 end
 
 -- === AutoArmor (Misc tab, new section) ===
-local AutoArmorGroup = Tabs.Misc:AddLeftGroupbox('AutoArmor')
+-- Используем глобальную переменную вместо локальной
+G.AutoArmorGroup = Tabs.Misc:AddLeftGroupbox('AutoArmor')
 
 -- Глобальные настройки AutoArmor
 G.AutoArmorSettings = {
@@ -4669,11 +5187,13 @@ G.AutoArmorSettings = {
     MinArmorValue = 50, -- Покупать броню, когда значение меньше этого
     ArmorType = "[High-Medium Armor] - $2513", -- Тип брони для покупки
     Notify = true, -- Уведомлять о покупке брони
+    DebugMode = false, -- Режим отладки для вывода значения брони
     -- Переменные для функции autoArmorFunction
     BuyingArmor = nil,
+    IsBuying = false, -- Флаг, что в данный момент покупаем броню
+    BuyingTimeout = 0, -- Время, когда закончится блокировка
     Connection = nil,
     char = nil,
-    bodyEffects = nil,
     armorValue = 0,
     hrp = nil,
     armorShop = nil,
@@ -4682,129 +5202,222 @@ G.AutoArmorSettings = {
     originalVelocity = nil
 }
 
+-- Функция для определения текущего значения брони в зависимости от игры
+G.getCurrentArmorValue = function()
+    -- Для Da Hood: Character.BodyEffects.Armor
+    G.char = LP.Character
+    if G.char and G.char:FindFirstChild("BodyEffects") and G.char.BodyEffects:FindFirstChild("Armor") then
+        return G.char.BodyEffects.Armor.Value
+    end
+    
+    -- Для Del Hood: DataFolder.Information.Armor
+    if LP:FindFirstChild("DataFolder") and 
+       LP.DataFolder:FindFirstChild("Information") and 
+       LP.DataFolder.Information:FindFirstChild("Armor") then
+        return tonumber(LP.DataFolder.Information.Armor.Value) or 0
+    end
+    
+    -- Если не нашли, пробуем другие возможные места
+    G.possiblePaths = {
+        {LP.Character, "Armor"},
+        {LP, "Armor"},
+        {LP, "stats", "Armor"},
+        {LP, "Data", "Armor"},
+        {LP, "PlayerData", "Armor"}
+    }
+    
+    for _, path in ipairs(G.possiblePaths) do
+        G.current = path[1]
+        G.found = true
+        
+        for i = 2, #path do
+            if G.current and G.current:FindFirstChild(path[i]) then
+                G.current = G.current[path[i]]
+            else
+                G.found = false
+                break
+            end
+        end
+        
+        if G.found and G.current and (typeof(G.current) == "number" or 
+            (typeof(G.current) == "Instance" and G.current:IsA("NumberValue") or G.current:IsA("IntValue"))) then
+            return typeof(G.current) == "number" and G.current or G.current.Value
+        end
+    end
+    
+    -- Если все методы не сработали, возвращаем 0
+    return 0
+end
+
 -- Функция автоматической покупки брони
 G.autoArmorFunction = function()
     -- Защита от ошибок
-    local success, err = pcall(function()
+    G.success = pcall(function()
         if not G.AutoArmorSettings.Enabled then return end
         
+        -- Проверяем, не покупаем ли уже броню
+        G.now = tick()
+        if G.AutoArmorSettings.IsBuying then
+            -- Если процесс покупки длится слишком долго, сбрасываем флаг (защита от зависания)
+            if G.now >= G.AutoArmorSettings.BuyingTimeout then
+                G.AutoArmorSettings.IsBuying = false
+                if getgenv().SaveDistance then
+                    getgenv().SaveDistance.IsBuyingArmor = false
+                end
+                
+                if G.AutoArmorSettings.Notify then
+                    Library:Notify(">_<", 2)
+                end
+            else
+                return -- Пропускаем выполнение, пока не завершится текущая покупка
+            end
+        end
+        
         -- Проверяем не слишком часто для оптимизации
-        local now = tick()
-        if now - G.AutoArmorSettings.LastArmorCheck < G.AutoArmorSettings.CheckInterval then
+        if G.now - G.AutoArmorSettings.LastArmorCheck < G.AutoArmorSettings.CheckInterval then
             return
         end
-        G.AutoArmorSettings.LastArmorCheck = now
+        G.AutoArmorSettings.LastArmorCheck = G.now
         
         G.AutoArmorSettings.char = LP.Character
         if not G.AutoArmorSettings.char then return end
         
-        -- Проверяем наличие BodyEffects и значение брони
-        G.AutoArmorSettings.bodyEffects = G.AutoArmorSettings.char:FindFirstChild("BodyEffects")
-        if not G.AutoArmorSettings.bodyEffects then return end
+        -- Получаем текущее значение брони с учетом разных игр
+        G.AutoArmorSettings.armorValue = G.getCurrentArmorValue()
         
-        -- Всегда проверяем текущее значение брони
-        G.AutoArmorSettings.armorValue = G.AutoArmorSettings.bodyEffects:FindFirstChild("Armor") and 
-                                         G.AutoArmorSettings.bodyEffects.Armor.Value or 0
+        -- Если включен режим отладки, показываем текущее значение брони
+        if G.AutoArmorSettings.DebugMode then
+            print("Current armor value:", G.AutoArmorSettings.armorValue)
+        end
         
         -- Если броня ниже минимального значения, покупаем новую
         if G.AutoArmorSettings.armorValue < G.AutoArmorSettings.MinArmorValue then
-            -- Сохраняем текущую позицию
-            G.AutoArmorSettings.hrp = G.AutoArmorSettings.char:FindFirstChild("HumanoidRootPart")
-            if not G.AutoArmorSettings.hrp then return end
+            -- Устанавливаем флаг, что сейчас покупаем броню
+            G.AutoArmorSettings.IsBuying = true
+            -- Устанавливаем таймаут в 3 секунды
+            G.AutoArmorSettings.BuyingTimeout = G.now + 3
             
-            G.AutoArmorSettings.BuyingArmor = G.AutoArmorSettings.hrp.CFrame
-            
-            -- Устанавливаем флаг, что покупаем броню (для SavePosition)
-            if getgenv().SaveDistance and getgenv().SaveDistance.Enabled then
-                getgenv().SaveDistance.IsBuyingArmor = true
-            end
-            
-            -- Ищем магазин брони
-            G.AutoArmorSettings.armorShop = workspace:FindFirstChild("Ignored") and workspace.Ignored:FindFirstChild("Shop")
-            if not G.AutoArmorSettings.armorShop then
-                -- Пробуем найти магазин в других местах
-                for _, folder in pairs(workspace:GetChildren()) do
-                    if folder:FindFirstChild("Shop") then
-                        G.AutoArmorSettings.armorShop = folder.Shop
-                        break
+            -- Выполняем покупку в отдельном потоке, чтобы не блокировать основной цикл
+            task.spawn(function()
+                -- Сохраняем текущую позицию
+                G.AutoArmorSettings.hrp = G.AutoArmorSettings.char:FindFirstChild("HumanoidRootPart")
+                if not G.AutoArmorSettings.hrp then 
+                    G.AutoArmorSettings.IsBuying = false
+                    return 
+                end
+                
+                G.AutoArmorSettings.BuyingArmor = G.AutoArmorSettings.hrp.CFrame
+                
+                -- Устанавливаем флаг, что покупаем броню (для SavePosition)
+                if getgenv().SaveDistance and getgenv().SaveDistance.Enabled then
+                    getgenv().SaveDistance.IsBuyingArmor = true
+                end
+                
+                -- Ищем магазин брони
+                G.AutoArmorSettings.armorShop = workspace:FindFirstChild("Ignored") and workspace.Ignored:FindFirstChild("Shop")
+                if not G.AutoArmorSettings.armorShop then
+                    -- Пробуем найти магазин в других местах
+                    for _, folder in pairs(workspace:GetChildren()) do
+                        if folder:FindFirstChild("Shop") then
+                            G.AutoArmorSettings.armorShop = folder.Shop
+                            break
+                        end
+                    end
+                    
+                    if not G.AutoArmorSettings.armorShop then 
+                        -- Сбрасываем флаги покупки брони
+                        if getgenv().SaveDistance then
+                            getgenv().SaveDistance.IsBuyingArmor = false
+                        end
+                        G.AutoArmorSettings.IsBuying = false
+                        return 
                     end
                 end
                 
-                if not G.AutoArmorSettings.armorShop then 
-                    -- Сбрасываем флаг покупки брони
-                    if getgenv().SaveDistance then
-                        getgenv().SaveDistance.IsBuyingArmor = false
+                G.AutoArmorSettings.armorItem = G.AutoArmorSettings.armorShop:FindFirstChild(G.AutoArmorSettings.ArmorType)
+                if not G.AutoArmorSettings.armorItem then
+                    -- Если не нашли конкретный тип брони, ищем любую броню
+                    for _, item in pairs(G.AutoArmorSettings.armorShop:GetChildren()) do
+                        if item.Name:lower():find("armor") then
+                            G.AutoArmorSettings.armorItem = item
+                            break
+                        end
                     end
-                    return 
-                end
-            end
-            
-            G.AutoArmorSettings.armorItem = G.AutoArmorSettings.armorShop:FindFirstChild(G.AutoArmorSettings.ArmorType)
-            if not G.AutoArmorSettings.armorItem then
-                -- Если не нашли конкретный тип брони, ищем любую броню
-                for _, item in pairs(G.AutoArmorSettings.armorShop:GetChildren()) do
-                    if item.Name:lower():find("armor") then
-                        G.AutoArmorSettings.armorItem = item
-                        break
+                    
+                    if not G.AutoArmorSettings.armorItem then 
+                        -- Сбрасываем флаги покупки брони
+                        if getgenv().SaveDistance then
+                            getgenv().SaveDistance.IsBuyingArmor = false
+                        end
+                        G.AutoArmorSettings.IsBuying = false
+                        return 
                     end
                 end
                 
-                if not G.AutoArmorSettings.armorItem then 
-                    -- Сбрасываем флаг покупки брони
+                if not (G.AutoArmorSettings.armorItem:FindFirstChild("Head") and 
+                       G.AutoArmorSettings.armorItem:FindFirstChild("ClickDetector")) then
+                    -- Сбрасываем флаги покупки брони
                     if getgenv().SaveDistance then
                         getgenv().SaveDistance.IsBuyingArmor = false
                     end
-                    return 
+                    G.AutoArmorSettings.IsBuying = false
+                    return
                 end
-            end
-            
-            if not (G.AutoArmorSettings.armorItem:FindFirstChild("Head") and 
-                   G.AutoArmorSettings.armorItem:FindFirstChild("ClickDetector")) then
-                -- Сбрасываем флаг покупки брони
+                
+                -- Телепортируемся к броне, покупаем и возвращаемся
+                G.AutoArmorSettings.originalCFrame = G.AutoArmorSettings.hrp.CFrame
+                G.AutoArmorSettings.originalVelocity = G.AutoArmorSettings.hrp.Velocity
+                
+                -- Телепортируемся к броне
+                G.AutoArmorSettings.hrp.CFrame = G.AutoArmorSettings.armorItem.Head.CFrame
+                G.AutoArmorSettings.hrp.Velocity = Vector3.new(0, 0, 0) -- Сбрасываем скорость для стабильности
+                
+                -- Небольшая задержка перед покупкой
+                task.wait(0.25)
+                
+                -- Покупаем броню
+                fireclickdetector(G.AutoArmorSettings.armorItem.ClickDetector)
+                
+                -- Увеличиваем задержку перед возвращением
+                task.wait(0.35)
+                
+                -- Проверяем, что HumanoidRootPart все еще существует перед возвратом
+                if G.AutoArmorSettings.hrp and G.AutoArmorSettings.hrp.Parent then
+                    -- Возвращаемся с несколькими попытками для надежности
+                    for i = 1, 3 do
+                        G.AutoArmorSettings.hrp.CFrame = G.AutoArmorSettings.originalCFrame
+                        G.AutoArmorSettings.hrp.Velocity = G.AutoArmorSettings.originalVelocity -- Восстанавливаем скорость
+                        task.wait(0.1) -- Ждем между попытками
+                    end
+                end
+                
+                -- Небольшая задержка для стабилизации
+                task.wait(0.2)
+                
+                -- Сбрасываем флаги покупки брони
                 if getgenv().SaveDistance then
                     getgenv().SaveDistance.IsBuyingArmor = false
                 end
-                return
-            end
-            
-            -- Телепортируемся к броне, покупаем и возвращаемся
-            G.AutoArmorSettings.originalCFrame = G.AutoArmorSettings.hrp.CFrame
-            G.AutoArmorSettings.originalVelocity = G.AutoArmorSettings.hrp.Velocity
-            
-            -- Телепортируемся к броне
-            G.AutoArmorSettings.hrp.CFrame = G.AutoArmorSettings.armorItem.Head.CFrame
-            G.AutoArmorSettings.hrp.Velocity = Vector3.new(0, 0, 0) -- Сбрасываем скорость для стабильности
-            
-            -- Небольшая задержка перед покупкой
-            task.wait(0.1)
-            
-            -- Покупаем броню
-            fireclickdetector(G.AutoArmorSettings.armorItem.ClickDetector)
-            
-            -- Возвращаемся на исходную позицию
-            task.wait(0.1)
-            if G.AutoArmorSettings.hrp and G.AutoArmorSettings.hrp.Parent then
-                G.AutoArmorSettings.hrp.CFrame = G.AutoArmorSettings.originalCFrame
-                G.AutoArmorSettings.hrp.Velocity = G.AutoArmorSettings.originalVelocity -- Восстанавливаем скорость
-            end
-            
-            -- Сбрасываем флаг покупки брони
-            if getgenv().SaveDistance then
-                getgenv().SaveDistance.IsBuyingArmor = false
-            end
-            
-            -- Уведомляем о покупке, если включены уведомления
-            if G.AutoArmorSettings.Notify then
-                Library:Notify("AutoArmor: Броня куплена", 2)
-            end
+                G.AutoArmorSettings.IsBuying = false
+                
+                -- Уведомляем о покупке, если включены уведомления
+                if G.AutoArmorSettings.Notify then
+                    Library:Notify(">_<", 2)
+                end
+            end)
         else
             G.AutoArmorSettings.BuyingArmor = nil
         end
     end)
     
-    if not success and G.AutoArmorSettings.Notify then
+    if not G.success and G.AutoArmorSettings.Notify then
         -- Если произошла ошибка и включены уведомления, показываем сообщение об ошибке
-        Library:Notify("AutoArmor: Ошибка - " .. tostring(err), 3)
+        Library:Notify(">_<", 3)
+        -- Сбрасываем флаги при ошибке
+        G.AutoArmorSettings.IsBuying = false
+        if getgenv().SaveDistance then
+            getgenv().SaveDistance.IsBuyingArmor = false
+        end
     end
 end
 
@@ -4827,53 +5440,95 @@ G.toggleAutoArmor = function(state)
             G.autoArmorFunction()
         end)
         
-        Library:Notify("AutoArmor: Включен", 3)
+        Library:Notify(">_< on", 3)
     else
-        Library:Notify("AutoArmor: Выключен", 3)
+        Library:Notify(">_< off", 3)
     end
 end
 
 -- UI для AutoArmor
-AutoArmorGroup:AddToggle('AutoArmorEnabled', {
-    Text = 'Auto Armor',
+addToggleWithNotify(G.AutoArmorGroup, 'AutoArmorEnabled', {
+    Text = 'AutoArmor',
     Default = false,
     Callback = function(v) 
         G.toggleAutoArmor(v)
     end,
-    Tooltip = 'Автоматически покупает броню, когда она заканчивается'
+    Tooltip = '>_<'
 })
 
-AutoArmorGroup:AddSlider('AutoArmorInterval', {
-    Text = 'Check Interval',
+G.AutoArmorGroup:AddSlider('AutoArmorMinValue', {
+    Text = 'MinValue',
+    Default = G.AutoArmorSettings.MinArmorValue,
+    Min = 0, Max = 200, Rounding = 0,
+    Callback = function(v) G.AutoArmorSettings.MinArmorValue = v end,
+    Tooltip = '>_<'
+})
+
+G.AutoArmorGroup:AddSlider('AutoArmorInterval', {
+    Text = 'Interval',
     Default = G.AutoArmorSettings.CheckInterval,
     Min = 0.1, Max = 5, Rounding = 1,
     Callback = function(v) G.AutoArmorSettings.CheckInterval = v end,
-    Tooltip = 'Интервал проверки брони (в секундах)'
+    Tooltip = '>_<'
 })
 
-AutoArmorGroup:AddSlider('AutoArmorMinValue', {
-    Text = 'Min Armor Value',
-    Default = G.AutoArmorSettings.MinArmorValue,
-    Min = 0, Max = 100, Rounding = 0,
-    Callback = function(v) G.AutoArmorSettings.MinArmorValue = v end,
-    Tooltip = 'Покупать броню, когда значение меньше этого'
+-- Упрощаем систему брони до двух основных вариантов
+G.setupArmorOptions = function()
+    -- Сначала определяем глобальные массивы и карты
+    G.armorDropdownValues = {}
+    G.armorValueMap = {}
+    
+    -- По умолчанию добавляем вариант для Da Hood
+    G.daHoodOption = "[High-Medium Armor] (Da Hood)"
+    table.insert(G.armorDropdownValues, G.daHoodOption)
+    G.armorValueMap[G.daHoodOption] = "[High-Medium Armor] - $2513"
+    
+    -- Проверяем наличие магазина для Del Hood
+    G.delHoodArmorFound = false
+    if workspace:FindFirstChild("Ignored") and workspace.Ignored:FindFirstChild("Shop") then
+        G.shop = workspace.Ignored.Shop
+        -- Проверяем конкретный элемент для Del Hood (индекс 59)
+        G.delHoodArmor = G.shop:GetChildren()[59]
+        if G.delHoodArmor and G.delHoodArmor.Name:lower():find("armor") then
+            G.delHoodOption = G.delHoodArmor.Name .. " (Del Hood)"
+            table.insert(G.armorDropdownValues, G.delHoodOption)
+            G.armorValueMap[G.delHoodOption] = G.delHoodArmor.Name
+            G.delHoodArmorFound = true
+        end
+    end
+    
+    -- Если не нашли броню Del Hood по индексу, пробуем поискать по имени
+    if not G.delHoodArmorFound then
+        if workspace:FindFirstChild("Ignored") and workspace.Ignored:FindFirstChild("Shop") then
+            for _, item in pairs(workspace.Ignored.Shop:GetChildren()) do
+                if item.Name:lower():find("armor") and item.Name:lower():find("max") then
+                    G.delHoodOption = item.Name .. " (Del Hood)"
+                    table.insert(G.armorDropdownValues, G.delHoodOption)
+                    G.armorValueMap[G.delHoodOption] = item.Name
+                    G.delHoodArmorFound = true
+                    break
+                end
+            end
+        end
+    end
+end
+
+-- Настраиваем опции брони
+G.setupArmorOptions()
+
+-- Сохраняем карту значений для использования в колбэке
+G.AutoArmorSettings.ArmorValuesMap = G.armorValueMap
+
+G.AutoArmorGroup:AddDropdown('AutoArmorType', {
+    Text = 'ArmorType',
+    Values = G.armorDropdownValues,
+    Default = G.armorDropdownValues[1] or "",
+    Callback = function(v) 
+        -- Используем реальное имя предмета для поиска
+        G.AutoArmorSettings.ArmorType = G.AutoArmorSettings.ArmorValuesMap[v] or v
+    end,
+    Tooltip = '>_<'
 })
 
-AutoArmorGroup:AddDropdown('AutoArmorType', {
-    Text = 'Armor Type',
-    Values = {
-        "[High-Medium Armor] - $2513",
-        "[Medium Armor] - $1000",
-        "[High Armor] - $4113"
-    },
-    Default = G.AutoArmorSettings.ArmorType,
-    Callback = function(v) G.AutoArmorSettings.ArmorType = v end,
-    Tooltip = 'Тип брони для покупки'
-})
+-- Конец скрипта
 
-AutoArmorGroup:AddToggle('AutoArmorNotify', {
-    Text = 'Notifications',
-    Default = G.AutoArmorSettings.Notify,
-    Callback = function(v) G.AutoArmorSettings.Notify = v end,
-    Tooltip = 'Показывать уведомления о покупке брони'
-})
