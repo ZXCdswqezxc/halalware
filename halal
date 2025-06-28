@@ -1,6 +1,7 @@
 wait(3)
 loadstring(game:HttpGet('https://pastebin.com/raw/gimbTwW1'))() -- ac bypass dont touch
-local S = {
+-- Делаем основные сервисы глобальными для оптимизации количества локальных переменных
+getgenv().S = {
     PS = game:GetService('Players'), RS = game:GetService('RunService'), WS = game:GetService('Workspace'),
     UIS = game:GetService('UserInputService'), TS = game:GetService('TweenService'), LS = game:GetService('Lighting'),
     CG = game:GetService('CoreGui'), SG = game:GetService('StarterGui'), SP = game:GetService('StarterPack'),
@@ -16,30 +17,74 @@ local S = {
     PPS = game:GetService('ProximityPromptService'), TCS = game:GetService('TextChatService'), ES = game:GetService('ExperienceService'),
     PSS = game:GetService('PointsService'), GS = game:GetService('GroupService'), MS = game:GetService('MarketplaceService'),
 }
+local S = getgenv().S
 
-local M = {
+-- Добавляем настройки SpreadMod
+getgenv().SpreadMod = {
+    BulletSpread = {
+        Enabled = false,
+        Amount = 0 
+    }
+}
+
+-- Это основная логика модификатора разброса пуль (spread modificator)
+getgenv().old_math_random = hookfunction(math.random, function(...)
+    local args = { ... }
+
+    if checkcaller() then
+        return getgenv().old_math_random(...)
+    end
+
+    -- Проверка аргументов, характерных для расчета разброса пуль в игре
+    if (#args == 0) or 
+       (args[1] == -0.05 and args[2] == 0.05) or 
+       (args[1] == -0.1) or
+       (args[1] == -0.05) then
+
+        if getgenv().SpreadMod.BulletSpread.Enabled then
+            local spread = getgenv().SpreadMod.BulletSpread.Amount
+            return getgenv().old_math_random(...) * (spread / 100)
+        else
+            return getgenv().old_math_random(...)
+        end
+    end
+
+    return getgenv().old_math_random(...)
+end)
+
+-- Делаем вспомогательные функции глобальными
+getgenv().M = {
     abs = math.abs, floor = math.floor, ceil = math.ceil, sqrt = math.sqrt, clamp = math.clamp,
     min = math.min, max = math.max, atan2 = math.atan2, acos = math.acos, asin = math.asin,
     cos = math.cos, sin = math.sin, tan = math.tan, rad = math.rad, deg = math.deg, random = math.random
 }
 
-local T = {
+getgenv().T = {
     insert = table.insert, remove = table.remove, sort = table.sort, find = table.find, concat = table.concat,
     clear = table.clear
 }
 
-local STR = {
+getgenv().STR = {
     sub = string.sub, gsub = string.gsub, lower = string.lower, upper = string.upper,
     rep = string.rep, split = string.split, fmt = string.format
 }
 
-local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
-local Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/library'))()
-local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
-local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+-- Локальные ссылки для быстрого доступа
+local M = getgenv().M
+local T = getgenv().T
+local STR = getgenv().STR
+
+getgenv().repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+getgenv().Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/library'))()
+getgenv().ThemeManager = loadstring(game:HttpGet(getgenv().repo .. 'addons/ThemeManager.lua'))()
+getgenv().SaveManager = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/savemanager'))()
+local repo = getgenv().repo
+local Library = getgenv().Library
+local ThemeManager = getgenv().ThemeManager
+local SaveManager = getgenv().SaveManager
 
 -- Функция-обертка для тоглов с уведомлениями
-local function addToggleWithNotify(group, id, options)
+getgenv().addToggleWithNotify = function(group, id, options)
     local originalCallback = options.Callback
     options.Callback = function(v)
         originalCallback(v)
@@ -47,8 +92,10 @@ local function addToggleWithNotify(group, id, options)
     end
     return group:AddToggle(id, options)
 end
+local addToggleWithNotify = getgenv().addToggleWithNotify
 
-local G = {
+-- Делаем глобальными основные настройки и переменные
+getgenv().G = {
     -- Трейсеры
     lastTracerUpdate = 0,
     tracerUpdateInterval = 1/60,
@@ -57,7 +104,7 @@ local G = {
     
     -- AutoAir
     autoAirDebounce = false,
-    autoAirDebounceTime = 0.03, -- 100 мс между выстрелами
+    autoAirDebounceTime = 0.02, -- 100 мс между выстрелами
     
     -- Общие переменные дебаунса
     hitEffectDebounce = false,
@@ -102,6 +149,9 @@ local G = {
     end
 }
 
+-- Локальная ссылка для быстрого доступа
+local G = getgenv().G
+
 local V3, V2, CF, C3, U2, RP = Vector3, Vector2, CFrame, Color3, UDim2, RaycastParams
 local RND, SND, HRT = S.RS.RenderStepped, S.RS.Stepped, S.RS.Heartbeat
 local LP = S.PS.LocalPlayer
@@ -119,21 +169,23 @@ local Body = {
 
 local Cam, Mse, Bp, Tm, UID, PGui = S.WS.CurrentCamera, LP:GetMouse(), LP:FindFirstChildOfClass('Backpack'), LP.Team, LP.UserId, LP:FindFirstChildOfClass('PlayerGui')
 
-local Window = Library:CreateWindow({
+getgenv().Window = Library:CreateWindow({
     Title = 'Halalware',
     Center = true,
     AutoShow = true,
     TabPadding = 8,
     MenuFadeTime = 0.2
 })
+local Window = getgenv().Window
 
-local Tabs = {
+getgenv().Tabs = {
     Combat = Window:AddTab('Combat'),
     Misc = Window:AddTab('Misc'),
     Visuals = Window:AddTab('Visuals'),
     Player = Window:AddTab('Player'),
     Config = Window:AddTab('Config'),
 }
+local Tabs = getgenv().Tabs
 
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
@@ -146,6 +198,20 @@ MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', {
 })
 Library.ToggleKeybind = Options.MenuKeybind
 ThemeManager:ApplyToTab(Tabs.Config)
+-- Добавляем хук на загрузку конфигурации для перезапуска трейсеров
+local originalLoadConfig = SaveManager.Load
+SaveManager.Load = function(self, ...)
+    originalLoadConfig(self, ...)
+    
+    -- Перезапускаем трейсеры пуль если они включены
+    if BulletTracersConfig and BulletTracersConfig.Enabled and getgenv().setupBulletEffects then
+        task.spawn(function()
+            task.wait(0.5) -- Небольшая задержка для уверенности, что все настройки загрузились
+            getgenv().setupBulletEffects()
+        end)
+    end
+end
+
 SaveManager:BuildConfigSection(Tabs.Config)
 SaveManager:LoadAutoloadConfig()
 
@@ -173,7 +239,7 @@ HUDGroup:AddToggle('ShowKeybinds', {
     end
 })
 
-local ESPConfig = {
+getgenv().ESPConfig = {
     Enabled = false,
     MaxDistance = 200,
     Box = {
@@ -306,13 +372,15 @@ ESPGroup:AddToggle('ESPHealthbar', {
 -- === Bullet Tracers UI (ENGLISH, SHORT) ===
 local BulletTracersGroup = Tabs.Visuals:AddRightGroupbox('>_<')
 
-local BulletTracersConfig = {
+-- Делаем конфигурацию трейсеров глобальной
+getgenv().BulletTracersConfig = {
     Enabled = false,
     Color1 = C3.new(1,1,1),
     Color2 = C3.new(1,1,1),
     Thickness = 1,
     Texture = "rbxassetid://446111271"
 }
+local BulletTracersConfig = getgenv().BulletTracersConfig
 local BulletTextures = {
     ["Starhook"] = "rbxassetid://446111271",
     ["Chain"] = "rbxassetid://3029306948",
@@ -599,15 +667,19 @@ local function setupBulletEffects()
     end)
 end
 
--- Запускаем скрипт
+-- Запускаем скрипт и делаем функцию глобальной для возможности перезапуска
+getgenv().setupBulletEffects = setupBulletEffects
 setupBulletEffects()
 
 -- Старый код bullet tracers удален для избежания конфликтов с новой реализацией
 
-local ESPCache, ESPConnections = {}, {}
+getgenv().ESPCache = {}
+getgenv().ESPConnections = {}
+local ESPCache = getgenv().ESPCache
+local ESPConnections = getgenv().ESPConnections
 local gui_inset = S.GU:GetGuiInset()
 
-local function make_text(parent, font)
+getgenv().make_text = function(parent, font)
     local d = Instance.new("TextLabel")
     d.Parent = parent
     d.Size = U2.new(0, 4, 0, 4)
@@ -620,8 +692,9 @@ local function make_text(parent, font)
     d.Font = font or Enum.Font.SourceSans
     return d
 end
+local make_text = getgenv().make_text
 
-local function clear_esp(player)
+getgenv().clear_esp = function(player)
     local cache = ESPCache[player]
     if not cache then return end
     if cache.Box and cache.Box.Full then
@@ -644,8 +717,9 @@ local function clear_esp(player)
         end
     end
 end
+local clear_esp = getgenv().clear_esp
 
-local function render_esp(player)
+getgenv().render_esp = function(player)
     if not player then return end
     ESPCache[player] = ESPCache[player] or {}
     local cache = ESPCache[player]
@@ -688,8 +762,9 @@ local function render_esp(player)
         Frame = healthFill
     }
 end
+local render_esp = getgenv().render_esp
 
-local function update_esp(player)
+getgenv().update_esp = function(player)
     if not player or not ESPCache[player] then return end
     local character = player.Character
     if not character or not LP.Character then return end
@@ -898,16 +973,18 @@ G.originalPlayerMinZoom = LP.CameraMinZoomDistance
 
 
 -- SphereAura UI и логика
-local SphereAuraSettings = {
+getgenv().SphereAuraSettings = {
     enabled = false,
     color1 = Color3.new(1, 1, 1),
     color2 = Color3.new(1, 1, 1),
     size = 10,
     lightEmission = 1
 }
-local currentAura
+local SphereAuraSettings = getgenv().SphereAuraSettings
+getgenv().currentAura = nil
+local currentAura = getgenv().currentAura
 
-local function updateAura(prop)
+getgenv().updateAura = function(prop)
     if not (currentAura and currentAura.Parent) then return end
     local swirl = currentAura:FindFirstChild("Attachment"):FindFirstChild("swirl")
     if not swirl then return end
@@ -921,13 +998,16 @@ local function updateAura(prop)
         swirl.LightEmission = SphereAuraSettings.lightEmission
     end
 end
+local updateAura = getgenv().updateAura
 
-local function removePlayerAura()
+getgenv().removePlayerAura = function()
     if currentAura and currentAura.Parent then currentAura:Destroy() end
+    getgenv().currentAura = nil
     currentAura = nil
 end
+local removePlayerAura = getgenv().removePlayerAura
 
-local function createPlayerAura(character)
+getgenv().createPlayerAura = function(character)
     removePlayerAura()
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart", 3)
     if not humanoidRootPart then return end
@@ -941,27 +1021,30 @@ local function createPlayerAura(character)
     swirlEmitter.Name, swirlEmitter.Texture, swirlEmitter.Lifetime, swirlEmitter.Rate, swirlEmitter.RotSpeed, swirlEmitter.Speed = "swirl", "rbxassetid://10558425570", NumberRange.new(2), 150, NumberRange.new(200), NumberRange.new(0.01)
     swirlEmitter.SpreadAngle, swirlEmitter.VelocitySpread, swirlEmitter.Size, swirlEmitter.Transparency = Vector2.new(-360, 360), -360, NumberSequence.new({NumberSequenceKeypoint.new(0, SphereAuraSettings.size), NumberSequenceKeypoint.new(1, SphereAuraSettings.size)}), NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5006, 0.5), NumberSequenceKeypoint.new(1, 1)})
     swirlEmitter.Color, swirlEmitter.LightEmission, swirlEmitter.ZOffset, swirlEmitter.Orientation, swirlEmitter.LockedToPart, swirlEmitter.Parent = ColorSequence.new({ColorSequenceKeypoint.new(0, SphereAuraSettings.color1), ColorSequenceKeypoint.new(1, SphereAuraSettings.color2)}), SphereAuraSettings.lightEmission, -1, Enum.ParticleOrientation.VelocityPerpendicular, true, attachment
+    getgenv().currentAura = auraBase
     currentAura = auraBase
 end
+local createPlayerAura = getgenv().createPlayerAura
 
-local function applyPlayerAura()
+getgenv().applyPlayerAura = function()
     local character = LP.Character
     if not character then
-        local characterAddedConnection
+        getgenv().characterAddedConnection = nil
+        local characterAddedConnection = getgenv().characterAddedConnection
         if characterAddedConnection then characterAddedConnection:Disconnect() end
-        characterAddedConnection = LP.CharacterAdded:Connect(function(newCharacter)
+        getgenv().characterAddedConnection = LP.CharacterAdded:Connect(function(newCharacter)
             if SphereAuraSettings.enabled then createPlayerAura(newCharacter) end
         end)
         return
     end
     createPlayerAura(character)
-    if not characterAddedConnection then
-        local characterAddedConnection
-        characterAddedConnection = LP.CharacterAdded:Connect(function(newCharacter)
+    if not getgenv().characterAddedConnection then
+        getgenv().characterAddedConnection = LP.CharacterAdded:Connect(function(newCharacter)
             if SphereAuraSettings.enabled then createPlayerAura(newCharacter) end
         end)
     end
 end
+local applyPlayerAura = getgenv().applyPlayerAura
 
 getgenv().GetSphereAuraSettings = function() return SphereAuraSettings end
 
@@ -2454,11 +2537,16 @@ local destroyCheatersConn = nil
 local function setDestroyCheatersActive(state)
     destroyCheatersActive = state
     getgenv().Finobe1 = state
-    if not state and LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') and destroyCheatersLastCFrame then
-        LP.Character.HumanoidRootPart.CFrame = destroyCheatersLastCFrame
+    if not state and LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') then
+        if destroyCheatersLastCFrame then
+            LP.Character.HumanoidRootPart.CFrame = destroyCheatersLastCFrame
+            destroyCheatersLastCFrame = nil -- Очищаем сохраненную позицию после использования
+        end
         Library:Notify('>_< off', 3)
     elseif state then
-        destroyCheatersLastCFrame = nil
+        if LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') then
+            destroyCheatersLastCFrame = LP.Character.HumanoidRootPart.CFrame
+        end
         Library:Notify('>_< on', 3)
     end
 end
@@ -2467,22 +2555,39 @@ if destroyCheatersConn then destroyCheatersConn:Disconnect() end
 
 destroyCheatersConn = HRT:Connect(function()
     if not destroyCheatersEnabled or not destroyCheatersActive then return end
-    if LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') then
-        local hrp = LP.Character.HumanoidRootPart
-        local offset = hrp.CFrame * CFrame.new(9e9, 0/0, M.huge)
-        destroyCheatersLastCFrame = hrp.CFrame
-        hrp.CFrame = offset
-        RND:Wait()
-        hrp.CFrame = destroyCheatersLastCFrame
-    end
+    pcall(function()
+        if LP and LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') then
+            local hrp = LP.Character.HumanoidRootPart
+            if not destroyCheatersLastCFrame then
+                destroyCheatersLastCFrame = hrp.CFrame
+            end
+            local offset = hrp.CFrame * CFrame.new(9e9, 0/0, M.huge)
+            hrp.CFrame = offset
+            task.wait()
+            if destroyCheatersActive and destroyCheatersLastCFrame then -- Проверяем активно ли еще
+                hrp.CFrame = destroyCheatersLastCFrame
+            end
+        end
+    end)
 end)
 
 if destroyCheatersHook == nil then
     destroyCheatersHook = hookmetamethod(game, "__index", newcclosure(function(self, key)
         if not checkcaller() then
-            if key == "CFrame" and getgenv().Finobe1 and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character:FindFirstChild("Humanoid") and LP.Character:FindFirstChild("Humanoid").Health > 0 then
-                if self == LP.Character.HumanoidRootPart and destroyCheatersLastCFrame ~= nil then
-                    return destroyCheatersLastCFrame
+            if key == "CFrame" and getgenv().Finobe1 and destroyCheatersActive then
+                local success, result = pcall(function()
+                    if LP and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and 
+                       LP.Character:FindFirstChild("Humanoid") and 
+                       LP.Character:FindFirstChild("Humanoid").Health > 0 then
+                        if self == LP.Character.HumanoidRootPart and destroyCheatersLastCFrame ~= nil then
+                            return destroyCheatersLastCFrame
+                        end
+                    end
+                    return nil
+                end)
+                
+                if success and result then
+                    return result
                 end
             end
         end
@@ -2490,14 +2595,7 @@ if destroyCheatersHook == nil then
     end))
 end
 
-local destroyCheatersKeyConn
-if destroyCheatersKeyConn then destroyCheatersKeyConn:Disconnect() end
-
-destroyCheatersKeyConn = S.UIS.InputBegan:Connect(function(input, gp)
-    if not gp and input.KeyCode == destroyCheatersKey and destroyCheatersEnabled then
-        setDestroyCheatersActive(not destroyCheatersActive)
-    end
-end)
+-- Удаляем старый обработчик InputBegan для DestroyCheatersKey, так как теперь используем KeyPicker
 
 addToggleWithNotify(DestroyCheatersGroup, 'DestroyCheaters', {
     Text = 'DestroyCheaters',
@@ -2510,11 +2608,13 @@ addToggleWithNotify(DestroyCheatersGroup, 'DestroyCheaters', {
     end,
     Tooltip = '>_<'
 }):AddKeyPicker('DestroyCheatersKey', {
-    Default = 'X',
+    Default = 'None',
     Text = 'DestroyCheatersKey',
     NoUI = false,
-    Callback = function(key)
-        destroyCheatersKey = Enum.KeyCode[key] or Enum.KeyCode.X
+    Callback = function()
+        if destroyCheatersEnabled and type(setDestroyCheatersActive) == "function" then
+            setDestroyCheatersActive(not destroyCheatersActive)
+        end
     end
 })
 
@@ -2705,16 +2805,38 @@ SilentAimGroup:AddInput('SilentAimFallOffset', {
     Callback = function(val) local n = tonumber(val); if n then getgenv().SilentAim.Silent.Offsets.Fall.Amount = n end end
 })
 SilentAimGroup:AddLabel('Sticky Key'):AddKeyPicker('SilentAimStickyKey', {
-    Default = 'Q',
+    Default = 'None',
     Text = 'StickyKey',
     NoUI = false,
-    Callback = function(key)
-        if typeof(key) == "EnumItem" then
-            getgenv().SilentAim.Options.StickyKey = key
-        elseif type(key) == "string" then
-            getgenv().SilentAim.Options.StickyKey = Enum.KeyCode[key] or Enum.KeyCode.Q
-        else
-            -- Игнорируем boolean и прочее
+    Callback = function()
+        -- Проверяем, что SilentAim включен и режим установлен на Sticky
+        if Toggles.SilentAimEnabled and Toggles.SilentAimEnabled.Value and getgenv().SilentAim and getgenv().SilentAim.Options and getgenv().SilentAim.Options.Mode == "Sticky" then
+            -- Если цель уже выбрана, сбрасываем её
+            if _G.stickyTarget then
+                stickyTarget = nil
+                _G.stickyTarget = nil
+                Library:Notify(">_< Target released", 2)
+                return
+            end
+            
+            -- Получаем новую цель
+            local target = nil
+            
+            -- Пробуем использовать глобальную функцию
+            pcall(function()
+                if type(_G.getClosestPlayer) == "function" then
+                    target = _G.getClosestPlayer()
+                end
+            end)
+            
+            if target then
+                -- Сохраняем цель как в локальной, так и в глобальной переменной
+                stickyTarget = target
+                _G.stickyTarget = target
+                Library:Notify(">_< Target locked: " .. target.Name, 2)
+            else
+                Library:Notify(">_< No target found", 2)
+            end
         end
     end
 })
@@ -2753,6 +2875,28 @@ SilentAimGroup:AddDropdown('SilentAimResolverType', {
     Callback = function(v) getgenv().SilentAim.Misc.Checks.Resolver.Type = v end
 })
 
+-- NoSpread настройки
+addToggleWithNotify(SilentAimGroup, 'NoSpread', {
+    Text = 'NoSpread',
+    Default = SpreadMod.BulletSpread.Enabled,
+    Callback = function(v) 
+        SpreadMod.BulletSpread.Enabled = v 
+        Library:Notify(">_< " .. (v and "on" or "off"), 3)
+    end,
+    Tooltip = '>_<'
+})
+
+-- Слайдер для настройки разброса
+SilentAimGroup:AddSlider('SpreadAmount', {
+    Text = 'Spread%',
+    Default = SpreadMod.BulletSpread.Amount,
+    Min = 0,
+    Max = 100,
+    Rounding = 0,
+    Callback = function(v) SpreadMod.BulletSpread.Amount = v end,
+    Tooltip = '0% - нет разброса, 100% - стандартный разброс'
+})
+
 SilentAimGroup:AddDropdown('SilentAimPart', {
     Text = 'Hitpart',
     Values = {'HumanoidRootPart', 'UpperTorso', 'LowerTorso', 'Head'},
@@ -2772,7 +2916,9 @@ if not getgenv().Loaded_SilentAim then
     local Inf = math.huge
     local NewVector2 = Vector2.new
     local NewCFrame = CFrame.new
-    local stickyTarget = nil
+    -- Делаем stickyTarget глобальной переменной для доступа из разных частей скрипта
+    stickyTarget = nil
+    _G.stickyTarget = nil
     local lastPositions, lastUpdateTimes = {}, {}
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local MainEvent = ReplicatedStorage:FindFirstChild("MainEvent")
@@ -2817,7 +2963,9 @@ if not getgenv().Loaded_SilentAim then
         )
         return hitPart == nil
     end
-    local function getClosestPlayer()
+    
+    -- Делаем функцию getClosestPlayer доступной глобально
+    getClosestPlayer = function()
         local mousePos = UserInputService:GetMouseLocation()
         local shortestDistance = Inf
         local closestPlayer = nil
@@ -2844,6 +2992,10 @@ if not getgenv().Loaded_SilentAim then
         end
         return closestPlayer
     end
+    
+    -- Сохраняем функцию в глобальной области видимости для доступа из других частей скрипта
+    _G.getClosestPlayer = getClosestPlayer
+    
     local function predictPosition(player)
         if not player.Character or not player.Character:FindFirstChild(SilentAim.Silent.Part) then return nil end
         local aimPart = player.Character[SilentAim.Silent.Part]
@@ -3034,13 +3186,20 @@ if not getgenv().Loaded_SilentAim then
         end
         local currentTarget = nil
         if SilentAim.Options.Mode == "Sticky" then
-            -- Проверяем isPlayerAlive только если TargetDeathCheck включен
-            local isAliveCheck = SilentAim.Misc.Checks.TargetDeathCheck and isPlayerAlive(stickyTarget) or stickyTarget ~= nil
+            -- Используем глобальную переменную, если она доступна
+            local currentStickyTarget = _G.stickyTarget or stickyTarget
             
-            if stickyTarget and isAliveCheck and (not SilentAim.Misc.Checks.KOCheck or not isPlayerKO(stickyTarget)) and (not SilentAim.Misc.Checks.GrabbedCheck or not isPlayerGrabbed(stickyTarget)) then
-                currentTarget = stickyTarget
+            -- Проверяем isPlayerAlive только если TargetDeathCheck включен
+            local isAliveCheck = currentStickyTarget ~= nil and (not SilentAim.Misc.Checks.TargetDeathCheck or isPlayerAlive(currentStickyTarget))
+            
+            if currentStickyTarget and isAliveCheck and 
+               (not SilentAim.Misc.Checks.KOCheck or not isPlayerKO(currentStickyTarget)) and 
+               (not SilentAim.Misc.Checks.GrabbedCheck or not isPlayerGrabbed(currentStickyTarget)) then
+                currentTarget = currentStickyTarget
             else
-                stickyTarget = nil 
+                -- Сбрасываем цель в обеих переменных
+                stickyTarget = nil
+                _G.stickyTarget = nil
             end
         else 
             currentTarget = getClosestPlayer()
@@ -3126,11 +3285,7 @@ if not getgenv().Loaded_SilentAim then
     end
     end)
     
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if not gameProcessed and input.KeyCode == SilentAim.Options.StickyKey and SilentAim.Options.Mode == "Sticky" then
-            stickyTarget = getClosestPlayer()
-        end
-    end)
+    -- Удаляем старый обработчик InputBegan для StickyKey, так как теперь используем KeyPicker
     local mt = getrawmetatable(game)
     local oldIndex = mt.__index
     setreadonly(mt, false)
@@ -3418,13 +3573,16 @@ S.UIS.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 -- === HitChams (Combat tab, правая секция) ===
-local HitChamsConfig = {
+-- Делаем конфигурацию глобальной для уменьшения количества локальных переменных
+getgenv().HitChamsConfig = {
     Enabled = false,
     Material = Enum.Material.Neon,
     Duration = 2,
     Color = Color3.fromRGB(255, 255, 255), -- белый по умолчанию
     Transparency = 0,
+    NoCollision = true, -- Добавляем новую опцию для отключения коллизии
 }
+local HitChamsConfig = getgenv().HitChamsConfig
 
 -- Список частей тела для HitChams
 G.HitChamsBodyParts = {
@@ -3463,11 +3621,15 @@ local function HitChams(Player, config)
     -- Настраиваем части тела
     for _, Part in ipairs(Cloned:GetChildren()) do
         if Part:IsA("BasePart") then
-            Part.CanCollide = false
+            Part.CanCollide = false -- Всегда отключаем коллизию для хитчамсов
             Part.Anchored = true
             Part.Transparency = config.Transparency
             Part.Color = config.Color
             Part.Material = config.Material
+            
+            -- Дополнительно отключаем физическое взаимодействие
+            Part.CanTouch = false
+            Part.CanQuery = false
         end
     end
     
@@ -3493,12 +3655,15 @@ local function HitChams(Player, config)
 end
 
 -- === HitSounds (инлайн-модуль) ===
-local HitSoundsConfig = {
+-- Делаем конфигурацию глобальной для уменьшения количества локальных переменных
+getgenv().HitSoundsConfig = {
     Enabled = false,
     Sound = "Bameware",
     Volume = 1,
 }
-local hitsounds = {
+local HitSoundsConfig = getgenv().HitSoundsConfig
+-- Делаем таблицу звуков глобальной
+getgenv().hitsounds = {
     ["RIFK7"]        = "rbxassetid://9102080552",
     ["Bubble"]       = "rbxassetid://6534947588",
     ["Minecraft"]    = "rbxassetid://8837706727",
@@ -3520,6 +3685,7 @@ local hitsounds = {
     ["Totem"]        = "rbxassetid://135055101757201",
     ["CSHS"]         = "rbxassetid://9065951723"
 }
+local hitsounds = getgenv().hitsounds
 local function PlayHitSound(config)
     config = config or HitSoundsConfig
     if not config.Enabled then return end
@@ -3623,11 +3789,14 @@ RND:Connect(function()
     end)
     
 -- === Combat Tracer (трейсер до цели) ===
-local CombatTracerConfig = {
+-- Делаем конфигурацию глобальной
+getgenv().CombatTracerConfig = {
     Enabled = false,
     Color = Color3.fromRGB(255, 255, 255), -- белый по умолчанию
 }
-local combatTracerLine = nil
+local CombatTracerConfig = getgenv().CombatTracerConfig
+getgenv().combatTracerLine = nil
+local combatTracerLine = getgenv().combatTracerLine
 
 addToggleWithNotify(HitChamsGroup, 'CombatTracerEnabled', {
     Text = 'Tracer',
@@ -3788,12 +3957,7 @@ local HighlightToggle = addToggleWithNotify(HitChamsGroup, 'HighlightEnabled', {
         end
     end,
     Tooltip = '>_<'
-})
-
-local HighlightSub = HitChamsGroup:AddDependencyBox()
-
--- Добавляем колорпикеры для цветов контура и заливки
-HighlightSub:AddLabel('Outline Color'):AddColorPicker('HighlightOutlineColor', {
+}):AddColorPicker('HighlightOutlineColor', {
     Default = HighlightConfig.OutlineColor,
     Title = 'Outline',
     Callback = function(val) 
@@ -3803,9 +3967,7 @@ HighlightSub:AddLabel('Outline Color'):AddColorPicker('HighlightOutlineColor', {
             HighlightConfig.CurrentHighlight.OutlineColor = val
         end
     end
-})
-
-HighlightSub:AddLabel('Fill Color'):AddColorPicker('HighlightFillColor', {
+}):AddColorPicker('HighlightFillColor', {
     Default = HighlightConfig.FillColor,
     Title = 'Fill',
     Callback = function(val) 
@@ -3816,6 +3978,8 @@ HighlightSub:AddLabel('Fill Color'):AddColorPicker('HighlightFillColor', {
         end
     end
 })
+
+local HighlightSub = HitChamsGroup:AddDependencyBox()
 
 -- Добавляем слайдеры для прозрачности
 HighlightSub:AddSlider('HighlightOutlineTransparency', {
@@ -3920,11 +4084,14 @@ G.updateHighlight = function(target)
 end
 
 -- Объединяем все эффекты в одну функцию для оптимизации
-G.processHitEffects = function(target)
+G.processHitEffects = function(target, previousHP)
     if not target or not target.Character or not target.Character:FindFirstChild('Humanoid') then return end
     
     -- Обновляем время последнего урона (без проверки дебаунса)
     G.lastDamageTick = tick()
+    
+    -- Сохраняем предыдущее значение HP для расчета урона
+    lastHP = previousHP
     
     -- Применяем эффекты
     if HitChamsConfig.Enabled then HitChams(target, HitChamsConfig) end
@@ -3944,7 +4111,20 @@ G.processHitEffects = function(target)
         local hum = target.Character.Humanoid
         local notifText = ">_<"
         
-        Library:Notify('>_<', HitNotificationsConfig.Duration)
+        -- Добавляем информацию о нанесенном уроне и оставшемся HP
+        if HitNotificationsConfig.ShowDamage or HitNotificationsConfig.ShowRemaining then
+            local damage = lastHP - hum.Health
+            
+            if HitNotificationsConfig.ShowDamage then
+                notifText = notifText .. " -" .. math.floor(damage)
+            end
+            
+            if HitNotificationsConfig.ShowRemaining then
+                notifText = notifText .. " [" .. math.floor(hum.Health) .. " HP]"
+            end
+        end
+        
+        Library:Notify(notifText, HitNotificationsConfig.Duration)
     end
 end
 
@@ -3971,7 +4151,8 @@ HRT:Connect(function()
             lastTarget = target
             lastHP = hp
         else if hp < lastHP then
-                G.processHitEffects(target)
+                local previousHP = lastHP
+                G.processHitEffects(target, previousHP)
             end
             lastHP = hp
         end
@@ -4700,14 +4881,17 @@ addToggleWithNotify(BulletTpGroup, 'BulletTpToggle', {
 })
 
 BulletTpGroup:AddLabel('BulletTP Key'):AddKeyPicker('BulletTpKey', {
-    Default = 'C',
+    Default = 'None',
     Text = 'Key',
     NoUI = false,
-    Callback = function(key)
-        if typeof(key) == "EnumItem" then
-            getgenv().BulletTp.Keybind = key
-        elseif type(key) == "string" then
-            getgenv().BulletTp.Keybind = Enum.KeyCode[key] or Enum.KeyCode.C
+    Callback = function()
+        -- Переключаем состояние BulletTP при нажатии клавиши, если функция включена
+        if getgenv().BulletTp and getgenv().BulletTp.Toggle then
+            local wasEnabled = getgenv().BulletTp.Enabled
+            getgenv().BulletTp.Enabled = not wasEnabled
+            
+            -- Отправляем уведомление
+            Library:Notify(">_< " .. (getgenv().BulletTp.Enabled and "on" or "off"), 2)
         end
     end
 })
@@ -4899,30 +5083,7 @@ G.SetupBulletTp = function()
             end
         end)
         
-        -- Соединение с нажатием клавиш
-        if not G.bulletTpConns.InputBegan then
-            G.bulletTpConns.InputBegan = S.UIS.InputBegan:Connect(function(input, gpe)
-                if gpe then return end
-                
-                if input.KeyCode == getgenv().BulletTp.Keybind then
-                    -- Предотвращаем двойное срабатывание уведомлений
-                    local wasEnabled = getgenv().BulletTp.Enabled
-                    pcall(function()
-                        getgenv().BulletTp.Enabled = not wasEnabled
-                    end)
-                    
-                    G.targetName = "Нет цели"
-                    if getgenv().SilentAim and getgenv().SilentAim.currentTarget then
-                        G.targetName = getgenv().SilentAim.currentTarget.Name
-                    elseif getgenv().BulletTp.Selected then
-                        G.targetName = getgenv().BulletTp.Selected.Name
-                    end
-                    
-                    -- Отправляем только одно уведомление
-                    Library:Notify(">_< " .. (getgenv().BulletTp.Enabled and "on" or "off"), 2)
-                end
-            end)
-        end
+        -- Удаляем старый обработчик InputBegan для BulletTP, так как теперь используем KeyPicker
         
         -- Соединение с обновлением цели для запасного варианта
         if not G.bulletTpConns.TargetUpdate then
@@ -5529,6 +5690,260 @@ G.AutoArmorGroup:AddDropdown('AutoArmorType', {
     end,
     Tooltip = '>_<'
 })
+
+-- === VelocityAA (Player tab, новая секция) ===
+local VelocityAAGroup = Tabs.Player:AddRightGroupbox('>_<')
+
+-- Инициализация переменных
+getgenv().VelocityAA = {
+    Enable = false,
+    Visualise = false
+}
+
+-- Создаем соединение для VelocityAA
+getgenv().velocityAAConnection = nil
+local velocityAAConnection = getgenv().velocityAAConnection
+
+-- Визуализация скорости
+-- Делаем объект глобальным для уменьшения количества локальных переменных
+getgenv().velocityVisualizer = {
+    anchorPart = nil,
+    billboard = nil,
+    imageLabel = nil,
+    connection = nil,
+    characterConnection = nil
+}
+local velocityVisualizer = getgenv().velocityVisualizer
+
+-- Функция для создания визуализатора скорости
+-- Делаем функцию глобальной для уменьшения количества локальных переменных
+getgenv().createVelocityVisualizer = function()
+    -- Удаляем предыдущий визуализатор, если он существует
+    if velocityVisualizer.anchorPart then
+        velocityVisualizer.anchorPart:Destroy()
+    end
+    
+    local createVelocityVisualizer = getgenv().createVelocityVisualizer
+    
+    -- Отключаем предыдущие соединения
+    if velocityVisualizer.connection then
+        velocityVisualizer.connection:Disconnect()
+        velocityVisualizer.connection = nil
+    end
+    
+    if velocityVisualizer.characterConnection then
+        velocityVisualizer.characterConnection:Disconnect()
+        velocityVisualizer.characterConnection = nil
+    end
+    
+    -- Создаем невидимую Part для привязки GUI
+    local anchorPart = Instance.new("Part")
+    anchorPart.Name = "VelocityAnchor"
+    anchorPart.Anchored = true
+    anchorPart.CanCollide = false
+    anchorPart.Transparency = 1
+    anchorPart.Size = Vector3.new(0.1, 0.1, 0.1)
+    anchorPart.Parent = workspace
+
+    -- Создаем BillboardGui с ImageLabel
+    local billboard = Instance.new("BillboardGui")
+    billboard.Adornee = anchorPart
+    billboard.Size = UDim2.new(2, 0, 2, 0)
+    billboard.AlwaysOnTop = true
+    billboard.LightInfluence = 0
+    billboard.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    billboard.MaxDistance = 10000
+    billboard.Parent = anchorPart
+
+    -- ImageLabel с указанной текстурой
+    local imageLabel = Instance.new("ImageLabel")
+    imageLabel.Image = "rbxassetid://108758683130028"
+    imageLabel.Size = UDim2.new(1, 0, 1, 0)
+    imageLabel.BackgroundTransparency = 1
+    imageLabel.ZIndex = 999999
+    imageLabel.Parent = billboard
+    
+    -- Сохраняем ссылки
+    velocityVisualizer.anchorPart = anchorPart
+    velocityVisualizer.billboard = billboard
+    velocityVisualizer.imageLabel = imageLabel
+    
+    -- Настройки визуализации
+    local velocityMultiplier = 0.3
+    local maxDistance = 15
+    local lowerTorso = nil
+    
+    -- Функция обновления визуализатора
+    local function updateVisualizer()
+        -- Проверяем, что визуализация включена
+        if not getgenv().VelocityAA.Visualise then return end
+        
+        -- Получаем текущий LowerTorso
+        if not lowerTorso or not lowerTorso:IsDescendantOf(workspace) then
+            if LP.Character then
+                lowerTorso = LP.Character:FindFirstChild("LowerTorso")
+                -- Если LowerTorso не найден, попробуем использовать HumanoidRootPart как запасной вариант
+                if not lowerTorso then
+                    lowerTorso = LP.Character:FindFirstChild("HumanoidRootPart")
+                end
+            end
+            if not lowerTorso then return end
+        end
+
+        -- Если VelocityAA включен, показываем позицию анти-аима
+        if getgenv().VelocityAA.Enable then
+            imageLabel.Visible = true
+            -- Позиция анти-аима всегда над персонажем
+            anchorPart.CFrame = CFrame.new(
+                lowerTorso.Position + Vector3.new(0, 250, 0)
+            )
+            -- Устанавливаем цвет для анти-аима
+            imageLabel.ImageColor3 = Color3.fromRGB(255, 0, 0) -- Красный для анти-аима
+        else
+            -- Если анти-аим выключен, но визуализация включена, показываем обычный вектор скорости
+            local vel = lowerTorso.Velocity
+            local speed = vel.Magnitude
+
+            -- Если скорость мала, скрываем ImageLabel
+            if speed < 1 then
+                imageLabel.Visible = false
+                return
+            else
+                imageLabel.Visible = true
+            end
+
+            -- Двигаем anchorPart по вектору скорости
+            local direction = vel.Unit
+            local distance = math.min(speed * velocityMultiplier, maxDistance)
+            anchorPart.CFrame = CFrame.new(
+                lowerTorso.Position + (direction * distance) + Vector3.new(0, 0.5, 0)
+            )
+
+            -- Поворачиваем ImageLabel в сторону движения
+            imageLabel.Rotation = math.deg(math.atan2(direction.X, direction.Z)) + 180
+            -- Устанавливаем цвет для обычного вектора скорости
+            imageLabel.ImageColor3 = Color3.fromRGB(255, 255, 255) -- Белый для вектора скорости
+        end
+    end
+    
+    -- Обновляем каждый кадр
+    velocityVisualizer.connection = game:GetService("RunService").Heartbeat:Connect(updateVisualizer)
+    
+    -- Обновляем ссылки при перерождении
+    velocityVisualizer.characterConnection = LP.CharacterAdded:Connect(function(newChar)
+        task.wait(0.5) -- Ждем загрузки персонажа
+        lowerTorso = newChar:FindFirstChild("LowerTorso") or newChar:WaitForChild("LowerTorso", 3)
+        -- Если LowerTorso не найден, используем HumanoidRootPart как запасной вариант
+        if not lowerTorso then
+            lowerTorso = newChar:FindFirstChild("HumanoidRootPart") or newChar:WaitForChild("HumanoidRootPart", 3)
+        end
+    end)
+    
+    -- Инициализируем LowerTorso
+    if LP.Character then
+        lowerTorso = LP.Character:FindFirstChild("LowerTorso")
+        -- Если LowerTorso не найден, используем HumanoidRootPart как запасной вариант
+        if not lowerTorso then
+            lowerTorso = LP.Character:FindFirstChild("HumanoidRootPart")
+        end
+    end
+end
+
+-- Функция для включения/выключения визуализации скорости
+-- Делаем функцию глобальной для уменьшения количества локальных переменных
+getgenv().toggleVelocityVisualizer = function(state)
+    getgenv().VelocityAA.Visualise = state
+    
+    if state then
+        createVelocityVisualizer()
+        Library:Notify(">_<", 3)
+    else
+        -- Отключаем соединения
+        if velocityVisualizer.connection then
+            velocityVisualizer.connection:Disconnect()
+            velocityVisualizer.connection = nil
+        end
+        
+        if velocityVisualizer.characterConnection then
+            velocityVisualizer.characterConnection:Disconnect()
+            velocityVisualizer.characterConnection = nil
+        end
+        
+        -- Удаляем визуализатор
+        if velocityVisualizer.anchorPart then
+            velocityVisualizer.anchorPart:Destroy()
+            velocityVisualizer.anchorPart = nil
+        end
+    end
+end
+local toggleVelocityVisualizer = getgenv().toggleVelocityVisualizer
+
+-- Функция для включения/выключения VelocityAA
+-- Делаем функцию глобальной для уменьшения количества локальных переменных
+getgenv().toggleVelocityAA = function(state)
+    getgenv().VelocityAA.Enable = state
+    
+    if state then
+        if velocityAAConnection then velocityAAConnection:Disconnect() end
+        
+        velocityAAConnection = game:GetService("RunService").Heartbeat:Connect(function()
+            if getgenv().VelocityAA.Enable then
+                local character = LP.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = character.HumanoidRootPart
+                    local vel = hrp.Velocity
+                    hrp.Velocity = Vector3.new(0, 250, 0)
+                    game:GetService("RunService").RenderStepped:Wait()
+                    hrp.Velocity = vel
+                end
+            end
+        end)
+        
+        -- Если визуализация включена, но визуализатор не создан, создаем его
+        if getgenv().VelocityAA.Visualise and not velocityVisualizer.anchorPart then
+            createVelocityVisualizer()
+        end
+    else
+        if velocityAAConnection then
+            velocityAAConnection:Disconnect()
+            velocityAAConnection = nil
+        end
+    end
+end
+local toggleVelocityAA = getgenv().toggleVelocityAA
+
+-- Добавляем тоггл для VelocityAA
+local VelocityAAToggle = addToggleWithNotify(VelocityAAGroup, 'VelocityAAEnabled', {
+    Text = 'VelocityAA',
+    Default = false,
+    Callback = function(v)
+        toggleVelocityAA(v)
+    end,
+    Tooltip = '>_<'
+})
+
+-- Добавляем тоггл для визуализации скорости
+addToggleWithNotify(VelocityAAGroup, 'VisualiseVeloEnabled', {
+    Text = 'VisualiseVelo',
+    Default = false,
+    Callback = function(v)
+        toggleVelocityVisualizer(v)
+    end,
+    Tooltip = '>_<'
+})
+
+-- Отключаем VelocityAA и визуализацию при выходе из игры
+LP.CharacterRemoving:Connect(function()
+    if getgenv().VelocityAA.Enable then
+        toggleVelocityAA(false)
+        Toggles.VelocityAAEnabled:SetValue(false)
+    end
+    
+    if getgenv().VelocityAA.Visualise then
+        toggleVelocityVisualizer(false)
+        Toggles.VisualiseVeloEnabled:SetValue(false)
+    end
+end)
 
 -- Конец скрипта
 
