@@ -2745,8 +2745,18 @@ do
     WatermarkScreenGui.Name = Library.Name .. "_Watermark"
     WatermarkScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     WatermarkScreenGui.DisplayOrder = 999 -- Высокий DisplayOrder для отображения поверх других GUI
+    WatermarkScreenGui.ResetOnSpawn = false -- Чтобы не исчезал при респауне
     ProtectGui(WatermarkScreenGui)
-    WatermarkScreenGui.Parent = game:GetService('CoreGui')
+    
+    -- Устанавливаем родителя в зависимости от доступности CoreGui
+    local success, result = pcall(function()
+        WatermarkScreenGui.Parent = game:GetService('CoreGui')
+        return true
+    end)
+    
+    if not success then
+        WatermarkScreenGui.Parent = game:GetService('Players').LocalPlayer:WaitForChild('PlayerGui')
+    end
     
     -- Перемещаем ватермарк в новый ScreenGui
     WatermarkOuter.Parent = WatermarkScreenGui
@@ -2940,7 +2950,7 @@ function Library:UpdateWatermarkText()
             return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name;
         end);
         
-        if success then
+        if success and result then
             placeName = result;
         end
         
@@ -2948,12 +2958,27 @@ function Library:UpdateWatermarkText()
     end
     
     if Library.WatermarkData.FPS then
-        local fps = math.floor(1 / game:GetService("RunService").RenderStepped:Wait());
+        -- Используем более надежный способ расчета FPS
+        local fps = 0;
+        if Library._lastFpsUpdate then
+            fps = math.floor(Library._fpsCount / (tick() - Library._lastFpsUpdate));
+            Library._fpsCount = 0;
+            Library._lastFpsUpdate = tick();
+        else
+            Library._fpsCount = 0;
+            Library._lastFpsUpdate = tick();
+        end
+        Library._fpsCount = Library._fpsCount + 1;
+        
         table.insert(Parts, fps .. " FPS");
     end
     
     if Library.WatermarkData.Ping then
-        local ping = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue());
+        -- Более надежный способ получения пинга
+        local ping = 0;
+        pcall(function()
+            ping = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue());
+        end);
         table.insert(Parts, ping .. " ms");
     end
     
@@ -2966,10 +2991,12 @@ function Library:UpdateWatermarkText()
         local player = game:GetService("Players").LocalPlayer;
         local speed = 0;
         
-        if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local humanoidRootPart = player.Character.HumanoidRootPart;
-            speed = math.floor((humanoidRootPart.Velocity * Vector3.new(1, 0, 1)).Magnitude);
-        end
+        pcall(function()
+            if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local humanoidRootPart = player.Character.HumanoidRootPart;
+                speed = math.floor((humanoidRootPart.Velocity * Vector3.new(1, 0, 1)).Magnitude);
+            end
+        end);
         
         table.insert(Parts, speed .. " s/s");
     end
@@ -2982,11 +3009,14 @@ function Library:UpdateWatermarkText()
         end
     end
     
-    local X, Y = Library:GetTextBounds(Text, Library.Font, 14);
-    Library.Watermark.Size = UDim2.new(0, X + 15, 0, (Y * 1.5) + 3);
-    Library:SetWatermarkVisibility(true);
-    
-    Library.WatermarkText.Text = Text;
+    -- Обновляем текст и размер ватермарки
+    if Library.WatermarkText then
+        local X, Y = Library:GetTextBounds(Text, Library.Font, 14);
+        if Library.Watermark then
+            Library.Watermark.Size = UDim2.new(0, X + 15, 0, (Y * 1.5) + 3);
+        end
+        Library.WatermarkText.Text = Text;
+    end
 end;
 
 function Library:StartWatermarkUpdater()
@@ -2996,16 +3026,25 @@ function Library:StartWatermarkUpdater()
         Library.WatermarkUpdater = nil;
     end
     
+    -- Инициализация счетчика FPS
+    Library._fpsCount = 0;
+    Library._lastFpsUpdate = tick();
+    
     -- Создаем новый апдейтер
     Library.WatermarkUpdater = game:GetService("RunService").RenderStepped:Connect(function()
-        if not Library.WatermarkData.Enabled then
-            Library.WatermarkUpdater:Disconnect();
-            Library.WatermarkUpdater = nil;
+        -- Увеличиваем счетчик FPS на каждом кадре
+        Library._fpsCount = Library._fpsCount + 1;
+        
+        if not Library.WatermarkData or not Library.WatermarkData.Enabled then
+            if Library.WatermarkUpdater then
+                Library.WatermarkUpdater:Disconnect();
+                Library.WatermarkUpdater = nil;
+            end
             return;
         end
         
         -- Обновляем только если прошел интервал
-        if not Library.LastWatermarkUpdate or (tick() - Library.LastWatermarkUpdate) >= Library.WatermarkData.UpdateInterval then
+        if not Library.LastWatermarkUpdate or (tick() - Library.LastWatermarkUpdate) >= (Library.WatermarkData.UpdateInterval or 0.5) then
             Library:UpdateWatermarkText();
             Library.LastWatermarkUpdate = tick();
         end
