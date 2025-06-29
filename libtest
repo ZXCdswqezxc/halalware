@@ -2736,16 +2736,17 @@ do
         Position = UDim2.new(0, 100, 0, 10); -- Изменено с -25 на 10, чтобы спавнилось ниже
         Size = UDim2.new(0, 213, 0, 20);
         ZIndex = 9999; -- Увеличиваем ZIndex, чтобы отображалось поверх всего
-        Visible = false;
+        Visible = true; -- Изначально видимый
         Parent = ScreenGui;
     });
 
     -- Создаем отдельный ScreenGui для ватермарка, чтобы он был поверх всего
     local WatermarkScreenGui = Instance.new('ScreenGui')
-    WatermarkScreenGui.Name = Library.Name .. "_Watermark"
+    WatermarkScreenGui.Name = "WatermarkGui"
     WatermarkScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     WatermarkScreenGui.DisplayOrder = 999 -- Высокий DisplayOrder для отображения поверх других GUI
     WatermarkScreenGui.ResetOnSpawn = false -- Чтобы не исчезал при респауне
+    WatermarkScreenGui.Enabled = true -- Изначально включен
     ProtectGui(WatermarkScreenGui)
     
     -- Устанавливаем родителя в зависимости от доступности CoreGui
@@ -2900,13 +2901,34 @@ do
 end;
 
 function Library:SetWatermarkVisibility(Bool)
-    Library.Watermark.Visible = Bool;
-    Library.WatermarkData.Enabled = Bool;
+    if not Library.Watermark then return end
+    
+    -- Принудительно делаем видимым ScreenGui
+    if Library.WatermarkScreenGui then
+        Library.WatermarkScreenGui.Enabled = Bool
+    end
+    
+    -- Делаем видимым сам ватермарк
+    Library.Watermark.Visible = Bool
+    Library.WatermarkData.Enabled = Bool
+    
+    -- Вызываем обновление текста для отображения актуальной информации
+    Library:UpdateWatermarkText()
     
     -- Если включаем ватермарк и есть динамические данные, запускаем обновление
     if Bool and (Library.WatermarkData.FPS or Library.WatermarkData.Ping or Library.WatermarkData.Time or 
                 Library.WatermarkData.PlaceId or Library.WatermarkData.PlayerName or Library.WatermarkData.Speed) then
-        Library:StartWatermarkUpdater();
+        Library:StartWatermarkUpdater()
+    end
+    
+    -- Выводим отладочную информацию в консоль
+    print("Watermark visibility set to: " .. tostring(Bool))
+    print("Watermark exists: " .. tostring(Library.Watermark ~= nil))
+    if Library.Watermark then
+        print("Watermark visibility state: " .. tostring(Library.Watermark.Visible))
+    end
+    if Library.WatermarkScreenGui then
+        print("WatermarkScreenGui exists and enabled: " .. tostring(Library.WatermarkScreenGui.Enabled))
     end
 end;
 
@@ -2934,73 +2956,87 @@ function Library:ConfigureWatermark(Config)
 end;
 
 function Library:UpdateWatermarkText()
-    local Text = Library.WatermarkData.Title;
+    if not Library.WatermarkText then return end
+    
+    local Text = Library.WatermarkData.Title or "";
     local Parts = {};
     
+    -- Собираем все части текста
     if Library.WatermarkData.PlayerName then
-        local player = game:GetService("Players").LocalPlayer;
-        if player then
-            table.insert(Parts, player.Name);
-        end
+        pcall(function()
+            local player = game:GetService("Players").LocalPlayer;
+            if player then
+                table.insert(Parts, player.Name);
+            end
+        end)
     end
     
     if Library.WatermarkData.PlaceId then
-        local placeName = "Unknown";
-        local success, result = pcall(function()
-            return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name;
-        end);
-        
-        if success and result then
-            placeName = result;
-        end
-        
-        table.insert(Parts, placeName);
+        pcall(function()
+            local placeName = "Unknown";
+            local success, result = pcall(function()
+                return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name;
+            end);
+            
+            if success and result then
+                placeName = result;
+            end
+            
+            table.insert(Parts, placeName);
+        end)
     end
     
     if Library.WatermarkData.FPS then
-        -- Используем более надежный способ расчета FPS
-        local fps = 0;
-        if Library._lastFpsUpdate then
-            fps = math.floor(Library._fpsCount / (tick() - Library._lastFpsUpdate));
-            Library._fpsCount = 0;
-            Library._lastFpsUpdate = tick();
-        else
-            Library._fpsCount = 0;
-            Library._lastFpsUpdate = tick();
-        end
-        Library._fpsCount = Library._fpsCount + 1;
-        
-        table.insert(Parts, fps .. " FPS");
+        pcall(function()
+            -- Используем более надежный способ расчета FPS
+            local fps = 0;
+            if Library._lastFpsUpdate then
+                fps = math.floor(Library._fpsCount / (tick() - Library._lastFpsUpdate));
+                Library._fpsCount = 0;
+                Library._lastFpsUpdate = tick();
+            else
+                Library._fpsCount = 0;
+                Library._lastFpsUpdate = tick();
+            end
+            Library._fpsCount = Library._fpsCount + 1;
+            
+            table.insert(Parts, fps .. " FPS");
+        end)
     end
     
     if Library.WatermarkData.Ping then
-        -- Более надежный способ получения пинга
-        local ping = 0;
         pcall(function()
-            ping = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue());
-        end);
-        table.insert(Parts, ping .. " ms");
+            -- Более надежный способ получения пинга
+            local ping = 0;
+            pcall(function()
+                ping = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue());
+            end);
+            table.insert(Parts, ping .. " ms");
+        end)
     end
     
     if Library.WatermarkData.Time then
-        local time = os.date("%H:%M:%S");
-        table.insert(Parts, time);
+        pcall(function()
+            local time = os.date("%H:%M:%S");
+            table.insert(Parts, time);
+        end)
     end
     
     if Library.WatermarkData.Speed then
-        local player = game:GetService("Players").LocalPlayer;
-        local speed = 0;
-        
         pcall(function()
+            local player = game:GetService("Players").LocalPlayer;
+            local speed = 0;
+            
             if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                 local humanoidRootPart = player.Character.HumanoidRootPart;
                 speed = math.floor((humanoidRootPart.Velocity * Vector3.new(1, 0, 1)).Magnitude);
             end
-        end);
-        
-        table.insert(Parts, speed .. " s/s");
+            
+            table.insert(Parts, speed .. " s/s");
+        end)
     end
     
+    -- Объединяем все части
     if #Parts > 0 then
         if Text ~= "" then
             Text = Text .. " | " .. table.concat(Parts, " | ");
@@ -3011,11 +3047,18 @@ function Library:UpdateWatermarkText()
     
     -- Обновляем текст и размер ватермарки
     if Library.WatermarkText then
-        local X, Y = Library:GetTextBounds(Text, Library.Font, 14);
-        if Library.Watermark then
-            Library.Watermark.Size = UDim2.new(0, X + 15, 0, (Y * 1.5) + 3);
-        end
         Library.WatermarkText.Text = Text;
+        
+        -- Обновляем размер ватермарки
+        pcall(function()
+            local X, Y = Library:GetTextBounds(Text, Library.Font, 14);
+            if Library.Watermark then
+                Library.Watermark.Size = UDim2.new(0, X + 15, 0, (Y * 1.5) + 3);
+            end
+        end)
+        
+        -- Выводим отладочную информацию
+        print("Watermark text updated: " .. Text)
     end
 end;
 
