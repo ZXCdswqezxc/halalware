@@ -11,18 +11,6 @@ local Mouse = LocalPlayer:GetMouse();
 
 local ProtectGui = protectgui or (syn and syn.protect_gui) or (function() end);
 
-local ScreenGui = Instance.new('ScreenGui');
-ProtectGui(ScreenGui);
-
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
-ScreenGui.Parent = CoreGui;
-
-local Toggles = {};
-local Options = {};
-
-getgenv().Toggles = Toggles;
-getgenv().Options = Options;
-
 local Library = {
     Registry = {};
     RegistryMap = {};
@@ -43,8 +31,22 @@ local Library = {
     DependencyBoxes = {};
 
     Signals = {};
-    ScreenGui = ScreenGui;
+    Name = "HalalwareUI"; -- Устанавливаем имя по умолчанию
 };
+
+local ScreenGui = Instance.new('ScreenGui');
+ScreenGui.Name = Library.Name;
+ScreenGui.Parent = game:GetService('CoreGui');
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling;
+ProtectGui(ScreenGui);
+
+Library.ScreenGui = ScreenGui;
+
+local Toggles = {};
+local Options = {};
+
+getgenv().Toggles = Toggles;
+getgenv().Options = Options;
 
 local RainbowStep = 0
 local Hue = 0
@@ -2731,12 +2733,25 @@ do
 
     local WatermarkOuter = Library:Create('Frame', {
         BorderColor3 = Color3.new(0, 0, 0);
-        Position = UDim2.new(0, 100, 0, -25);
+        Position = UDim2.new(0, 100, 0, 10); -- Изменено с -25 на 10, чтобы спавнилось ниже
         Size = UDim2.new(0, 213, 0, 20);
         ZIndex = 9999; -- Увеличиваем ZIndex, чтобы отображалось поверх всего
         Visible = false;
         Parent = ScreenGui;
     });
+
+    -- Создаем отдельный ScreenGui для ватермарка, чтобы он был поверх всего
+    local WatermarkScreenGui = Instance.new('ScreenGui')
+    WatermarkScreenGui.Name = Library.Name .. "_Watermark"
+    WatermarkScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    WatermarkScreenGui.DisplayOrder = 999 -- Высокий DisplayOrder для отображения поверх других GUI
+    ProtectGui(WatermarkScreenGui)
+    WatermarkScreenGui.Parent = game:GetService('CoreGui')
+    
+    -- Перемещаем ватермарк в новый ScreenGui
+    WatermarkOuter.Parent = WatermarkScreenGui
+    
+    Library.WatermarkScreenGui = WatermarkScreenGui
 
     local WatermarkInner = Library:Create('Frame', {
         BackgroundColor3 = Library.MainColor;
