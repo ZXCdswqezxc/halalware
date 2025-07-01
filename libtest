@@ -11,6 +11,18 @@ local Mouse = LocalPlayer:GetMouse();
 
 local ProtectGui = protectgui or (syn and syn.protect_gui) or (function() end);
 
+local ScreenGui = Instance.new('ScreenGui');
+ProtectGui(ScreenGui);
+
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
+ScreenGui.Parent = CoreGui;
+
+local Toggles = {};
+local Options = {};
+
+getgenv().Toggles = Toggles;
+getgenv().Options = Options;
+
 local Library = {
     Registry = {};
     RegistryMap = {};
@@ -31,22 +43,8 @@ local Library = {
     DependencyBoxes = {};
 
     Signals = {};
-    Name = "HalalwareUI"; -- Устанавливаем имя по умолчанию
+    ScreenGui = ScreenGui;
 };
-
-local ScreenGui = Instance.new('ScreenGui');
-ScreenGui.Name = Library.Name;
-ScreenGui.Parent = game:GetService('CoreGui');
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling;
-ProtectGui(ScreenGui);
-
-Library.ScreenGui = ScreenGui;
-
-local Toggles = {};
-local Options = {};
-
-getgenv().Toggles = Toggles;
-getgenv().Options = Options;
 
 local RainbowStep = 0
 local Hue = 0
@@ -2731,44 +2729,29 @@ do
         Parent = Library.NotificationArea;
     });
 
+    -- Создаем отдельный ScreenGui для ватермарки, чтобы он был поверх CoreGui
+    local WatermarkScreenGui = Instance.new('ScreenGui')
+    WatermarkScreenGui.Name = "HalalwareWatermark"
+    WatermarkScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    WatermarkScreenGui.DisplayOrder = 999999 -- Максимально высокий DisplayOrder
+    ProtectGui(WatermarkScreenGui)
+    WatermarkScreenGui.Parent = CoreGui
+    
     local WatermarkOuter = Library:Create('Frame', {
         BorderColor3 = Color3.new(0, 0, 0);
-        Position = UDim2.new(0, 100, 0, 10); -- Изменено с -25 на 10, чтобы спавнилось ниже
+        Position = UDim2.new(0, 100, 0, -25);
         Size = UDim2.new(0, 213, 0, 20);
-        ZIndex = 9999; -- Увеличиваем ZIndex, чтобы отображалось поверх всего
+        ZIndex = 200;
         Visible = false;
-        Parent = ScreenGui;
+        Parent = WatermarkScreenGui;
     });
-
-    -- Создаем отдельный ScreenGui для ватермарка, чтобы он был поверх всего
-    local WatermarkScreenGui = Instance.new('ScreenGui')
-    WatermarkScreenGui.Name = Library.Name .. "_Watermark"
-    WatermarkScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    WatermarkScreenGui.DisplayOrder = 999 -- Высокий DisplayOrder для отображения поверх других GUI
-    WatermarkScreenGui.ResetOnSpawn = false -- Чтобы не исчезал при респауне
-    ProtectGui(WatermarkScreenGui)
-    
-    -- Устанавливаем родителя в зависимости от доступности CoreGui
-    local success, result = pcall(function()
-        WatermarkScreenGui.Parent = game:GetService('CoreGui')
-        return true
-    end)
-    
-    if not success then
-        WatermarkScreenGui.Parent = game:GetService('Players').LocalPlayer:WaitForChild('PlayerGui')
-    end
-    
-    -- Перемещаем ватермарк в новый ScreenGui
-    WatermarkOuter.Parent = WatermarkScreenGui
-    
-    Library.WatermarkScreenGui = WatermarkScreenGui
 
     local WatermarkInner = Library:Create('Frame', {
         BackgroundColor3 = Library.MainColor;
         BorderColor3 = Library.AccentColor;
         BorderMode = Enum.BorderMode.Inset;
         Size = UDim2.new(1, 0, 1, 0);
-        ZIndex = 10000; -- Увеличиваем ZIndex
+        ZIndex = 201;
         Parent = WatermarkOuter;
     });
 
@@ -2781,7 +2764,7 @@ do
         BorderSizePixel = 0;
         Position = UDim2.new(0, 1, 0, 1);
         Size = UDim2.new(1, -2, 1, -2);
-        ZIndex = 10001; -- Увеличиваем ZIndex
+        ZIndex = 202;
         Parent = WatermarkInner;
     });
 
@@ -2808,23 +2791,12 @@ do
         Size = UDim2.new(1, -4, 1, 0);
         TextSize = 14;
         TextXAlignment = Enum.TextXAlignment.Left;
-        ZIndex = 10002; -- Увеличиваем ZIndex
+        ZIndex = 203;
         Parent = InnerFrame;
     });
 
     Library.Watermark = WatermarkOuter;
     Library.WatermarkText = WatermarkLabel;
-    Library.WatermarkData = {
-        Enabled = false,
-        Title = "",
-        FPS = false,
-        Ping = false,
-        Time = false,
-        PlaceId = false,
-        PlayerName = false,
-        Speed = false,
-        UpdateInterval = 0.5
-    };
     Library:MakeDraggable(Library.Watermark);
 
 
@@ -2901,154 +2873,14 @@ end;
 
 function Library:SetWatermarkVisibility(Bool)
     Library.Watermark.Visible = Bool;
-    Library.WatermarkData.Enabled = Bool;
-    
-    -- Если включаем ватермарк и есть динамические данные, запускаем обновление
-    if Bool and (Library.WatermarkData.FPS or Library.WatermarkData.Ping or Library.WatermarkData.Time or 
-                Library.WatermarkData.PlaceId or Library.WatermarkData.PlayerName or Library.WatermarkData.Speed) then
-        Library:StartWatermarkUpdater();
-    end
 end;
 
 function Library:SetWatermark(Text)
-    Library.WatermarkData.Title = Text or "";
-    Library:UpdateWatermarkText();
-end;
+    local X, Y = Library:GetTextBounds(Text, Library.Font, 14);
+    Library.Watermark.Size = UDim2.new(0, X + 15, 0, (Y * 1.5) + 3);
+    Library:SetWatermarkVisibility(true)
 
-function Library:ConfigureWatermark(Config)
-    if type(Config) ~= "table" then return end
-    
-    for key, value in pairs(Config) do
-        if Library.WatermarkData[key] ~= nil then
-            Library.WatermarkData[key] = value;
-        end
-    end
-    
-    Library:UpdateWatermarkText();
-    
-    -- Запускаем обновление, если включены динамические данные
-    if Library.WatermarkData.Enabled and (Library.WatermarkData.FPS or Library.WatermarkData.Ping or Library.WatermarkData.Time or 
-                Library.WatermarkData.PlaceId or Library.WatermarkData.PlayerName or Library.WatermarkData.Speed) then
-        Library:StartWatermarkUpdater();
-    end
-end;
-
-function Library:UpdateWatermarkText()
-    local Text = Library.WatermarkData.Title;
-    local Parts = {};
-    
-    if Library.WatermarkData.PlayerName then
-        local player = game:GetService("Players").LocalPlayer;
-        if player then
-            table.insert(Parts, player.Name);
-        end
-    end
-    
-    if Library.WatermarkData.PlaceId then
-        local placeName = "Unknown";
-        local success, result = pcall(function()
-            return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name;
-        end);
-        
-        if success and result then
-            placeName = result;
-        end
-        
-        table.insert(Parts, placeName);
-    end
-    
-    if Library.WatermarkData.FPS then
-        -- Используем более надежный способ расчета FPS
-        local fps = 0;
-        if Library._lastFpsUpdate then
-            fps = math.floor(Library._fpsCount / (tick() - Library._lastFpsUpdate));
-            Library._fpsCount = 0;
-            Library._lastFpsUpdate = tick();
-        else
-            Library._fpsCount = 0;
-            Library._lastFpsUpdate = tick();
-        end
-        Library._fpsCount = Library._fpsCount + 1;
-        
-        table.insert(Parts, fps .. " FPS");
-    end
-    
-    if Library.WatermarkData.Ping then
-        -- Более надежный способ получения пинга
-        local ping = 0;
-        pcall(function()
-            ping = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue());
-        end);
-        table.insert(Parts, ping .. " ms");
-    end
-    
-    if Library.WatermarkData.Time then
-        local time = os.date("%H:%M:%S");
-        table.insert(Parts, time);
-    end
-    
-    if Library.WatermarkData.Speed then
-        local player = game:GetService("Players").LocalPlayer;
-        local speed = 0;
-        
-        pcall(function()
-            if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local humanoidRootPart = player.Character.HumanoidRootPart;
-                speed = math.floor((humanoidRootPart.Velocity * Vector3.new(1, 0, 1)).Magnitude);
-            end
-        end);
-        
-        table.insert(Parts, speed .. " s/s");
-    end
-    
-    if #Parts > 0 then
-        if Text ~= "" then
-            Text = Text .. " | " .. table.concat(Parts, " | ");
-        else
-            Text = table.concat(Parts, " | ");
-        end
-    end
-    
-    -- Обновляем текст и размер ватермарки
-    if Library.WatermarkText then
-        local X, Y = Library:GetTextBounds(Text, Library.Font, 14);
-        if Library.Watermark then
-            Library.Watermark.Size = UDim2.new(0, X + 15, 0, (Y * 1.5) + 3);
-        end
-        Library.WatermarkText.Text = Text;
-    end
-end;
-
-function Library:StartWatermarkUpdater()
-    -- Остановить предыдущий апдейтер, если он был
-    if Library.WatermarkUpdater then
-        Library.WatermarkUpdater:Disconnect();
-        Library.WatermarkUpdater = nil;
-    end
-    
-    -- Инициализация счетчика FPS
-    Library._fpsCount = 0;
-    Library._lastFpsUpdate = tick();
-    
-    -- Создаем новый апдейтер
-    Library.WatermarkUpdater = game:GetService("RunService").RenderStepped:Connect(function()
-        -- Увеличиваем счетчик FPS на каждом кадре
-        Library._fpsCount = Library._fpsCount + 1;
-        
-        if not Library.WatermarkData or not Library.WatermarkData.Enabled then
-            if Library.WatermarkUpdater then
-                Library.WatermarkUpdater:Disconnect();
-                Library.WatermarkUpdater = nil;
-            end
-            return;
-        end
-        
-        -- Обновляем только если прошел интервал
-        if not Library.LastWatermarkUpdate or (tick() - Library.LastWatermarkUpdate) >= (Library.WatermarkData.UpdateInterval or 0.5) then
-            Library:UpdateWatermarkText();
-            Library.LastWatermarkUpdate = tick();
-        end
-    end);
+    Library.WatermarkText.Text = Text;
 end;
 
 function Library:Notify(Text, Time)
