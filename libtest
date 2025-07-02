@@ -1779,19 +1779,23 @@ do
             Library:SafeCallback(Textbox.Changed, Textbox.Value);
         end;
 
-        if Textbox.Finished then
-            Box.FocusLost:Connect(function(enter)
-                if not enter then return end
-
-                Textbox:SetValue(Box.Text);
-                Library:AttemptSave();
-            end)
-        else
-            Box:GetPropertyChangedSignal('Text'):Connect(function()
-                Textbox:SetValue(Box.Text);
-                Library:AttemptSave();
-            end);
-        end
+        -- Модифицированный код для обработки текстбокса
+        -- Всегда сохраняем значение при изменении текста, независимо от настройки Finished
+        Box:GetPropertyChangedSignal('Text'):Connect(function()
+            Textbox:SetValue(Box.Text);
+            Library:AttemptSave();
+        end);
+        
+        -- При потере фокуса всегда сохраняем значение
+        Box.FocusLost:Connect(function()
+            Textbox:SetValue(Box.Text);
+            Library:AttemptSave();
+        end);
+        
+        -- Предотвращаем очистку текста при фокусе
+        Box.Focused:Connect(function()
+            Box.CursorPosition = #Box.Text + 1; -- Устанавливаем курсор в конец текста
+        end);
 
         -- https://devforum.roblox.com/t/how-to-make-textboxes-follow-current-cursor-position/1368429/6
         -- thank you nicemike40 :)
