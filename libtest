@@ -1779,19 +1779,17 @@ do
             Library:SafeCallback(Textbox.Changed, Textbox.Value);
         end;
 
-        if Textbox.Finished then
-            Box.FocusLost:Connect(function(enter)
-                if not enter then return end
-
-                Textbox:SetValue(Box.Text);
-                Library:AttemptSave();
-            end)
-        else
-            Box:GetPropertyChangedSignal('Text'):Connect(function()
-                Textbox:SetValue(Box.Text);
-                Library:AttemptSave();
-            end);
-        end
+        -- Всегда обновляем значение при изменении текста
+        Box:GetPropertyChangedSignal('Text'):Connect(function()
+            Textbox:SetValue(Box.Text);
+            Library:AttemptSave();
+        end);
+        
+        -- Дополнительно обновляем при потере фокуса
+        Box.FocusLost:Connect(function()
+            Textbox:SetValue(Box.Text);
+            Library:AttemptSave();
+        end)
 
         -- https://devforum.roblox.com/t/how-to-make-textboxes-follow-current-cursor-position/1368429/6
         -- thank you nicemike40 :)
@@ -1829,7 +1827,17 @@ do
         Box:GetPropertyChangedSignal('Text'):Connect(Update)
         Box:GetPropertyChangedSignal('CursorPosition'):Connect(Update)
         Box.FocusLost:Connect(Update)
-        Box.Focused:Connect(Update)
+        Box.Focused:Connect(function()
+            -- Предотвращаем очистку текста при фокусе
+            local oldText = Box.Text
+            task.defer(function()
+                if Box.Text == "" and oldText ~= "" then
+                    Box.Text = oldText
+                    Box.CursorPosition = #oldText + 1
+                end
+            end)
+            Update()
+        end)
 
         Library:AddToRegistry(Box, {
             TextColor3 = 'FontColor';
