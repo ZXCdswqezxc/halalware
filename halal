@@ -74,9 +74,8 @@ local M = getgenv().M
 local T = getgenv().T
 local STR = getgenv().STR
 
-getgenv().repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
-getgenv().Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/library'))()
-getgenv().ThemeManager = loadstring(game:HttpGet(getgenv().repo .. 'addons/ThemeManager.lua'))()
+getgenv().Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/libtest'))()
+getgenv().ThemeManager = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/themes'))()
 getgenv().SaveManager = loadstring(game:HttpGet('https://raw.githubusercontent.com/ZXCdswqezxc/halalware/refs/heads/main/savemanager'))()
 local repo = getgenv().repo
 local Library = getgenv().Library
@@ -224,6 +223,11 @@ HUDGroup:AddToggle('ShowWatermark', {
         if v then
             local name = LP and LP.Name or 'Player'
             Library:SetWatermark('halalware.skid | ' .. name)
+            
+            -- Делаем ватермарку видимой поверх всего интерфейса
+            if Library.Watermark and Library.Watermark.Parent and Library.Watermark.Parent.DisplayOrder then
+                Library.Watermark.Parent.DisplayOrder = 999999
+            end
         else
             Library:SetWatermark('')
         end
@@ -1762,17 +1766,137 @@ addToggleWithNotify(NoJumpCDGroup, 'No Jump CD', {
     Tooltip = '>_<'
 })
 
-NoJumpCDGroup:AddButton({
+-- Информация о сиденьях
+local seatsInfo = {
+    count = 0,
+    destroyed = false,
+    defaultParents = {} -- Таблица для хранения родительских объектов сидений по типу
+}
+
+-- Соединение для отслеживания новых сидений
+local destroySeatsConnection = nil
+
+addToggleWithNotify(NoJumpCDGroup, 'DestroySeatsToggle', {
     Text = 'DestroySeats',
-    Func = function()
-        local count = 0
+    Default = false,
+    Callback = function(v)
+        if v then
+            -- Подсчитываем и удаляем сиденья
+            seatsInfo.count = 0
+            
+            -- Запускаем в отдельном потоке для предотвращения зависаний
+            task.spawn(function()
+                -- Собираем все сиденья
+                local seats = {}
         for _, obj in ipairs(S.WS:GetDescendants()) do
             if obj:IsA('Seat') or obj:IsA('VehicleSeat') then
+                        table.insert(seats, obj)
+                        
+                        -- Запоминаем родителя для данного типа сиденья, если еще не запомнили
+                        if not seatsInfo.defaultParents[obj.ClassName] then
+                            seatsInfo.defaultParents[obj.ClassName] = obj.Parent
+                        end
+                    end
+                end
+                
+                -- Удаляем все сиденья
+                for _, seat in ipairs(seats) do
+                    pcall(function()
+                        if seat and seat.Parent then
+                            seat:Destroy()
+                            seatsInfo.count = seatsInfo.count + 1
+                        end
+                    end)
+                end
+                
+                seatsInfo.destroyed = true
+                
+                -- Уведомляем о количестве удаленных сидений
+                Library:Notify('>_< on (' .. seatsInfo.count .. ' seats)', 3)
+            end)
+            
+            -- Устанавливаем соединение для отслеживания новых сидений
+            if destroySeatsConnection then
+                destroySeatsConnection:Disconnect()
+            end
+            
+            destroySeatsConnection = S.WS.DescendantAdded:Connect(function(obj)
+                if obj:IsA('Seat') or obj:IsA('VehicleSeat') then
+                    task.wait(0.1) -- Небольшая задержка для инициализации
+                    if obj and obj.Parent then
+                        -- Запоминаем родителя для данного типа сиденья, если еще не запомнили
+                        if not seatsInfo.defaultParents[obj.ClassName] then
+                            seatsInfo.defaultParents[obj.ClassName] = obj.Parent
+                        end
+                        
                 obj:Destroy()
-                count = count + 1
+                        seatsInfo.count = seatsInfo.count + 1
             end
         end
-        Library:Notify('>_<', 3)
+            end)
+        else
+            -- Отключаем соединение
+            if destroySeatsConnection then
+                destroySeatsConnection:Disconnect()
+                destroySeatsConnection = nil
+            end
+            
+            -- Восстанавливаем сиденья только если они были удалены
+            if seatsInfo.destroyed then
+                task.spawn(function()
+                    local createdCount = 0
+                    
+                    -- Создаем сиденья каждого типа
+                    for className, parent in pairs(seatsInfo.defaultParents) do
+                        -- Проверяем, что родитель все еще существует
+                        if parent and parent:IsDescendantOf(game) then
+                            -- Определяем, сколько сидений нужно создать
+                            -- Подсчитываем количество типов сидений
+                            local typeCount = 0
+                            for _ in pairs(seatsInfo.defaultParents) do
+                                typeCount = typeCount + 1
+                            end
+                            -- Ограничиваем количество создаваемых сидений, чтобы избежать лагов
+                            local seatsToCreate = math.min(50, math.ceil(seatsInfo.count / (typeCount > 0 and typeCount or 1)))
+                            
+                            -- Создаем сиденья
+                            for i = 1, seatsToCreate do
+                                pcall(function()
+                                    -- Проверяем, что родитель все еще существует
+                                    if parent and parent:IsDescendantOf(game) then
+                                        local newSeat = Instance.new(className)
+                                        newSeat.Name = className .. i
+                                        newSeat.Anchored = true
+                                        newSeat.CanCollide = true
+                                        newSeat.Parent = parent
+                                        createdCount = createdCount + 1
+                                    else
+                                        -- Если родитель не существует, используем workspace
+                                        local newSeat = Instance.new(className)
+                                        newSeat.Name = className .. i
+                                        newSeat.Anchored = true
+                                        newSeat.CanCollide = true
+                                        newSeat.Parent = workspace
+                                        createdCount = createdCount + 1
+                                    end
+                                    
+                                    -- Добавляем небольшую задержку каждые 10 сидений
+                                    if i % 10 == 0 then
+                                        task.wait(0.01)
+                                    end
+                                end)
+                            end
+                        end
+                    end
+                    
+                    -- Уведомляем о восстановлении
+                    Library:Notify('>_< off (' .. createdCount .. ' seats)', 3)
+                end)
+                
+                -- Сбрасываем флаг
+                seatsInfo.destroyed = false
+            end
+        end
     end,
     Tooltip = '>_<'
 })
@@ -2524,105 +2648,267 @@ addToggleWithNotify(RapidFireM1Group, 'RapidFireM1Spam', {
     Tooltip = '>_<'
 })
 
--- === Destroy Cheaters (Misc tab, новая левая секция) ===
-local DestroyCheatersGroup = Tabs.Misc:AddLeftGroupbox('>_<')
+-- === Misc Utilities (Misc tab, новая левая секция) ===
+local MiscUtilsGroup = Tabs.Misc:AddLeftGroupbox('>_<')
 
-local destroyCheatersEnabled = false -- разрешение работы функции (toggle)
-local destroyCheatersActive = false  -- текущее состояние (keybind)
-local destroyCheatersKey = Enum.KeyCode.X
-local destroyCheatersLastCFrame = nil
-local destroyCheatersHook = nil
-local destroyCheatersConn = nil
+-- === Auto Talk (Misc tab, правая секция) ===
+local TalkGroup = Tabs.Misc:AddRightGroupbox('>_<')
 
-local function setDestroyCheatersActive(state)
-    destroyCheatersActive = state
-    getgenv().Finobe1 = state
-    if not state and LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') then
-        if destroyCheatersLastCFrame then
-            LP.Character.HumanoidRootPart.CFrame = destroyCheatersLastCFrame
-            destroyCheatersLastCFrame = nil -- Очищаем сохраненную позицию после использования
-        end
-        Library:Notify('>_< off', 3)
-    elseif state then
-        if LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') then
-            destroyCheatersLastCFrame = LP.Character.HumanoidRootPart.CFrame
-        end
-        Library:Notify('>_< on', 3)
-    end
+-- Глобальные переменные для Auto Talk
+G.AutoTalk = {
+    enabled = false,
+    talkType = "TrashTalk",
+    interval = 5, -- секунд между сообщениями
+    connection = nil,
+    targetInRadiusOnly = false, -- новая настройка для проверки радиуса
+    phrases = {
+        TrashTalk = {
+            "ez kid",
+            "ur bad",
+            "get better",
+            "u need to see ur monitor btw",
+            "imagine losing",
+            "clown down",
+            "ur mom",
+            "go cry",
+            "trash",
+            "zzzzz"
+        },
+        AdTalk = {
+            "halalware on top",
+            "get halal, lame",
+            "get halalware or lose again",
+            "imagine not using halal",
+            "halalware > all",
+            "halalware the best",
+            "halalware never loses",
+            "atleast better then ur script",
+            "halalware user = godness",
+            "halalware = win"
+        }
+    }
+}
+
+-- Функция для проверки, находится ли цель в радиусе
+G.isTargetInRadius = function(radius)
+    -- Получаем текущую цель аимбота
+    local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget
+    if not target or not target.Character then return false end
+    
+    -- Проверяем наличие HumanoidRootPart у цели
+    local targetHRP = target.Character:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then return false end
+    
+    -- Проверяем наличие локального персонажа и его HumanoidRootPart
+    local character = LP.Character
+    if not character then return false end
+    
+    local localHRP = character:FindFirstChild("HumanoidRootPart")
+    if not localHRP then return false end
+    
+    -- Вычисляем расстояние между игроком и целью
+    local distance = (localHRP.Position - targetHRP.Position).Magnitude
+    
+    -- Возвращаем true, если цель в радиусе
+    return distance <= radius
 end
 
-if destroyCheatersConn then destroyCheatersConn:Disconnect() end
+-- Функция для отправки случайной фразы
+G.sendRandomTalkMessage = function()
+    -- Проверяем, нужно ли учитывать радиус
+    if G.AutoTalk.targetInRadiusOnly then
+        -- Если цель должна быть в радиусе, но её там нет - не отправляем сообщение
+        if not G.isTargetInRadius(100) then
+            return
+        end
+    end
+    
+    local phrases = G.AutoTalk.phrases[G.AutoTalk.talkType]
+    if not phrases or #phrases == 0 then return end
+    
+    local randomIndex = math.random(1, #phrases)
+    local message = phrases[randomIndex]
+    
+    -- Используем ту же функцию отправки, что и для ChatBypass
+    G.sendMsg(message)
+end
 
-destroyCheatersConn = HRT:Connect(function()
-    if not destroyCheatersEnabled or not destroyCheatersActive then return end
-    pcall(function()
-        if LP and LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') then
-            local hrp = LP.Character.HumanoidRootPart
-            if not destroyCheatersLastCFrame then
-                destroyCheatersLastCFrame = hrp.CFrame
-            end
-            local offset = hrp.CFrame * CFrame.new(9e9, 0/0, M.huge)
-            hrp.CFrame = offset
-            task.wait()
-            if destroyCheatersActive and destroyCheatersLastCFrame then -- Проверяем активно ли еще
-                hrp.CFrame = destroyCheatersLastCFrame
-            end
+-- Функция для запуска/остановки автоматической отправки сообщений
+G.toggleAutoTalk = function(state)
+    G.AutoTalk.enabled = state
+    
+    if G.AutoTalk.connection then
+        G.AutoTalk.connection:Disconnect()
+        G.AutoTalk.connection = nil
+    end
+    
+    if state then
+        -- Запускаем цикл отправки сообщений
+        G.AutoTalk.connection = task.spawn(function()
+            while G.AutoTalk.enabled do
+                G.sendRandomTalkMessage()
+                task.wait(G.AutoTalk.interval)
         end
     end)
-end)
-
-if destroyCheatersHook == nil then
-    destroyCheatersHook = hookmetamethod(game, "__index", newcclosure(function(self, key)
-        if not checkcaller() then
-            if key == "CFrame" and getgenv().Finobe1 and destroyCheatersActive then
-                local success, result = pcall(function()
-                    if LP and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and 
-                       LP.Character:FindFirstChild("Humanoid") and 
-                       LP.Character:FindFirstChild("Humanoid").Health > 0 then
-                        if self == LP.Character.HumanoidRootPart and destroyCheatersLastCFrame ~= nil then
-                            return destroyCheatersLastCFrame
-                        end
-                    end
-                    return nil
-                end)
-                
-                if success and result then
-                    return result
-                end
-            end
-        end
-        return destroyCheatersHook(self, key)
-    end))
+        Library:Notify('>_< Talk on', 3)
+    else
+        Library:Notify('>_< Talk off', 3)
+    end
 end
 
--- Удаляем старый обработчик InputBegan для DestroyCheatersKey, так как теперь используем KeyPicker
-
-addToggleWithNotify(DestroyCheatersGroup, 'DestroyCheaters', {
-    Text = 'DestroyCheaters',
+-- Добавляем toggle для включения/выключения Auto Talk
+addToggleWithNotify(TalkGroup, 'AutoTalkEnabled', {
+    Text = 'Talk',
     Default = false,
     Callback = function(v)
-        destroyCheatersEnabled = v
-        if not v and destroyCheatersActive then
-            setDestroyCheatersActive(false)
-        end
+        G.toggleAutoTalk(v)
     end,
     Tooltip = '>_<'
-}):AddKeyPicker('DestroyCheatersKey', {
-    Default = 'None',
-    Text = 'DestroyCheatersKey',
-    NoUI = false,
-    Callback = function()
-        if destroyCheatersEnabled and type(setDestroyCheatersActive) == "function" then
-            setDestroyCheatersActive(not destroyCheatersActive)
-        end
-    end
 })
 
-DestroyCheatersGroup:AddButton({
-    Text = 'DestroyVoid',
-    Func = function()
-        S.WS.FallenPartsDestroyHeight = 0/0
+-- Добавляем dropdown для выбора типа сообщений
+TalkGroup:AddDropdown('AutoTalkType', {
+    Text = 'Type',
+    Values = {'TrashTalk', 'AdTalk'},
+    Default = 'TrashTalk',
+    Multi = false,
+    Callback = function(v)
+        G.AutoTalk.talkType = v
+    end,
+    Tooltip = '>_<'
+})
+
+-- Добавляем слайдер для интервала между сообщениями
+TalkGroup:AddSlider('AutoTalkInterval', {
+    Text = 'Interval (s)',
+    Default = 5,
+    Min = 1,
+    Max = 10,
+    Rounding = 0,
+    Callback = function(v)
+        G.AutoTalk.interval = v
+    end,
+    Tooltip = '>_<'
+})
+
+-- Добавляем тогл для проверки радиуса цели
+addToggleWithNotify(TalkGroup, 'AutoTalkTargetInRadius', {
+    Text = 'IfTargetInRadius100',
+    Default = false,
+    Callback = function(v)
+        G.AutoTalk.targetInRadiusOnly = v
+    end,
+    Tooltip = '>_<'
+})
+
+-- === Chat Bypass (Misc tab, новая левая секция) ===
+local ChatBypassGroup = Tabs.Misc:AddLeftGroupbox('>_<')
+
+-- Глобальные переменные для ChatBypass
+G.ChatBypass = {
+    -- Карта замены латинских символов на кириллические
+    letterMap = {
+        ["o"] = "о",
+        ["i"] = "і",
+        ["l"] = "ӏ",
+        ["p"] = "р",
+        ["a"] = "а"
+    },
+    
+    -- Карта замены кириллических символов на латинские
+    cyrillicMap = {
+        ["а"] = "a",
+        ["е"] = "e",
+        ["у"] = "y",
+        ["т"] = "T"
+    },
+    
+    -- Текст для отправки
+    text = ""
+}
+
+-- Функция для стилизации текста
+G.styleText = function(t)
+    local r = ""
+    for _, c in utf8.codes(t) do
+        local ch = utf8.char(c)
+        if ch == " " then
+            r = r .. "," .. string.char(0x1E)
+        else
+            local newCh = G.ChatBypass.letterMap[string.lower(ch)] or G.ChatBypass.cyrillicMap[ch] or ch
+            r = r .. newCh .. "ּ"
+                        end
+                    end
+    return r
+end
+
+-- Функция для отправки сообщения
+G.sendMsg = function(m)
+    local success, result = pcall(function()
+        if game:GetService("TextChatService").ChatVersion == Enum.ChatVersion.LegacyChatService then
+            game:GetService("ReplicatedStorage"):WaitForChild("DefaultChatSystemChatEvents"):WaitForChild("SayMessageRequest"):FireServer(m, "All")
+        else
+            game:GetService("TextChatService").TextChannels.RBXGeneral:SendAsync(m)
+        end
+    end)
+    
+    if not success then
+        Library:Notify('>_< Error: ' .. tostring(result), 3)
+                end
+            end
+
+-- Функция отправки текста
+G.sendChatBypassText = function()
+    if G.ChatBypass.text and G.ChatBypass.text ~= "" then
+        local bypassedText = G.styleText(G.ChatBypass.text)
+        G.sendMsg(bypassedText)
         Library:Notify('>_<', 3)
+    else
+        Library:Notify('>_< No text', 3)
+    end
+end
+
+-- Добавляем текстбокс для ввода текста
+ChatBypassGroup:AddInput('ChatBypassInput', {
+    Text = 'ChatBypass',
+    Default = "",
+    Numeric = false,
+    Finished = true,
+    Callback = function(value)
+        G.ChatBypass.text = value
+    end,
+    Tooltip = '>_<'
+})
+
+-- Добавляем кнопку для отправки сообщения
+ChatBypassGroup:AddButton({
+    Text = 'Send',
+    Func = function()
+        G.sendChatBypassText()
+    end,
+    Tooltip = '>_<'
+})
+
+-- Сохраняем оригинальное значение FallenPartsDestroyHeight
+local originalFallenPartsDestroyHeight = S.WS.FallenPartsDestroyHeight
+
+addToggleWithNotify(MiscUtilsGroup, 'DestroyVoidToggle', {
+    Text = 'DestroyVoid',
+    Default = false,
+    Callback = function(v)
+        if v then
+            -- Сохраняем текущее значение, если оно еще не сохранено
+            if originalFallenPartsDestroyHeight == 0/0 then
+                originalFallenPartsDestroyHeight = -500 -- Стандартное значение
+            end
+            -- Устанавливаем NaN для "уничтожения" пустоты
+        S.WS.FallenPartsDestroyHeight = 0/0
+            Library:Notify('>_< on', 3)
+        else
+            -- Восстанавливаем оригинальное значение
+            S.WS.FallenPartsDestroyHeight = originalFallenPartsDestroyHeight
+            Library:Notify('>_< off', 3)
+        end
     end,
     Tooltip = '>_<'
 })
@@ -2894,7 +3180,7 @@ SilentAimGroup:AddSlider('SpreadAmount', {
     Max = 100,
     Rounding = 0,
     Callback = function(v) SpreadMod.BulletSpread.Amount = v end,
-    Tooltip = '0% - нет разброса, 100% - стандартный разброс'
+    Tooltip = '>_<'
 })
 
 SilentAimGroup:AddDropdown('SilentAimPart', {
@@ -3208,16 +3494,19 @@ if not getgenv().Loaded_SilentAim then
         
         -- Обработка View Target
         pcall(function()
+            -- Проверяем, включен ли ViewTarget и есть ли текущая цель
             if SilentAim.Options.ViewTarget and currentTarget and currentTarget.Character then
                 local targetHumanoid = currentTarget.Character:FindFirstChildOfClass("Humanoid")
                 if targetHumanoid then
                     game:GetService("Workspace").CurrentCamera.CameraSubject = targetHumanoid
                 end
-            elseif not SilentAim.Options.ViewTarget and LP.Character then
-                -- Возвращаем камеру к игроку, если View Target выключен
-                local playerHumanoid = LP.Character:FindFirstChildOfClass("Humanoid")
-                if playerHumanoid then
-                    game:GetService("Workspace").CurrentCamera.CameraSubject = playerHumanoid
+            else
+                -- Возвращаем камеру к игроку, если View Target выключен или нет цели
+                if LP.Character then
+                    local playerHumanoid = LP.Character:FindFirstChildOfClass("Humanoid")
+                    if playerHumanoid then
+                        game:GetService("Workspace").CurrentCamera.CameraSubject = playerHumanoid
+                    end
                 end
             end
         end)
@@ -3598,6 +3887,15 @@ local function HitChams(Player, config)
     config = config or HitChamsConfig
     if not config.Enabled or not Player or not Player.Character or not Player.Character:FindFirstChild("HumanoidRootPart") then return end
     
+    -- Создаем группу коллизий NoCollision, если она еще не существует
+    pcall(function()
+        local PhysicsService = game:GetService("PhysicsService")
+        if not pcall(function() PhysicsService:GetCollisionGroupName("NoCollision") end) then
+            PhysicsService:CreateCollisionGroup("NoCollision")
+            PhysicsService:CollisionGroupSetCollidable("NoCollision", "Default", false)
+        end
+    end)
+    
     Player.Character.Archivable = true
     local Cloned = Player.Character:Clone()
     Cloned.Name = "Player Clone"
@@ -3618,40 +3916,95 @@ local function HitChams(Player, config)
     -- Удаляем гуманоида
     if Cloned:FindFirstChild("Humanoid") then Cloned.Humanoid:Destroy() end
     
-    -- Настраиваем части тела
+    -- Настраиваем части тела с полным отключением физического взаимодействия
     for _, Part in ipairs(Cloned:GetChildren()) do
         if Part:IsA("BasePart") then
-            Part.CanCollide = false -- Всегда отключаем коллизию для хитчамсов
-            Part.Anchored = true
+            -- Полностью отключаем все виды коллизий и физических взаимодействий
+            Part.CanCollide = false
+            Part.CanTouch = false
+            Part.CanQuery = false
+            Part.CollisionGroup = "NoCollision" -- Устанавливаем группу коллизий, которая не взаимодействует с другими
+            Part.Massless = true -- Делаем часть без массы
+            Part.Anchored = true -- Фиксируем позицию
+            
+            -- Визуальные настройки
             Part.Transparency = config.Transparency
             Part.Color = config.Color
             Part.Material = config.Material
-            
-            -- Дополнительно отключаем физическое взаимодействие
-            Part.CanTouch = false
-            Part.CanQuery = false
         end
     end
     
-    -- Настраиваем голову отдельно
+    -- Настраиваем голову отдельно с теми же настройками безопасности
     if Cloned:FindFirstChild("Head") then
-        Cloned.Head.Transparency = config.Transparency
-        Cloned.Head.Color = config.Color
-        Cloned.Head.Material = config.Material
-        if Cloned.Head:FindFirstChild("face") then Cloned.Head.face:Destroy() end
+        local head = Cloned.Head
+        head.Transparency = config.Transparency
+        head.Color = config.Color
+        head.Material = config.Material
+        head.CanCollide = false
+        head.CanTouch = false
+        head.CanQuery = false
+        head.CollisionGroup = "NoCollision"
+        head.Massless = true
+        head.Size = Vector3.new(0, 0, 0) -- Уменьшаем размер головы до нуля, чтобы избежать застревания
+        
+        -- Удаляем лицо для лучшего визуального эффекта
+        if head:FindFirstChild("face") then head.face:Destroy() end
     end
     
-    -- Добавляем в мир и настраиваем анимацию
-    Cloned.Parent = S.WS
+    -- Перемещаем клон в отдельный контейнер для лучшей организации и безопасности
+    local container = Instance.new("Folder")
+    container.Name = "HitChamsContainer"
+    container.Parent = S.WS
+    
+    -- Дополнительная проверка для всех частей клона перед добавлением в игру
+    for _, part in pairs(Cloned:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Size = Vector3.new(part.Size.X * 0.9, part.Size.Y * 0.9, part.Size.Z * 0.9) -- Уменьшаем размер всех частей
+            part.Position = part.Position + Vector3.new(0, 0.1, 0) -- Немного смещаем вверх, чтобы избежать застревания
+        end
+    end
+    
+    Cloned.Parent = container
+    
+    -- Настраиваем анимацию
     local tweenInfo = TweenInfo.new(config.Duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, 0, true)
     
     -- Анимируем все части
     for _, Part in ipairs(Cloned:GetChildren()) do
-        if Part:IsA("BasePart") then S.TS:Create(Part, tweenInfo, {Transparency = 1}):Play() end
+        if Part:IsA("BasePart") then 
+            S.TS:Create(Part, tweenInfo, {Transparency = 1}):Play() 
+        end
     end
     
-    -- Удаляем после окончания анимации
-    task.delay(config.Duration, function() if Cloned and Cloned.Parent then Cloned:Destroy() end end)
+    -- Удаляем после окончания анимации весь контейнер
+    task.delay(config.Duration, function() 
+        if container and container.Parent then 
+            container:Destroy() 
+        end 
+    end)
+    
+    -- Дополнительная защита: удаляем хитчамсы при движении игрока, чтобы избежать застревания
+    task.spawn(function()
+        local hrp = Player.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local lastPos = hrp.Position
+            
+            -- Проверяем движение каждые 0.1 секунд
+            for i = 1, 20 do -- Максимум 2 секунды проверок
+                task.wait(0.1)
+                if not hrp or not hrp.Parent then break end
+                if not container or not container.Parent then break end
+                
+                -- Если игрок переместился более чем на 3 единицы, удаляем хитчамсы
+                if (hrp.Position - lastPos).Magnitude > 3 then
+                    if container and container.Parent then container:Destroy() end
+                    break
+                end
+                
+                lastPos = hrp.Position
+            end
+        end 
+    end)
 end
 
 -- === HitSounds (инлайн-модуль) ===
@@ -4832,6 +5185,8 @@ GripGroup:AddButton({
 
 
 
+
+
 -- Main grip logic
 local gripConnection
 if gripConnection then gripConnection:Disconnect() end
@@ -4841,8 +5196,7 @@ gripConnection = S.RS.Stepped:Connect(function()
         local character = LP.Character
         local tool = character and character:FindFirstChildOfClass("Tool")
         if tool then
-            -- Apply position only
-            tool.GripPos = G.GripSettings.Position
+            local position = G.GripSettings.Position
             
             -- Apply rotation using proper CFrame
             local angles = CFrame.Angles(
@@ -4851,8 +5205,8 @@ gripConnection = S.RS.Stepped:Connect(function()
                 M.rad(G.GripSettings.Rotation.Z)
             )
             
-            -- Применяем правильно
-            tool.Grip = CFrame.new(G.GripSettings.Position) * angles
+            -- Применяем позицию и вращение
+            tool.Grip = CFrame.new(position) * angles
         end
     end
 end)
@@ -5346,6 +5700,7 @@ G.AutoArmorSettings = {
     LastArmorCheck = 0,
     CheckInterval = 1, -- Проверять каждую секунду
     MinArmorValue = 50, -- Покупать броню, когда значение меньше этого
+    MaxAttempts = 5, -- Максимальное количество попыток покупки брони
     ArmorType = "[High-Medium Armor] - $2513", -- Тип брони для покупки
     Notify = true, -- Уведомлять о покупке брони
     DebugMode = false, -- Режим отладки для вывода значения брони
@@ -5360,7 +5715,9 @@ G.AutoArmorSettings = {
     armorShop = nil,
     armorItem = nil,
     originalCFrame = nil,
-    originalVelocity = nil
+    originalVelocity = nil,
+    autoStompOriginalState = nil, -- Сохранение состояния AutoStomp
+    originalTSState = nil -- Сохранение состояния Target Strafe
 }
 
 -- Функция для определения текущего значения брони в зависимости от игры
@@ -5426,6 +5783,17 @@ G.autoArmorFunction = function()
                     getgenv().SaveDistance.IsBuyingArmor = false
                 end
                 
+                -- Восстанавливаем состояние Target Strafe, если он был сохранен
+                if G.AutoArmorSettings.originalTSState and getgenv().TS then
+                    getgenv().TS.Config.Enabled = G.AutoArmorSettings.originalTSState.Enabled
+                    getgenv().TS.Config.UseDesync = G.AutoArmorSettings.originalTSState.UseDesync
+                    
+                    -- Если был активен десинк, восстанавливаем позицию десинка
+                    if G.AutoArmorSettings.originalTSState.UseDesync and G.AutoArmorSettings.DesyncPosition then
+                        getgenv().TS.Runtime.DesyncPosition = G.AutoArmorSettings.DesyncPosition
+                    end
+                end
+                
                 if G.AutoArmorSettings.Notify then
                     Library:Notify(">_<", 2)
                 end
@@ -5455,11 +5823,24 @@ G.autoArmorFunction = function()
         if G.AutoArmorSettings.armorValue < G.AutoArmorSettings.MinArmorValue then
             -- Устанавливаем флаг, что сейчас покупаем броню
             G.AutoArmorSettings.IsBuying = true
-            -- Устанавливаем таймаут в 3 секунды
-            G.AutoArmorSettings.BuyingTimeout = G.now + 3
+            -- Устанавливаем таймаут в 5 секунд (увеличиваем для большей надежности)
+            G.AutoArmorSettings.BuyingTimeout = G.now + 5
             
             -- Выполняем покупку в отдельном потоке, чтобы не блокировать основной цикл
             task.spawn(function()
+                -- Проверяем и сохраняем состояние AutoStomp
+                local isAutoStompActive = getgenv().AutoStomp and getgenv().AutoStomp.isActive
+                G.AutoArmorSettings.autoStompOriginalState = nil
+                if isAutoStompActive then
+                    G.AutoArmorSettings.autoStompOriginalState = {
+                        Enabled = getgenv().AutoStomp.Enabled,
+                        isActive = getgenv().AutoStomp.isActive
+                    }
+                    -- Временно отключаем AutoStomp
+                    getgenv().AutoStomp.isActive = false
+                    getgenv().AutoStomp.Enabled = false
+                end
+                
                 -- Сохраняем текущую позицию
                 G.AutoArmorSettings.hrp = G.AutoArmorSettings.char:FindFirstChild("HumanoidRootPart")
                 if not G.AutoArmorSettings.hrp then 
@@ -5467,11 +5848,38 @@ G.autoArmorFunction = function()
                     return 
                 end
                 
+                -- Проверяем, активен ли Target Strafe с десинком
+                local isTargetStrafeActive = getgenv().TS and getgenv().TS.Config and getgenv().TS.Config.Enabled
+                local isTargetStrafeDesync = isTargetStrafeActive and getgenv().TS.Config.UseDesync
+                
+                -- Сохраняем реальную позицию игрока (с учетом Target Strafe)
+                if isTargetStrafeDesync and getgenv().TS.Runtime.DesyncPosition then
+                    -- Если активен десинк, используем реальную позицию персонажа, а не позицию десинка
                 G.AutoArmorSettings.BuyingArmor = G.AutoArmorSettings.hrp.CFrame
+                    -- Сохраняем также позицию десинка для возврата
+                    G.AutoArmorSettings.DesyncPosition = getgenv().TS.Runtime.DesyncPosition
+                else
+                    G.AutoArmorSettings.BuyingArmor = G.AutoArmorSettings.hrp.CFrame
+                    G.AutoArmorSettings.DesyncPosition = nil
+                end
+                
+                -- Сохраняем скорость для восстановления после телепорта
+                G.AutoArmorSettings.originalVelocity = G.AutoArmorSettings.hrp.Velocity
                 
                 -- Устанавливаем флаг, что покупаем броню (для SavePosition)
                 if getgenv().SaveDistance and getgenv().SaveDistance.Enabled then
                     getgenv().SaveDistance.IsBuyingArmor = true
+                end
+                
+                -- Сохраняем состояние Target Strafe для последующего восстановления
+                G.AutoArmorSettings.originalTSState = nil
+                if getgenv().TS and getgenv().TS.Config then
+                    G.AutoArmorSettings.originalTSState = {
+                        Enabled = getgenv().TS.Config.Enabled,
+                        UseDesync = getgenv().TS.Config.UseDesync
+                    }
+                    -- Временно отключаем Target Strafe
+                    getgenv().TS.Config.Enabled = false
                 end
                 
                 -- Ищем магазин брони
@@ -5491,6 +5899,19 @@ G.autoArmorFunction = function()
                             getgenv().SaveDistance.IsBuyingArmor = false
                         end
                         G.AutoArmorSettings.IsBuying = false
+                        
+                        -- Восстанавливаем состояние Target Strafe
+                        if G.AutoArmorSettings.originalTSState and getgenv().TS then
+                            getgenv().TS.Config.Enabled = G.AutoArmorSettings.originalTSState.Enabled
+                            getgenv().TS.Config.UseDesync = G.AutoArmorSettings.originalTSState.UseDesync
+                        end
+                        
+                        -- Восстанавливаем состояние AutoStomp
+                        if autoStompOriginalState then
+                            getgenv().AutoStomp.Enabled = autoStompOriginalState.Enabled
+                            getgenv().AutoStomp.isActive = autoStompOriginalState.isActive
+                        end
+                        
                         return 
                     end
                 end
@@ -5511,6 +5932,19 @@ G.autoArmorFunction = function()
                             getgenv().SaveDistance.IsBuyingArmor = false
                         end
                         G.AutoArmorSettings.IsBuying = false
+                        
+                        -- Восстанавливаем состояние Target Strafe
+                        if G.AutoArmorSettings.originalTSState and getgenv().TS then
+                            getgenv().TS.Config.Enabled = G.AutoArmorSettings.originalTSState.Enabled
+                            getgenv().TS.Config.UseDesync = G.AutoArmorSettings.originalTSState.UseDesync
+                        end
+                        
+                        -- Восстанавливаем состояние AutoStomp
+                        if autoStompOriginalState then
+                            getgenv().AutoStomp.Enabled = autoStompOriginalState.Enabled
+                            getgenv().AutoStomp.isActive = autoStompOriginalState.isActive
+                        end
+                        
                         return 
                     end
                 end
@@ -5522,6 +5956,13 @@ G.autoArmorFunction = function()
                         getgenv().SaveDistance.IsBuyingArmor = false
                     end
                     G.AutoArmorSettings.IsBuying = false
+                    
+                    -- Восстанавливаем состояние AutoStomp
+                    if G.AutoArmorSettings.autoStompOriginalState then
+                        getgenv().AutoStomp.Enabled = G.AutoArmorSettings.autoStompOriginalState.Enabled
+                        getgenv().AutoStomp.isActive = G.AutoArmorSettings.autoStompOriginalState.isActive
+                    end
+                    
                     return
                 end
                 
@@ -5529,24 +5970,64 @@ G.autoArmorFunction = function()
                 G.AutoArmorSettings.originalCFrame = G.AutoArmorSettings.hrp.CFrame
                 G.AutoArmorSettings.originalVelocity = G.AutoArmorSettings.hrp.Velocity
                 
+                -- Начинаем цикл покупки брони, пока не достигнем нужного значения
+                local maxAttempts = G.AutoArmorSettings.MaxAttempts -- Используем настройку из конфигурации
+                local attempts = 0
+                local armorValueBefore = G.getCurrentArmorValue()
+                
+                repeat
+                    attempts = attempts + 1
+                
                 -- Телепортируемся к броне
                 G.AutoArmorSettings.hrp.CFrame = G.AutoArmorSettings.armorItem.Head.CFrame
                 G.AutoArmorSettings.hrp.Velocity = Vector3.new(0, 0, 0) -- Сбрасываем скорость для стабильности
                 
                 -- Небольшая задержка перед покупкой
-                task.wait(0.25)
+                    task.wait(0.2)
                 
                 -- Покупаем броню
                 fireclickdetector(G.AutoArmorSettings.armorItem.ClickDetector)
                 
-                -- Увеличиваем задержку перед возвращением
-                task.wait(0.35)
+                    -- Ждем немного для обновления значения брони
+                    task.wait(0.3)
+                    
+                    -- Проверяем новое значение брони
+                    local currentArmorValue = G.getCurrentArmorValue()
+                    
+                    -- Если броня увеличилась или достигла максимума, выходим из цикла
+                    if currentArmorValue > armorValueBefore or currentArmorValue >= G.AutoArmorSettings.MinArmorValue then
+                        break
+                    end
+                    
+                    -- Если достигли максимального количества попыток, выходим из цикла
+                    if attempts >= maxAttempts then
+                        break
+                    end
+                    
+                    -- Небольшая задержка между попытками
+                    task.wait(0.2)
+                    
+                until false -- Бесконечный цикл с условиями выхода внутри
+                
+                -- Восстанавливаем состояние Target Strafe
+                if G.AutoArmorSettings.originalTSState and getgenv().TS then
+                    getgenv().TS.Config.Enabled = G.AutoArmorSettings.originalTSState.Enabled
+                    getgenv().TS.Config.UseDesync = G.AutoArmorSettings.originalTSState.UseDesync
+                    
+                    -- Если был активен десинк, восстанавливаем позицию десинка
+                    if G.AutoArmorSettings.originalTSState.UseDesync and G.AutoArmorSettings.DesyncPosition then
+                        -- Ждем немного, чтобы Target Strafe успел инициализироваться
+                        task.wait(0.2)
+                        -- Обновляем позицию десинка
+                        getgenv().TS.Runtime.DesyncPosition = G.AutoArmorSettings.DesyncPosition
+                    end
+                end
                 
                 -- Проверяем, что HumanoidRootPart все еще существует перед возвратом
                 if G.AutoArmorSettings.hrp and G.AutoArmorSettings.hrp.Parent then
                     -- Возвращаемся с несколькими попытками для надежности
                     for i = 1, 3 do
-                        G.AutoArmorSettings.hrp.CFrame = G.AutoArmorSettings.originalCFrame
+                        G.AutoArmorSettings.hrp.CFrame = G.AutoArmorSettings.BuyingArmor
                         G.AutoArmorSettings.hrp.Velocity = G.AutoArmorSettings.originalVelocity -- Восстанавливаем скорость
                         task.wait(0.1) -- Ждем между попытками
                     end
@@ -5554,6 +6035,12 @@ G.autoArmorFunction = function()
                 
                 -- Небольшая задержка для стабилизации
                 task.wait(0.2)
+                
+                -- Восстанавливаем состояние AutoStomp
+                if G.AutoArmorSettings.autoStompOriginalState then
+                    getgenv().AutoStomp.Enabled = G.AutoArmorSettings.autoStompOriginalState.Enabled
+                    getgenv().AutoStomp.isActive = G.AutoArmorSettings.autoStompOriginalState.isActive
+                end
                 
                 -- Сбрасываем флаги покупки брони
                 if getgenv().SaveDistance then
@@ -5578,6 +6065,18 @@ G.autoArmorFunction = function()
         G.AutoArmorSettings.IsBuying = false
         if getgenv().SaveDistance then
             getgenv().SaveDistance.IsBuyingArmor = false
+        end
+        
+        -- Восстанавливаем состояние Target Strafe при ошибке
+        if G.AutoArmorSettings.originalTSState and getgenv().TS then
+            getgenv().TS.Config.Enabled = G.AutoArmorSettings.originalTSState.Enabled
+            getgenv().TS.Config.UseDesync = G.AutoArmorSettings.originalTSState.UseDesync
+        end
+        
+        -- Восстанавливаем состояние AutoStomp при ошибке
+        if getgenv().AutoStomp and G.AutoArmorSettings.autoStompOriginalState then
+            getgenv().AutoStomp.Enabled = G.AutoArmorSettings.autoStompOriginalState.Enabled
+            getgenv().AutoStomp.isActive = G.AutoArmorSettings.autoStompOriginalState.isActive
         end
     end
 end
@@ -5630,6 +6129,14 @@ G.AutoArmorGroup:AddSlider('AutoArmorInterval', {
     Default = G.AutoArmorSettings.CheckInterval,
     Min = 0.1, Max = 5, Rounding = 1,
     Callback = function(v) G.AutoArmorSettings.CheckInterval = v end,
+    Tooltip = '>_<'
+})
+
+G.AutoArmorGroup:AddSlider('AutoArmorMaxAttempts', {
+    Text = 'Max Attempts',
+    Default = G.AutoArmorSettings.MaxAttempts,
+    Min = 1, Max = 10, Rounding = 0,
+    Callback = function(v) G.AutoArmorSettings.MaxAttempts = v end,
     Tooltip = '>_<'
 })
 
@@ -5946,4 +6453,3 @@ LP.CharacterRemoving:Connect(function()
 end)
 
 -- Конец скрипта
-
