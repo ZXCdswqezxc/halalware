@@ -395,7 +395,12 @@ local BulletTextures = {
 local BulletToggle = addToggleWithNotify(BulletTracersGroup, 'BulletTracersEnabled', {
     Text = 'Tracer',
     Default = false,
-    Callback = function(v) BulletTracersConfig.Enabled = v end
+    Callback = function(v) 
+        BulletTracersConfig.Enabled = v 
+        if v and getgenv().setupBulletEffects then
+            getgenv().setupBulletEffects()
+        end
+    end
 })
 BulletToggle:AddColorPicker('BulletTracersColor1', {
     Default = BulletTracersConfig.Color1,
@@ -417,7 +422,13 @@ BulletTracersGroup:AddDropdown('BulletTracersTexture', {
     Text = 'Tex',
     Values = {"Starhook", "Chain", "Lightning", "Beam"},
     Default = 'Starhook',
-    Callback = function(val) BulletTracersConfig.Texture = BulletTextures[val] end
+    Callback = function(val) 
+        BulletTracersConfig.Texture = BulletTextures[val] 
+        -- Перезапускаем трейсеры при изменении текстуры, если они включены
+        if BulletTracersConfig.Enabled and getgenv().setupBulletEffects then
+            getgenv().setupBulletEffects()
+        end
+    end
 })
 
 -- === Bullet Tracers Logic (ONLY) ===
@@ -641,12 +652,18 @@ local function setupBulletEffects()
         end)
     end
     
+    -- Удаляем старые соединения, если они существуют
+    if getgenv().bulletTracerConnection then
+        getgenv().bulletTracerConnection:Disconnect()
+        getgenv().bulletTracerConnection = nil
+    end
+    
     -- Следим за созданием новых пуль
-    bulletPath.ChildAdded:Connect(function(object)
+    getgenv().bulletTracerConnection = bulletPath.ChildAdded:Connect(function(object)
         if not BulletTracersConfig.Enabled then return end
         
-        -- Проверяем, чтобы это была пуля с правильным именем и недавно выстрелил локальный игрок
-        if object.Name == gameData.BN and gunState.recently_shot then
+        -- Проверяем, чтобы это была пуля с правильным именем
+        if object.Name == gameData.BN then
             task.spawn(function()
                 local gunBeam = object:WaitForChild(gameData.BBN, 0.2)
                 if not gunBeam then return end
@@ -667,6 +684,44 @@ local function setupBulletEffects()
                     BulletTracersConfig.Texture
                 )
             end)
+        end
+    end)
+    
+    -- Добавляем дополнительное отслеживание для случаев, когда ChildAdded не срабатывает
+    if getgenv().bulletTracerBackupConnection then
+        getgenv().bulletTracerBackupConnection:Disconnect()
+        getgenv().bulletTracerBackupConnection = nil
+    end
+    
+    getgenv().bulletTracerBackupConnection = HRT:Connect(function()
+        if not BulletTracersConfig.Enabled then return end
+        
+        -- Проверяем все пули в рабочем пространстве
+        for _, object in ipairs(bulletPath:GetChildren()) do
+            if object.Name == gameData.BN and object:IsA("BasePart") then
+                local gunBeam = object:FindFirstChild(gameData.BBN)
+                if gunBeam and not gunBeam:GetAttribute("Processed") then
+                    gunBeam:SetAttribute("Processed", true)
+                    
+                    task.spawn(function()
+                        local startPos = object.Position
+                        local endPos = gunBeam.Attachment1.WorldPosition
+                        
+                        -- Удаляем оригинальный луч
+                        gunBeam:Destroy()
+                        
+                        -- Создаем трейсер
+                        createBeam(
+                            startPos, 
+                            endPos, 
+                            BulletTracersConfig.Color1, 
+                            BulletTracersConfig.Color2, 
+                            BulletTracersConfig.Thickness,
+                            BulletTracersConfig.Texture
+                        )
+                    end)
+                end
+            end
         end
     end)
 end
@@ -1405,10 +1460,42 @@ local function applyWorld()
     cc.Brightness = WorldConfig.Brightness
 end
 
+-- Добавляем постоянное обновление настроек мира
+getgenv().worldUpdateConnection = nil
+local function startWorldUpdates()
+    if getgenv().worldUpdateConnection then getgenv().worldUpdateConnection:Disconnect() end
+    getgenv().worldUpdateConnection = HRT:Connect(function()
+        -- Применяем настройки мира каждый кадр для предотвращения сброса игрой
+        if WorldConfig.FogEnabled then
+            Lighting.FogStart = WorldConfig.FogStart
+            Lighting.FogEnd = WorldConfig.FogEnd
+            Lighting.FogColor = WorldConfig.FogColor
+        end
+        Lighting.GlobalShadows = WorldConfig.Shadows
+        Lighting.ShadowColor = WorldConfig.ShadowColor
+        Lighting.ClockTime = WorldConfig.Time
+        local cc = ensureCC()
+        cc.Saturation = WorldConfig.Saturation
+        cc.Brightness = WorldConfig.Brightness
+    end)
+end
+
+-- Запускаем обновление при загрузке скрипта
+startWorldUpdates()
+
 local FogToggle = addToggleWithNotify(WorldGroup, 'FogEnabled', {
     Text = 'Fog',
     Default = false,
-    Callback = function(v) WorldConfig.FogEnabled = v; applyWorld() end
+    Callback = function(v) 
+        WorldConfig.FogEnabled = v
+        applyWorld()
+        -- Перезапускаем обновление мира при изменении настроек
+        if getgenv().worldUpdateConnection then
+            getgenv().worldUpdateConnection:Disconnect()
+            getgenv().worldUpdateConnection = nil
+        end
+        startWorldUpdates()
+    end
 })
 FogToggle:AddColorPicker('FogColor', {
     Default = Color3.new(1,1,1),
@@ -1430,13 +1517,31 @@ WorldGroup:AddSlider('FogEnd', {
 local ShadowsToggle = WorldGroup:AddToggle('Shadows', {
     Text = 'Shadows',
     Default = false,
-    Callback = function(v) WorldConfig.Shadows = v; applyWorld() end
+    Callback = function(v) 
+        WorldConfig.Shadows = v
+        applyWorld()
+        -- Перезапускаем обновление мира при изменении теней
+        if getgenv().worldUpdateConnection then
+            getgenv().worldUpdateConnection:Disconnect()
+            getgenv().worldUpdateConnection = nil
+        end
+        startWorldUpdates()
+    end
 })
 WorldGroup:AddSlider('Time', {
     Text = 'Time',
     Default = WorldConfig.Time,
     Min = 0, Max = 24, Rounding = 1,
-    Callback = function(val) WorldConfig.Time = val; applyWorld() end
+    Callback = function(val) 
+        WorldConfig.Time = val
+        applyWorld()
+        -- Перезапускаем обновление мира при изменении времени
+        if getgenv().worldUpdateConnection then
+            getgenv().worldUpdateConnection:Disconnect()
+            getgenv().worldUpdateConnection = nil
+        end
+        startWorldUpdates()
+    end
 })
 WorldGroup:AddSlider('Saturation', {
     Text = 'Sat',
@@ -2483,6 +2588,8 @@ addToggleWithNotify(AnimBreakerGroup, 'AnimBreaker', {
     Tooltip = '>_<'
 })
 
+
+
 -- Добавляем тогл для кастомной анимации
 addToggleWithNotify(AnimBreakerGroup, 'CustomAnimation', {
     Text = 'CustomAnim',
@@ -2650,6 +2757,57 @@ addToggleWithNotify(RapidFireM1Group, 'RapidFireM1Spam', {
 
 -- === Misc Utilities (Misc tab, новая левая секция) ===
 local MiscUtilsGroup = Tabs.Misc:AddLeftGroupbox('>_<')
+
+-- === FOV Settings (Misc tab) ===
+local FOVGroup = Tabs.Misc:AddRightGroupbox('>_<')
+
+-- Создаем конфигурацию для FOV
+local FOVConfig = {
+    Enabled = false,
+    Value = 70 -- Значение по умолчанию
+}
+
+-- Добавляем toggle для включения/выключения FOV
+addToggleWithNotify(FOVGroup, 'FOVEnabled', {
+    Text = 'FOV',
+    Default = false,
+    Callback = function(v)
+        FOVConfig.Enabled = v
+        -- Применяем или сбрасываем FOV
+        if v then
+            game:GetService("Workspace").CurrentCamera.FieldOfView = FOVConfig.Value
+        else
+            game:GetService("Workspace").CurrentCamera.FieldOfView = 70 -- Стандартное значение FOV
+        end
+    end,
+    Tooltip = '>_<'
+})
+
+-- Добавляем слайдер для настройки значения FOV
+FOVGroup:AddSlider('FOVValue', {
+    Text = 'FOV Value',
+    Default = 70,
+    Min = 10,
+    Max = 1000,
+    Rounding = 0,
+    Step = 10,
+    Callback = function(v)
+        FOVConfig.Value = v
+        -- Если FOV включен, сразу применяем новое значение
+        if FOVConfig.Enabled then
+            game:GetService("Workspace").CurrentCamera.FieldOfView = v
+        end
+    end,
+    Tooltip = '>_<'
+})
+
+-- Добавляем соединение для обеспечения постоянного FOV при смене камеры
+local fovConnection
+fovConnection = game:GetService("RunService").RenderStepped:Connect(function()
+    if FOVConfig.Enabled then
+        game:GetService("Workspace").CurrentCamera.FieldOfView = FOVConfig.Value
+    end
+end)
 
 -- === Auto Talk (Misc tab, правая секция) ===
 local TalkGroup = Tabs.Misc:AddRightGroupbox('>_<')
@@ -3148,18 +3306,277 @@ SilentAimGroup:AddToggle('SilentAimTargetDeathCheck', {
     Default = false,
     Callback = function(v) getgenv().SilentAim.Misc.Checks.TargetDeathCheck = v end
 })
-SilentAimGroup:AddToggle('SilentAimResolverEnabled', {
-    Text = 'Resolver',
-    Default = false,
-    Callback = function(v) getgenv().SilentAim.Misc.Checks.Resolver.Enabled = v end
-})
-
 SilentAimGroup:AddDropdown('SilentAimResolverType', {
     Text = 'ResolverType',
     Values = {'Calculate CFrame', 'Velocity', 'Move direction'},
     Default = getgenv().SilentAim.Misc.Checks.Resolver.Type,
     Callback = function(v) getgenv().SilentAim.Misc.Checks.Resolver.Type = v end
 })
+
+-- Auto Reload
+addToggleWithNotify(SilentAimGroup, 'AutoReload', {
+    Text = 'AutoReload',
+    Default = false,
+    Callback = function(v)
+        _G.AutoReload = v
+        
+        -- Отключаем предыдущий цикл автоперезарядки, если он существует
+        if _G.AutoReloadConnection then
+            _G.AutoReloadConnection:Disconnect()
+            _G.AutoReloadConnection = nil
+        end
+        
+        -- Если включено, запускаем новый цикл автоперезарядки
+        if v then
+            _G.AutoReloadConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                pcall(function()
+                    local character = game:GetService("Players").LocalPlayer.Character
+                    if character then
+                        local tool = character:FindFirstChildWhichIsA("Tool")
+                        if tool then
+                            local ammo = tool:FindFirstChild("Ammo")
+                            if ammo and ammo.Value <= 0 then
+                                -- Проверяем, существует ли MainEvent
+                                local mainEvent = game:GetService("ReplicatedStorage"):FindFirstChild("MainEvent")
+                                if mainEvent then
+                                    mainEvent:FireServer("Reload", tool)
+                                    task.wait(1)
+                                end
+                            end
+                        end
+                    end
+                end)
+            end)
+        end
+        
+        Library:Notify(">_< " .. (v and "on" or "off"), 3)
+    end,
+    Tooltip = '>_<'
+})
+
+-- Auto Shoot и Auto Reload
+-- Создаем утилиты для работы с оружием
+getgenv().utility = {
+    getHeld = function()
+        return LP.Character:FindFirstChildWhichIsA("Tool")
+    end,
+    target = nil,
+    ValidateClient = function(self, player)
+        if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player ~= LP then
+            return true
+        end
+        return false
+    end
+}
+
+-- Настройки
+getgenv().flags = {
+    ["Auto Shoot"] = false,
+    ["Auto Reload"] = false,
+    ["Fix Auto Guns"] = false
+}
+
+-- Соединения
+getgenv().connections = {
+    ["auto reload"] = {}
+}
+
+-- Функция для создания виртуального клика
+getgenv().createVirtualClick = function()
+    -- Создаем виртуальный пользовательский ввод, если его еще нет
+    if not getgenv().VirtualUser then
+        getgenv().VirtualUser = game:GetService("VirtualUser")
+    end
+    
+    -- Делаем клик в правом нижнем углу экрана (где нет интерфейса)
+    getgenv().VirtualUser:CaptureController()
+    getgenv().VirtualUser:ClickButton1(Vector2.new(900, 900))
+end
+
+-- Инициализация глобальных переменных для таймеров
+getgenv().virtualClickTimer = 0
+
+-- Функция автоматической перезарядки
+getgenv().autoReload = function()
+    getgenv().reloadTool = getgenv().utility:getHeld()
+    if getgenv().flags["Auto Reload"] and getgenv().reloadTool and getgenv().reloadTool:FindFirstChild("Ammo") then 
+        -- Проверяем, что в обойме точно 0 патронов
+        if getgenv().reloadTool.Ammo.Value == 0 then
+            -- Сразу перезаряжаем оружие
+            S.RS.MainEvent:FireServer("Reload", getgenv().reloadTool)
+        end
+    end 
+end
+
+-- Функция установки соединения для отслеживания патронов
+getgenv().setupAmmoConnection = function(tool)
+    if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then
+        if not getgenv().connections["auto reload"][tool] then 
+            getgenv().connections["auto reload"][tool] = tool.Ammo:GetPropertyChangedSignal("Value"):Connect(getgenv().autoReload)
+        end
+    end
+end
+
+-- Установка соединений для текущего оружия
+getgenv().setupAllAmmoConnections = function()
+    for _, tool in pairs(LP.Backpack:GetChildren()) do
+        getgenv().setupAmmoConnection(tool)
+    end
+
+    if LP.Character then
+        for _, tool in pairs(LP.Character:GetChildren()) do
+            getgenv().setupAmmoConnection(tool)
+        end
+    end
+end
+
+-- Auto Shoot
+getgenv().AutoShootToggle = addToggleWithNotify(SilentAimGroup, 'AutoShoot', {
+    Text = 'AutoShoot',
+    Default = false,
+    Callback = function(v)
+        getgenv().flags["Auto Shoot"] = v
+        
+        -- Отключаем предыдущий цикл автострельбы, если он существует
+        if getgenv().AutoShootConnection then
+            getgenv().AutoShootConnection:Disconnect()
+            getgenv().AutoShootConnection = nil
+        end
+        
+        -- Отключаем цикл виртуальных кликов, если он существует
+        if getgenv().VirtualClickConnection then
+            getgenv().VirtualClickConnection:Disconnect()
+            getgenv().VirtualClickConnection = nil
+        end
+        
+        -- Если включено, запускаем новый цикл автострельбы
+        if v then
+            getgenv().AutoShootConnection = S.RS.Heartbeat:Connect(function()
+                -- Проверяем, есть ли цель и не в состоянии ли она K.O.
+                local hasValidTarget = false
+                
+                if getgenv().utility.target and getgenv().utility:ValidateClient(getgenv().utility.target) then
+                    -- Проверяем, не в K.O. ли цель (проверка состояния персонажа)
+                    local targetChar = getgenv().utility.target.Character
+                    if targetChar and targetChar:FindFirstChild("BodyEffects") then
+                        local ko = targetChar.BodyEffects:FindFirstChild("K.O")
+                        local dead = targetChar.BodyEffects:FindFirstChild("Dead")
+                        
+                        -- Стреляем только если цель не в K.O. и не мертва
+                        if (not ko or ko.Value == false) and (not dead or dead.Value == false) then
+                            hasValidTarget = true
+                        end
+                    else
+                        -- Если не можем проверить K.O. статус, считаем цель валидной
+                        hasValidTarget = true
+                    end
+                end
+                
+                -- Активируем оружие только если есть валидная цель
+                if hasValidTarget and getgenv().flags["Auto Shoot"] then
+                    getgenv().currentTool = getgenv().utility:getHeld()
+                    if getgenv().currentTool then
+                        getgenv().currentTool:Activate()
+                    end
+                end
+            end)
+            
+            -- Если включен Fix Auto Guns, запускаем цикл виртуальных кликов
+            if getgenv().flags["Fix Auto Guns"] then
+                getgenv().VirtualClickConnection = S.RS.Heartbeat:Connect(function()
+                    getgenv().virtualClickTimer = getgenv().virtualClickTimer or 0
+                    if tick() - getgenv().virtualClickTimer >= 1 then  -- Делаем клик каждую секунду
+                        getgenv().virtualClickTimer = tick()
+                        getgenv().createVirtualClick()
+                    end
+                end)
+            end
+            
+            -- Настраиваем автоперезарядку при включении автострельбы
+            getgenv().setupAllAmmoConnections()
+            
+            -- Устанавливаем соединение для отслеживания добавления нового оружия
+            if LP.Character then
+                getgenv().characterChildAddedConnection = LP.Character.ChildAdded:Connect(function(child)
+                    getgenv().setupAmmoConnection(child)
+                end)
+            end
+            
+            -- Обработка смены персонажа
+            getgenv().characterAddedConnection = LP.CharacterAdded:Connect(function(character)
+                for tool, connection in pairs(getgenv().connections["auto reload"]) do
+                    if connection then
+                        connection:Disconnect()
+                        getgenv().connections["auto reload"][tool] = nil
+                    end
+                end
+                
+                getgenv().newCharacterChildAddedConnection = character.ChildAdded:Connect(function(child)
+                    getgenv().setupAmmoConnection(child)
+                end)
+            end)
+        end
+        
+        Library:Notify(">_< " .. (v and "on" or "off"), 3)
+    end,
+    Tooltip = '>_<'
+})
+
+-- Добавляем Fix Auto Guns как саб-кнопку к AutoShoot
+SilentAimGroup:AddButton({
+    Text = 'Fix Auto Guns',
+    Func = function()
+        getgenv().flags["Fix Auto Guns"] = not getgenv().flags["Fix Auto Guns"]
+        
+        -- Отключаем цикл виртуальных кликов, если он существует
+        if getgenv().VirtualClickConnection then
+            getgenv().VirtualClickConnection:Disconnect()
+            getgenv().VirtualClickConnection = nil
+        end
+        
+        -- Если включены и AutoShoot, и Fix Auto Guns, запускаем цикл виртуальных кликов
+        if getgenv().flags["Auto Shoot"] and getgenv().flags["Fix Auto Guns"] then
+            getgenv().VirtualClickConnection = S.RS.Heartbeat:Connect(function()
+                getgenv().virtualClickTimer = getgenv().virtualClickTimer or 0
+                if tick() - getgenv().virtualClickTimer >= 1 then  -- Делаем клик каждую секунду
+                    getgenv().virtualClickTimer = tick()
+                    getgenv().createVirtualClick()
+                end
+            end)
+        end
+        
+        Library:Notify(">_< Fix Auto " .. (getgenv().flags["Fix Auto Guns"] and "on" or "off"), 3)
+    end,
+    Tooltip = '>_<'
+})
+
+
+
+-- Auto Reload
+addToggleWithNotify(SilentAimGroup, 'AutoReload', {
+    Text = 'AutoReload',
+    Default = false,
+    Callback = function(v)
+        getgenv().flags["Auto Reload"] = v
+        
+        if v then
+            getgenv().setupAllAmmoConnections()
+        else
+            -- Отключаем все соединения для автоперезарядки
+            for tool, connection in pairs(getgenv().connections["auto reload"]) do
+                if connection then
+                    connection:Disconnect()
+                    getgenv().connections["auto reload"][tool] = nil
+                end
+            end
+        end
+        
+        Library:Notify(">_< " .. (v and "on" or "off"), 3)
+    end,
+    Tooltip = '>_<'
+})
+
+
 
 -- NoSpread настройки
 addToggleWithNotify(SilentAimGroup, 'NoSpread', {
@@ -3205,6 +3622,12 @@ if not getgenv().Loaded_SilentAim then
     -- Делаем stickyTarget глобальной переменной для доступа из разных частей скрипта
     stickyTarget = nil
     _G.stickyTarget = nil
+    
+    -- Инициализация Auto Reload и Auto Shoot
+    _G.AutoReload = false
+    _G.AutoReloadConnection = nil
+    _G.AutoShoot = false
+    _G.AutoShootConnection = nil
     local lastPositions, lastUpdateTimes = {}, {}
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local MainEvent = ReplicatedStorage:FindFirstChild("MainEvent")
@@ -3251,36 +3674,43 @@ if not getgenv().Loaded_SilentAim then
     end
     
     -- Делаем функцию getClosestPlayer доступной глобально
-    getClosestPlayer = function()
-        local mousePos = UserInputService:GetMouseLocation()
-        local shortestDistance = Inf
-        local closestPlayer = nil
-        local partName = SilentAim.Silent.Part
+    getgenv().getClosestPlayer = function()
+        getgenv().mousePos = UserInputService:GetMouseLocation()
+        getgenv().shortestDistance = Inf
+        getgenv().closestPlayer = nil
+        getgenv().partName = SilentAim.Silent.Part
+        
         for _, player in ipairs(Players:GetPlayers()) do
             -- Проверяем isPlayerAlive только если TargetDeathCheck включен
-            local isAliveCheck = not SilentAim.Misc.Checks.TargetDeathCheck or isPlayerAlive(player)
+            getgenv().isAliveCheck = not SilentAim.Misc.Checks.TargetDeathCheck or isPlayerAlive(player)
             
-            if player ~= LocalPlayer and isAliveCheck and
+            if player ~= LocalPlayer and getgenv().isAliveCheck and
                (not SilentAim.Misc.Checks.KOCheck or not isPlayerKO(player)) and
                (not SilentAim.Misc.Checks.GrabbedCheck or not isPlayerGrabbed(player)) and
                wallCheck(player.Character) then
-                local character = player.Character
-                local part = character and character:FindFirstChild(partName)
-                if part then
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                    local distance = (NewVector2(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                    if distance < shortestDistance and onScreen then
-                        closestPlayer = player
-                        shortestDistance = distance
+                getgenv().character = player.Character
+                getgenv().part = getgenv().character and getgenv().character:FindFirstChild(getgenv().partName)
+                
+                if getgenv().part then
+                    getgenv().screenPos, getgenv().onScreen = Camera:WorldToViewportPoint(getgenv().part.Position)
+                    getgenv().distance = (NewVector2(getgenv().screenPos.X, getgenv().screenPos.Y) - getgenv().mousePos).Magnitude
+                    
+                    if getgenv().distance < getgenv().shortestDistance and getgenv().onScreen then
+                        getgenv().closestPlayer = player
+                        getgenv().shortestDistance = getgenv().distance
                     end
                 end
             end
         end
-        return closestPlayer
+        
+        -- Устанавливаем цель для автострельбы
+        getgenv().utility.target = getgenv().closestPlayer
+        
+        return getgenv().closestPlayer
     end
     
     -- Сохраняем функцию в глобальной области видимости для доступа из других частей скрипта
-    _G.getClosestPlayer = getClosestPlayer
+    _G.getClosestPlayer = getgenv().getClosestPlayer
     
     local function predictPosition(player)
         if not player.Character or not player.Character:FindFirstChild(SilentAim.Silent.Part) then return nil end
@@ -4543,7 +4973,8 @@ local TS = {
         FollowPart = nil,
         DesyncPosition = nil,
         VisualiseDrawing = nil,
-        LastAimbotTarget = nil
+        LastAimbotTarget = nil,
+        LastUpdateTime = 0 -- Добавляем отслеживание времени последнего обновления
     }
 }
 
@@ -4593,6 +5024,13 @@ TS.updateVisual = function()
         end
         return
     end
+    
+    -- Проверяем, не слишком ли часто обновляем визуализацию
+    local currentTime = tick()
+    if currentTime - TS.Runtime.LastUpdateTime < 0.016 then -- Примерно 60 FPS
+        return
+    end
+    TS.Runtime.LastUpdateTime = currentTime
     
     -- Создаем трейсер, если его еще нет
     if not TS.Runtime.VisualiseDrawing then
@@ -5047,6 +5485,9 @@ G.applyAutoStomp = function()
     local ragdollPart = getRagdollPart(targetPlayer.Character)
     if not ragdollPart then return end
     
+    -- Проверяем, не покупает ли AutoArmor броню в данный момент
+    local isAutoArmorBuying = G.AutoArmorSettings and G.AutoArmorSettings.IsBuying
+    
     -- Инициализируем стомп, если ещё не активен
     if not getgenv().AutoStomp.isActive then
         getgenv().AutoStomp.isActive = true
@@ -5054,6 +5495,9 @@ G.applyAutoStomp = function()
         getgenv().AutoStomp.lastStompTime = tick()
         getgenv().AutoStomp.followPart = createAutoStompFollowPart()
     end
+    
+    -- Если AutoArmor покупает броню, пропускаем телепорт к цели
+    if isAutoArmorBuying then return end
     
     if getgenv().AutoStomp.isActive then
         -- Сохраняем оригинальную позицию
@@ -5700,8 +6144,7 @@ G.AutoArmorSettings = {
     LastArmorCheck = 0,
     CheckInterval = 1, -- Проверять каждую секунду
     MinArmorValue = 50, -- Покупать броню, когда значение меньше этого
-    MaxAttempts = 5, -- Максимальное количество попыток покупки брони
-    ArmorType = "[High-Medium Armor] - $2513", -- Тип брони для покупки
+    ArmorType = 1, -- Тип брони для покупки (1 = Max Armor 1)
     Notify = true, -- Уведомлять о покупке брони
     DebugMode = false, -- Режим отладки для вывода значения брони
     -- Переменные для функции autoArmorFunction
@@ -5717,7 +6160,8 @@ G.AutoArmorSettings = {
     originalCFrame = nil,
     originalVelocity = nil,
     autoStompOriginalState = nil, -- Сохранение состояния AutoStomp
-    originalTSState = nil -- Сохранение состояния Target Strafe
+    originalTSState = nil, -- Сохранение состояния Target Strafe
+    DesyncPosition = nil -- Сохранение позиции десинка для восстановления
 }
 
 -- Функция для определения текущего значения брони в зависимости от игры
@@ -5811,6 +6255,22 @@ G.autoArmorFunction = function()
         G.AutoArmorSettings.char = LP.Character
         if not G.AutoArmorSettings.char then return end
         
+        -- Проверяем состояние K.O. и Grabbed
+        local bodyEffects = G.AutoArmorSettings.char:FindFirstChild("BodyEffects")
+        if bodyEffects then
+            -- Проверка на K.O.
+            local ko = bodyEffects:FindFirstChild("K.O")
+            if ko and ko.Value then
+                return -- Не покупаем броню, если в нокауте
+            end
+            
+            -- Проверка на Grabbed
+            local grabbed = bodyEffects:FindFirstChild("Grabbed")
+            if grabbed and grabbed.Value then
+                return -- Не покупаем броню, если схвачен
+            end
+        end
+        
         -- Получаем текущее значение брони с учетом разных игр
         G.AutoArmorSettings.armorValue = G.getCurrentArmorValue()
         
@@ -5823,12 +6283,12 @@ G.autoArmorFunction = function()
         if G.AutoArmorSettings.armorValue < G.AutoArmorSettings.MinArmorValue then
             -- Устанавливаем флаг, что сейчас покупаем броню
             G.AutoArmorSettings.IsBuying = true
-            -- Устанавливаем таймаут в 5 секунд (увеличиваем для большей надежности)
-            G.AutoArmorSettings.BuyingTimeout = G.now + 5
+            -- Устанавливаем таймаут в 15 секунд (увеличиваем для большей надежности)
+            G.AutoArmorSettings.BuyingTimeout = G.now + 15
             
             -- Выполняем покупку в отдельном потоке, чтобы не блокировать основной цикл
             task.spawn(function()
-                -- Проверяем и сохраняем состояние AutoStomp
+                -- Сохраняем состояние AutoStomp, но не отключаем его
                 local isAutoStompActive = getgenv().AutoStomp and getgenv().AutoStomp.isActive
                 G.AutoArmorSettings.autoStompOriginalState = nil
                 if isAutoStompActive then
@@ -5836,9 +6296,8 @@ G.autoArmorFunction = function()
                         Enabled = getgenv().AutoStomp.Enabled,
                         isActive = getgenv().AutoStomp.isActive
                     }
-                    -- Временно отключаем AutoStomp
-                    getgenv().AutoStomp.isActive = false
-                    getgenv().AutoStomp.Enabled = false
+                    -- Больше не отключаем AutoStomp во время покупки брони
+                    -- AutoStomp сам проверит, идет ли покупка брони и пропустит телепорт
                 end
                 
                 -- Сохраняем текущую позицию
@@ -5882,71 +6341,102 @@ G.autoArmorFunction = function()
                     getgenv().TS.Config.Enabled = false
                 end
                 
-                -- Ищем магазин брони
-                G.AutoArmorSettings.armorShop = workspace:FindFirstChild("Ignored") and workspace.Ignored:FindFirstChild("Shop")
-                if not G.AutoArmorSettings.armorShop then
-                    -- Пробуем найти магазин в других местах
-                    for _, folder in pairs(workspace:GetChildren()) do
-                        if folder:FindFirstChild("Shop") then
-                            G.AutoArmorSettings.armorShop = folder.Shop
-                            break
+                -- Определяем тип выбранной брони
+                local isDelHoodArmor = false
+                local selectedArmorIndex = nil
+                
+                -- Проверяем, является ли выбранная броня индексом (Del Hood)
+                if type(G.AutoArmorSettings.ArmorType) == "number" then
+                    isDelHoodArmor = true
+                    selectedArmorIndex = G.AutoArmorSettings.ArmorType
+                elseif G.AutoArmorSettings.ArmorType:lower():find("max") then
+                    isDelHoodArmor = true
+                end
+                
+                -- Для брони Del Hood используем функцию безопасного выбора
+                if isDelHoodArmor then
+                    -- Используем функцию для поиска безопасного магазина брони
+                    G.AutoArmorSettings.armorItem = G.getSafeArmorShop()
+                    
+                    -- Если нашли безопасный объект брони, устанавливаем его как магазин
+                    if G.AutoArmorSettings.armorItem then
+                        G.AutoArmorSettings.armorShop = G.AutoArmorSettings.armorItem.Parent
+                    else
+                        -- Если не нашли безопасный объект, ищем обычным способом
+                        G.AutoArmorSettings.armorShop = workspace:FindFirstChild("Ignored") and workspace.Ignored:FindFirstChild("Shop")
+                        
+                        if G.AutoArmorSettings.armorShop then
+                            -- Если указан индекс, пробуем найти по нему
+                            if selectedArmorIndex then
+                                G.AutoArmorSettings.armorItem = G.AutoArmorSettings.armorShop:GetChildren()[selectedArmorIndex]
+                            else
+                                -- Иначе ищем по имени
+                                G.AutoArmorSettings.armorItem = G.AutoArmorSettings.armorShop:FindFirstChild(G.AutoArmorSettings.ArmorType)
+                                
+                                -- Если не нашли, ищем любую Max Armor
+                                if not G.AutoArmorSettings.armorItem then
+                                    for _, item in pairs(G.AutoArmorSettings.armorShop:GetChildren()) do
+                                        if item.Name:lower():find("armor") and item.Name:lower():find("max") then
+                                            G.AutoArmorSettings.armorItem = item
+                                            break
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                else
+                    -- Для обычной брони Da Hood используем стандартный поиск
+                    G.AutoArmorSettings.armorShop = workspace:FindFirstChild("Ignored") and workspace.Ignored:FindFirstChild("Shop")
+                    
+                    if G.AutoArmorSettings.armorShop then
+                        G.AutoArmorSettings.armorItem = G.AutoArmorSettings.armorShop:FindFirstChild(G.AutoArmorSettings.ArmorType)
+                    end
+                    
+                    -- Если не нашли магазин или броню, пробуем найти в других местах
+                    if not G.AutoArmorSettings.armorShop or not G.AutoArmorSettings.armorItem then
+                        for _, folder in pairs(workspace:GetChildren()) do
+                            if folder:FindFirstChild("Shop") then
+                                G.AutoArmorSettings.armorShop = folder.Shop
+                                G.AutoArmorSettings.armorItem = G.AutoArmorSettings.armorShop:FindFirstChild(G.AutoArmorSettings.ArmorType)
+                                if G.AutoArmorSettings.armorItem then break end
+                            end
                         end
                     end
                     
-                    if not G.AutoArmorSettings.armorShop then 
-                        -- Сбрасываем флаги покупки брони
-                        if getgenv().SaveDistance then
-                            getgenv().SaveDistance.IsBuyingArmor = false
+                    -- Если всё ещё не нашли броню, ищем любую
+                    if G.AutoArmorSettings.armorShop and not G.AutoArmorSettings.armorItem then
+                        for _, item in pairs(G.AutoArmorSettings.armorShop:GetChildren()) do
+                            if item.Name:lower():find("armor") then
+                                G.AutoArmorSettings.armorItem = item
+                                break
+                            end
                         end
-                        G.AutoArmorSettings.IsBuying = false
-                        
-                        -- Восстанавливаем состояние Target Strafe
-                        if G.AutoArmorSettings.originalTSState and getgenv().TS then
-                            getgenv().TS.Config.Enabled = G.AutoArmorSettings.originalTSState.Enabled
-                            getgenv().TS.Config.UseDesync = G.AutoArmorSettings.originalTSState.UseDesync
-                        end
-                        
-                        -- Восстанавливаем состояние AutoStomp
-                        if autoStompOriginalState then
-                            getgenv().AutoStomp.Enabled = autoStompOriginalState.Enabled
-                            getgenv().AutoStomp.isActive = autoStompOriginalState.isActive
-                        end
-                        
-                        return 
                     end
                 end
                 
-                G.AutoArmorSettings.armorItem = G.AutoArmorSettings.armorShop:FindFirstChild(G.AutoArmorSettings.ArmorType)
-                if not G.AutoArmorSettings.armorItem then
-                    -- Если не нашли конкретный тип брони, ищем любую броню
-                    for _, item in pairs(G.AutoArmorSettings.armorShop:GetChildren()) do
-                        if item.Name:lower():find("armor") then
-                            G.AutoArmorSettings.armorItem = item
-                            break
-                        end
+                -- Если не нашли броню, отменяем покупку
+                if not G.AutoArmorSettings.armorItem or not G.AutoArmorSettings.armorItem:FindFirstChild("Head") or 
+                   not G.AutoArmorSettings.armorItem:FindFirstChild("ClickDetector") then
+                    -- Сбрасываем флаги покупки брони
+                    if getgenv().SaveDistance then
+                        getgenv().SaveDistance.IsBuyingArmor = false
+                    end
+                    G.AutoArmorSettings.IsBuying = false
+                    
+                    -- Восстанавливаем состояние Target Strafe
+                    if G.AutoArmorSettings.originalTSState and getgenv().TS then
+                        getgenv().TS.Config.Enabled = G.AutoArmorSettings.originalTSState.Enabled
+                        getgenv().TS.Config.UseDesync = G.AutoArmorSettings.originalTSState.UseDesync
                     end
                     
-                    if not G.AutoArmorSettings.armorItem then 
-                        -- Сбрасываем флаги покупки брони
-                        if getgenv().SaveDistance then
-                            getgenv().SaveDistance.IsBuyingArmor = false
-                        end
-                        G.AutoArmorSettings.IsBuying = false
-                        
-                        -- Восстанавливаем состояние Target Strafe
-                        if G.AutoArmorSettings.originalTSState and getgenv().TS then
-                            getgenv().TS.Config.Enabled = G.AutoArmorSettings.originalTSState.Enabled
-                            getgenv().TS.Config.UseDesync = G.AutoArmorSettings.originalTSState.UseDesync
-                        end
-                        
-                        -- Восстанавливаем состояние AutoStomp
-                        if autoStompOriginalState then
-                            getgenv().AutoStomp.Enabled = autoStompOriginalState.Enabled
-                            getgenv().AutoStomp.isActive = autoStompOriginalState.isActive
-                        end
-                        
-                        return 
+                    -- Восстанавливаем состояние AutoStomp
+                    if G.AutoArmorSettings.autoStompOriginalState then
+                        getgenv().AutoStomp.Enabled = G.AutoArmorSettings.autoStompOriginalState.Enabled
+                        getgenv().AutoStomp.isActive = G.AutoArmorSettings.autoStompOriginalState.isActive
                     end
+                    
+                    return 
                 end
                 
                 if not (G.AutoArmorSettings.armorItem:FindFirstChild("Head") and 
@@ -5970,44 +6460,79 @@ G.autoArmorFunction = function()
                 G.AutoArmorSettings.originalCFrame = G.AutoArmorSettings.hrp.CFrame
                 G.AutoArmorSettings.originalVelocity = G.AutoArmorSettings.hrp.Velocity
                 
-                -- Начинаем цикл покупки брони, пока не достигнем нужного значения
-                local maxAttempts = G.AutoArmorSettings.MaxAttempts -- Используем настройку из конфигурации
-                local attempts = 0
-                local armorValueBefore = G.getCurrentArmorValue()
+                -- Телепортируемся к броне для покупки
+                local armorPosition = G.AutoArmorSettings.armorItem.Head.CFrame
                 
-                repeat
-                    attempts = attempts + 1
+                -- Сохраняем оригинальную позицию
+                G.AutoArmorSettings.originalCFrame = G.AutoArmorSettings.hrp.CFrame
+                G.AutoArmorSettings.originalVelocity = G.AutoArmorSettings.hrp.Velocity
                 
                 -- Телепортируемся к броне
-                G.AutoArmorSettings.hrp.CFrame = G.AutoArmorSettings.armorItem.Head.CFrame
-                G.AutoArmorSettings.hrp.Velocity = Vector3.new(0, 0, 0) -- Сбрасываем скорость для стабильности
+                G.AutoArmorSettings.hrp.CFrame = armorPosition
+                G.AutoArmorSettings.hrp.Velocity = Vector3.new(0, 0, 0)
                 
-                -- Небольшая задержка перед покупкой
-                    task.wait(0.2)
+                -- Создаем механизм фиксации позиции во время покупки
+                local fixPositionConnection = nil
+                fixPositionConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                    -- Проверяем, что HRP все еще существует
+                    if G.AutoArmorSettings.hrp and G.AutoArmorSettings.hrp.Parent then
+                        -- Постоянно устанавливаем позицию у магазина брони
+                        G.AutoArmorSettings.hrp.CFrame = armorPosition
+                        G.AutoArmorSettings.hrp.Velocity = Vector3.new(0, 0, 0)
+                    else
+                        -- Если HRP больше нет, отключаем соединение
+                        if fixPositionConnection then
+                            fixPositionConnection:Disconnect()
+                            fixPositionConnection = nil
+                        end
+                    end
+                end)
                 
-                -- Покупаем броню
-                fireclickdetector(G.AutoArmorSettings.armorItem.ClickDetector)
-                
-                    -- Ждем немного для обновления значения брони
-                    task.wait(0.3)
-                    
-                    -- Проверяем новое значение брони
-                    local currentArmorValue = G.getCurrentArmorValue()
-                    
-                    -- Если броня увеличилась или достигла максимума, выходим из цикла
-                    if currentArmorValue > armorValueBefore or currentArmorValue >= G.AutoArmorSettings.MinArmorValue then
+                -- Пытаемся купить броню до тех пор, пока она не достигнет нужного уровня
+                while G.getCurrentArmorValue() < G.AutoArmorSettings.MinArmorValue do
+                    -- Проверяем timeout
+                    if tick() >= G.AutoArmorSettings.BuyingTimeout then
+                        -- Если время вышло, выходим из цикла
                         break
                     end
                     
-                    -- Если достигли максимального количества попыток, выходим из цикла
-                    if attempts >= maxAttempts then
-                        break
+                    -- Проверяем состояние K.O. и Grabbed
+                    local bodyEffects = G.AutoArmorSettings.char:FindFirstChild("BodyEffects")
+                    if bodyEffects then
+                        local ko = bodyEffects:FindFirstChild("K.O")
+                        local grabbed = bodyEffects:FindFirstChild("Grabbed")
+                        
+                        if (ko and ko.Value) or (grabbed and grabbed.Value) then
+                            -- Если в нокауте или схвачен, прерываем покупку
+                            break
+                        end
                     end
                     
-                    -- Небольшая задержка между попытками
-                    task.wait(0.2)
+                    -- Нажимаем на кнопку покупки
+                    fireclickdetector(G.AutoArmorSettings.armorItem.ClickDetector)
                     
-                until false -- Бесконечный цикл с условиями выхода внутри
+                    -- Ждем небольшое время перед следующей попыткой
+                    task.wait(0.2)
+                end
+                
+                -- Отключаем соединение фиксации позиции
+                if fixPositionConnection then
+                    fixPositionConnection:Disconnect()
+                    fixPositionConnection = nil
+                end
+                
+                -- Возвращаемся на исходную позицию только если броня успешно куплена
+                if G.getCurrentArmorValue() >= G.AutoArmorSettings.MinArmorValue then
+                    G.AutoArmorSettings.hrp.CFrame = G.AutoArmorSettings.originalCFrame
+                    G.AutoArmorSettings.hrp.Velocity = G.AutoArmorSettings.originalVelocity
+                else
+                    -- Если броня не купилась и не в таймауте, продолжаем попытки в следующем цикле
+                    if tick() < G.AutoArmorSettings.BuyingTimeout then
+                        return -- Продолжаем попытки покупки в следующих циклах
+                    end
+                end
+                
+                -- Процесс покупки брони уже выполнен выше
                 
                 -- Восстанавливаем состояние Target Strafe
                 if G.AutoArmorSettings.originalTSState and getgenv().TS then
@@ -6116,6 +6641,8 @@ addToggleWithNotify(G.AutoArmorGroup, 'AutoArmorEnabled', {
     Tooltip = '>_<'
 })
 
+-- UseDesync опция удалена
+
 G.AutoArmorGroup:AddSlider('AutoArmorMinValue', {
     Text = 'MinValue',
     Default = G.AutoArmorSettings.MinArmorValue,
@@ -6132,53 +6659,101 @@ G.AutoArmorGroup:AddSlider('AutoArmorInterval', {
     Tooltip = '>_<'
 })
 
-G.AutoArmorGroup:AddSlider('AutoArmorMaxAttempts', {
-    Text = 'Max Attempts',
-    Default = G.AutoArmorSettings.MaxAttempts,
-    Min = 1, Max = 10, Rounding = 0,
-    Callback = function(v) G.AutoArmorSettings.MaxAttempts = v end,
-    Tooltip = '>_<'
-})
+-- Убран слайдер MaxAttempts, так как теперь броня покупается до успешного результата
 
--- Упрощаем систему брони до двух основных вариантов
-G.setupArmorOptions = function()
-    -- Сначала определяем глобальные массивы и карты
-    G.armorDropdownValues = {}
-    G.armorValueMap = {}
+-- Список всех известных объектов брони для Del Hood
+G.delHoodArmorOptions = {
+    [1] = {index = 59, name = "Max Armor 1"},
+    [2] = {index = 46, name = "Max Armor 2"},
+    [3] = {index = 63, name = "Max Armor 3"},
+    [4] = {index = 68, name = "Max Armor 4"},
+    [5] = {name = "[Max Armor]", direct = true}
+}
+
+-- Функция для проверки наличия игроков рядом с объектом
+G.isAreaSafe = function(position, radius)
+    if not position then return false end
     
-    -- По умолчанию добавляем вариант для Da Hood
-    G.daHoodOption = "[High-Medium Armor] (Da Hood)"
-    table.insert(G.armorDropdownValues, G.daHoodOption)
-    G.armorValueMap[G.daHoodOption] = "[High-Medium Armor] - $2513"
-    
-    -- Проверяем наличие магазина для Del Hood
-    G.delHoodArmorFound = false
-    if workspace:FindFirstChild("Ignored") and workspace.Ignored:FindFirstChild("Shop") then
-        G.shop = workspace.Ignored.Shop
-        -- Проверяем конкретный элемент для Del Hood (индекс 59)
-        G.delHoodArmor = G.shop:GetChildren()[59]
-        if G.delHoodArmor and G.delHoodArmor.Name:lower():find("armor") then
-            G.delHoodOption = G.delHoodArmor.Name .. " (Del Hood)"
-            table.insert(G.armorDropdownValues, G.delHoodOption)
-            G.armorValueMap[G.delHoodOption] = G.delHoodArmor.Name
-            G.delHoodArmorFound = true
-        end
-    end
-    
-    -- Если не нашли броню Del Hood по индексу, пробуем поискать по имени
-    if not G.delHoodArmorFound then
-        if workspace:FindFirstChild("Ignored") and workspace.Ignored:FindFirstChild("Shop") then
-            for _, item in pairs(workspace.Ignored.Shop:GetChildren()) do
-                if item.Name:lower():find("armor") and item.Name:lower():find("max") then
-                    G.delHoodOption = item.Name .. " (Del Hood)"
-                    table.insert(G.armorDropdownValues, G.delHoodOption)
-                    G.armorValueMap[G.delHoodOption] = item.Name
-                    G.delHoodArmorFound = true
-                    break
-                end
+    -- Проверяем всех игроков
+    for _, player in pairs(S.PS:GetPlayers()) do
+        if player ~= LP and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local distance = (player.Character.HumanoidRootPart.Position - position).Magnitude
+            if distance <= radius then
+                return false -- Обнаружен игрок в радиусе
             end
         end
     end
+    
+    return true -- Игроков в радиусе нет
+end
+
+-- Функция для получения безопасного объекта брони
+G.getSafeArmorShop = function()
+    if not workspace:FindFirstChild("Ignored") or not workspace.Ignored:FindFirstChild("Shop") then
+        return nil
+    end
+    
+    local shop = workspace.Ignored.Shop
+    local safeOptions = {}
+    
+    -- Проверяем все варианты Max Armor
+    for i, option in pairs(G.delHoodArmorOptions) do
+        local armorObj
+        
+        if option.direct then
+            -- Прямой доступ по имени
+            armorObj = shop:FindFirstChild(option.name)
+        else
+            -- Доступ по индексу
+            armorObj = shop:GetChildren()[option.index]
+        end
+        
+        if armorObj and armorObj:FindFirstChild("Head") then
+            local position = armorObj.Head.Position
+            local isSafe = G.isAreaSafe(position, 15) -- Проверяем радиус 15 studs
+            
+            -- Сохраняем информацию о броне и её безопасности
+            table.insert(safeOptions, {
+                object = armorObj,
+                isSafe = isSafe,
+                name = option.name
+            })
+        end
+    end
+    
+    -- Сначала ищем безопасные варианты
+    for _, option in ipairs(safeOptions) do
+        if option.isSafe then
+            return option.object
+        end
+    end
+    
+    -- Если безопасных вариантов нет, возвращаем первый доступный
+    for _, option in ipairs(safeOptions) do
+        return option.object
+    end
+    
+    -- Если ничего не нашли, ищем любую броню по имени
+    for _, item in pairs(shop:GetChildren()) do
+        if item.Name:lower():find("armor") and item.Name:lower():find("max") then
+            return item
+        end
+    end
+    
+    return nil
+end
+
+-- Упрощаем систему брони только до 4 вариантов Max Armor для Del Hood
+G.setupArmorOptions = function()
+    -- Сначала определяем глобальные массивы и карты
+    G.armorDropdownValues = {"Max Armor 1 (Del Hood)", "Max Armor 2 (Del Hood)", "Max Armor 3 (Del Hood)", "Max Armor 4 (Del Hood)"}
+    G.armorValueMap = {}
+    
+    -- Сопоставляем каждому варианту соответствующий индекс
+    G.armorValueMap["Max Armor 1 (Del Hood)"] = 1
+    G.armorValueMap["Max Armor 2 (Del Hood)"] = 2
+    G.armorValueMap["Max Armor 3 (Del Hood)"] = 3
+    G.armorValueMap["Max Armor 4 (Del Hood)"] = 4
 end
 
 -- Настраиваем опции брони
@@ -6189,11 +6764,19 @@ G.AutoArmorSettings.ArmorValuesMap = G.armorValueMap
 
 G.AutoArmorGroup:AddDropdown('AutoArmorType', {
     Text = 'ArmorType',
-    Values = G.armorDropdownValues,
-    Default = G.armorDropdownValues[1] or "",
+    Values = {"Max Armor 1 (Del Hood)", "Max Armor 2 (Del Hood)", "Max Armor 3 (Del Hood)", "Max Armor 4 (Del Hood)"},
+    Default = "Max Armor 1 (Del Hood)",
     Callback = function(v) 
-        -- Используем реальное имя предмета для поиска
-        G.AutoArmorSettings.ArmorType = G.AutoArmorSettings.ArmorValuesMap[v] or v
+        -- Получаем номер брони из названия
+        local armorNumber = tonumber(string.match(v, "Max Armor (%d)"))
+        
+        -- Используем числовой индекс для Del Hood
+        G.AutoArmorSettings.ArmorType = armorNumber or 1
+        
+        -- Выводим информацию о выбранном типе брони для отладки
+        if G.AutoArmorSettings.DebugMode then
+            print("Selected armor type:", G.AutoArmorSettings.ArmorType, "Type:", type(G.AutoArmorSettings.ArmorType))
+        end
     end,
     Tooltip = '>_<'
 })
@@ -6439,7 +7022,7 @@ addToggleWithNotify(VelocityAAGroup, 'VisualiseVeloEnabled', {
     Tooltip = '>_<'
 })
 
--- Отключаем VelocityAA и визуализацию при выходе из игры
+-- Отключаем VelocityAA, визуализацию и другие функции при выходе из игры
 LP.CharacterRemoving:Connect(function()
     if getgenv().VelocityAA.Enable then
         toggleVelocityAA(false)
@@ -6450,6 +7033,256 @@ LP.CharacterRemoving:Connect(function()
         toggleVelocityVisualizer(false)
         Toggles.VisualiseVeloEnabled:SetValue(false)
     end
+    
+    -- Отключаем AutoShoot при смене персонажа
+    if _G.AutoShootConnection then
+        _G.AutoShootConnection:Disconnect()
+        _G.AutoShootConnection = nil
+    end
+    
+    -- Отключаем AutoReload при смене персонажа
+    if _G.AutoReloadConnection then
+        _G.AutoReloadConnection:Disconnect()
+        _G.AutoReloadConnection = nil
+    end
 end)
+
+-- Обработка Auto Reload и Auto Shoot при смене персонажа
+LP.CharacterAdded:Connect(function(character)
+    -- Если Auto Reload включен, нужно переподключить его к новому персонажу
+    if _G.AutoReload and Toggles.AutoReload and Toggles.AutoReload.Value then
+        -- Переподключаем Auto Reload
+        if _G.AutoReloadConnection then
+            _G.AutoReloadConnection:Disconnect()
+            _G.AutoReloadConnection = nil
+        end
+        
+        -- Создаем новое соединение
+        _G.AutoReloadConnection = game:GetService("RunService").Heartbeat:Connect(function()
+            pcall(function()
+                local tool = character:FindFirstChildWhichIsA("Tool")
+                if tool then
+                    local ammo = tool:FindFirstChild("Ammo")
+                    if ammo and ammo.Value <= 0 then
+                        local mainEvent = game:GetService("ReplicatedStorage"):FindFirstChild("MainEvent")
+                        if mainEvent then
+                            mainEvent:FireServer("Reload", tool)
+                            task.wait(1)
+                        end
+                    end
+                end
+            end)
+        end)
+    end
+    
+    -- Если Auto Shoot включен, нужно переподключить его к новому персонажу
+    if _G.AutoShoot and Toggles.AutoShoot and Toggles.AutoShoot.Value then
+        -- Переподключаем Auto Shoot
+        if _G.AutoShootConnection then
+            _G.AutoShootConnection:Disconnect()
+            _G.AutoShootConnection = nil
+        end
+        
+        -- Создаем новое соединение
+        _G.AutoShootConnection = game:GetService("RunService").Heartbeat:Connect(function()
+            pcall(function()
+                -- Проверяем наличие цели для стрельбы
+                local target = getgenv().SilentAim and getgenv().SilentAim.currentTarget
+                if not target then return end
+                
+                local tool = character:FindFirstChildWhichIsA("Tool")
+                if not tool then return end
+                
+                -- Проверяем, не перезаряжается ли оружие
+                local ammo = tool:FindFirstChild("Ammo")
+                if ammo and ammo.Value <= 0 then
+                    -- Запоминаем название текущего инструмента
+                    local toolName = tool.Name
+                    
+                    -- Убираем инструмент
+                    tool.Parent = game:GetService("Players").LocalPlayer.Backpack
+                    
+                    -- Небольшая задержка перед повторным экипированием
+                    task.wait(0.03)
+                    
+                    -- Достаем инструмент обратно
+                    if game:GetService("Players").LocalPlayer.Backpack:FindFirstChild(toolName) then
+                        game:GetService("Players").LocalPlayer.Backpack:FindFirstChild(toolName).Parent = character
+                    end
+                    
+                    -- Даем небольшую задержку для экипирования
+                    task.wait(0.03)
+                else
+                    -- Активируем инструмент
+                    tool:Activate()
+                    
+                    -- Задержка между выстрелами
+                    task.wait(0.03)
+                end
+            end)
+        end)
+    end
+end)
+
+-- Trail UI и логика
+getgenv().TrailSettings = {
+    enabled = false,
+    color1 = Color3.new(1, 0, 0),
+    color2 = Color3.new(0, 0, 1),
+    transparency = 0.2,
+    lifetime = 2
+}
+
+-- Функция для удаления трейла
+getgenv().removeTrail = function()
+    if getgenv().currentTrail and getgenv().currentTrail.Parent then
+        -- Удаляем все компоненты трейла
+        for _, child in pairs(LP.Character:GetChildren()) do
+            if child:IsA("Trail") or (child:IsA("Attachment") and (child.Name == "TrailAttachment0" or child.Name == "TrailAttachment1")) then
+                child:Destroy()
+            end
+        end
+    end
+    getgenv().currentTrail = nil
+end
+
+-- Функция для создания трейла
+getgenv().createTrail = function(character)
+    getgenv().removeTrail()
+    
+    getgenv().trailHead = character:FindFirstChild("Head")
+    getgenv().trailHrp = character:FindFirstChild("HumanoidRootPart")
+    
+    if getgenv().trailHead and getgenv().trailHrp then
+        getgenv().trailAttachment0 = Instance.new("Attachment", getgenv().trailHead)
+        getgenv().trailAttachment0.Name = "TrailAttachment0"
+        
+        getgenv().trailAttachment1 = Instance.new("Attachment", getgenv().trailHrp)
+        getgenv().trailAttachment1.Name = "TrailAttachment1"
+        
+        getgenv().trail = Instance.new("Trail")
+        getgenv().trail.Attachment0 = getgenv().trailAttachment0
+        getgenv().trail.Attachment1 = getgenv().trailAttachment1
+        getgenv().trail.Lifetime = getgenv().TrailSettings.lifetime
+        
+        getgenv().trail.Texture = "rbxassetid://18421838422"
+        getgenv().trail.TextureMode = Enum.TextureMode.Stretch
+        getgenv().trail.Transparency = NumberSequence.new(getgenv().TrailSettings.transparency, 1)
+        getgenv().trail.MinLength = 0.5
+        getgenv().trail.WidthScale = NumberSequence.new(0.7)
+        getgenv().trail.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, getgenv().TrailSettings.color1),
+            ColorSequenceKeypoint.new(1, getgenv().TrailSettings.color2)
+        })
+        
+        getgenv().trail.Parent = character
+        getgenv().currentTrail = getgenv().trail
+    end
+end
+
+-- Функция для обновления параметров трейла
+getgenv().updateTrail = function(prop)
+    if not (getgenv().currentTrail and getgenv().currentTrail.Parent) then return end
+    
+    if prop == "color" or prop == nil then
+        getgenv().currentTrail.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, getgenv().TrailSettings.color1),
+            ColorSequenceKeypoint.new(1, getgenv().TrailSettings.color2)
+        })
+    end
+    
+    if prop == "transparency" or prop == nil then
+        getgenv().currentTrail.Transparency = NumberSequence.new(getgenv().TrailSettings.transparency, 1)
+    end
+    
+    if prop == "lifetime" or prop == nil then
+        getgenv().currentTrail.Lifetime = getgenv().TrailSettings.lifetime
+    end
+end
+
+-- Функция для применения трейла
+getgenv().applyTrail = function()
+    getgenv().trailCharacter = LP.Character
+    if not getgenv().trailCharacter then
+        if getgenv().trailCharacterAddedConnection then
+            getgenv().trailCharacterAddedConnection:Disconnect()
+            getgenv().trailCharacterAddedConnection = nil
+        end
+        
+        getgenv().trailCharacterAddedConnection = LP.CharacterAdded:Connect(function(newCharacter)
+            if getgenv().TrailSettings.enabled then 
+                getgenv().createTrail(newCharacter) 
+            end
+        end)
+        return
+    end
+    
+    getgenv().createTrail(getgenv().trailCharacter)
+    
+    if not getgenv().trailCharacterAddedConnection then
+        getgenv().trailCharacterAddedConnection = LP.CharacterAdded:Connect(function(newCharacter)
+            if getgenv().TrailSettings.enabled then 
+                getgenv().createTrail(newCharacter) 
+            end
+        end)
+    end
+end
+
+-- Создание UI для трейла
+getgenv().TrailGroup = Tabs.Visuals:AddRightGroupbox('Trail')
+addToggleWithNotify(getgenv().TrailGroup, 'Trail', {
+    Text = 'Trail',
+    Default = false,
+    Callback = function(v)
+        getgenv().TrailSettings.enabled = v
+        if v then
+            getgenv().applyTrail()
+        else
+            getgenv().removeTrail()
+        end
+    end,
+    Tooltip = '>_<'
+}):AddColorPicker('TrailColor1', {
+    Default = getgenv().TrailSettings.color1,
+    Title = 'Color 1',
+    Callback = function(val)
+        getgenv().TrailSettings.color1 = val
+        getgenv().updateTrail("color")
+    end
+}):AddColorPicker('TrailColor2', {
+    Default = getgenv().TrailSettings.color2,
+    Title = 'Color 2',
+    Callback = function(val)
+        getgenv().TrailSettings.color2 = val
+        getgenv().updateTrail("color")
+    end
+})
+
+getgenv().TrailSub = getgenv().TrailGroup:AddDependencyBox()
+getgenv().TrailSub:AddSlider('TrailTransparency', {
+    Text = 'Transparency',
+    Default = getgenv().TrailSettings.transparency,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Callback = function(val)
+        getgenv().TrailSettings.transparency = val
+        getgenv().updateTrail("transparency")
+    end,
+    Tooltip = '>_<'
+})
+getgenv().TrailSub:AddSlider('TrailLifetime', {
+    Text = 'Lifetime',
+    Default = getgenv().TrailSettings.lifetime,
+    Min = 0.5,
+    Max = 5,
+    Rounding = 1,
+    Callback = function(val)
+        getgenv().TrailSettings.lifetime = val
+        getgenv().updateTrail("lifetime")
+    end,
+    Tooltip = '>_<'
+})
+getgenv().TrailSub:SetupDependencies({{Toggles.Trail, true}})
 
 -- Конец скрипта
